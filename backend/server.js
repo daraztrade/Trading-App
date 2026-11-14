@@ -12,48 +12,6 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
-// ==========================================================================
-// 30-DAY PORTFOLIO DEMO EXPIRATION GATE
-// ==========================================================================
-const DEMO_START_DATE = new Date('2026-11-14T00:00:00Z');
-const DEMO_DAYS = 30;
-const EXPIRY_TIMESTAMP = DEMO_START_DATE.getTime() + DEMO_DAYS * 24 * 60 * 60 * 1000;
-
-app.use((req, res, next) => {
-  const customExpiry = process.env.DEMO_EXPIRY_ISO
-    ? new Date(process.env.DEMO_EXPIRY_ISO).getTime()
-    : EXPIRY_TIMESTAMP;
-
-  if (process.env.FORCE_EXPIRE === 'true' || Date.now() > customExpiry) {
-    if (req.path.startsWith('/api/')) {
-      return res.status(503).json({
-        error: 'Database has been overloaded'
-      });
-    }
-    return res.status(503).send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Portfolio Demo Ended</title>
-        <style>
-          body { background: #09090b; color: #f8fafc; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; padding: 20px; }
-          .box { max-width: 420px; background: #141418; border: 1px solid rgba(238, 77, 7, 0.35); border-radius: 16px; padding: 32px 24px; }
-          h2 { color: #ee4d07; margin-top: 0; }
-          p { color: #a1a1aa; font-size: 0.95rem; line-height: 1.5; }
-        </style>
-      </head>
-      <body>
-        <div class="box">
-          
-        </div>
-      </body>
-      </html>
-    `);
-  }
-  next();
-});
 
 const UPLOADS_DIR = process.env.VERCEL
   ? path.join('/tmp', 'uploads')
@@ -258,11 +216,22 @@ db.exec("UPDATE settings SET value = '90' WHERE key = 'minCreditScoreForWithdraw
 // Settings Helpers
 const defaultSettings = {
   defaultCurrency: 'PKR',
-  currencies: [
-    { code: 'PKR', symbol: 'Rs', name: 'Pakistani Rupee', rateToBase: 1 },
+currencies: [
     { code: 'INR', symbol: '₹', name: 'Indian Rupee', rateToBase: 0.30 },
-    { code: 'BDT', symbol: '৳', name: 'Bangladeshi Taka', rateToBase: 0.43 },
-    { code: 'USDT', symbol: '$', name: 'Tether USD', rateToBase: 0.0036 }
+    { code: 'BTC', symbol: '₿', name: 'Bitcoin', rateToBase: 0.000000033 },
+    { code: 'ETH', symbol: 'Ξ', name: 'Ethereum', rateToBase: 0.00000105 },
+    { code: 'BNB', symbol: 'BNB', name: 'BNB', rateToBase: 0.0000055 },
+    { code: 'SOL', symbol: 'SOL', name: 'Solana', rateToBase: 0.000018 },
+    { code: 'USDC', symbol: 'USDC', name: 'USD Coin', rateToBase: 0.0036 },
+    { code: 'BTS', symbol: 'BTS', name: 'BitShares', rateToBase: 0.85 },
+    { code: 'DOGE', symbol: 'DOGE', name: 'Dogecoin', rateToBase: 0.015 },
+    { code: 'TRX', symbol: 'TRX', name: 'TRON', rateToBase: 0.022 },
+    { code: 'PKR', symbol: 'Rs', name: 'Pakistani Rupee', rateToBase: 1 },
+    { code: 'XRP', symbol: 'XRP', name: 'Ripple', rateToBase: 0.0065 },
+    { code: 'ADA', symbol: 'ADA', name: 'Cardano', rateToBase: 0.0095 },
+    { code: 'PI', symbol: 'π', name: 'Pi Network', rateToBase: 0.000085 },
+    { code: 'USDT', symbol: '$', name: 'Tether USD', rateToBase: 0.0036 },
+    { code: 'BDT', symbol: '৳', name: 'Bangladeshi Taka', rateToBase: 0.43 }
   ],
   taxRate: 0,
   minCreditScoreForWithdraw: 90,
