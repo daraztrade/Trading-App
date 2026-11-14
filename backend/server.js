@@ -55,13 +55,17 @@ app.use((req, res, next) => {
   next();
 });
 
+const UPLOADS_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'uploads')
+  : path.join(__dirname, 'uploads');
+
 const TRADER_DIR = path.join(__dirname, '../frontend/trader');
 const ADMIN_DIR = path.join(__dirname, '../frontend/admin');
 const SHARED_DIR = path.join(__dirname, '../frontend/shared');
 
-[UPLOADS_DIR, TRADER_DIR, ADMIN_DIR, SHARED_DIR].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+} 
 
 app.use('/shared', express.static(SHARED_DIR));
 app.use('/uploads', express.static(UPLOADS_DIR));
@@ -109,13 +113,9 @@ const DB_PATH = process.env.VERCEL
   ? path.join('/tmp', 'daraz_trade.db')
   : path.join(__dirname, 'daraz_trade.db');
 
-const UPLOADS_DIR = process.env.VERCEL
-  ? path.join('/tmp', 'uploads')
-  : path.join(__dirname, 'uploads');
-
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+const db = new DatabaseSync(DB_PATH);
+db.exec('PRAGMA journal_mode = WAL;');
+db.exec('PRAGMA foreign_keys = ON;');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
@@ -818,7 +818,7 @@ app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN']), (req, res) => {
   res.json({ message: 'Settings saved.', settings: getSettings() });
 });
 
-if (!process.env.VERCEL) {
+if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`\n==================================================`);
     console.log(`SQLite DB Active: backend/daraz_trade.db`);
@@ -826,12 +826,6 @@ if (!process.env.VERCEL) {
     console.log(`Admin Portal:     http://localhost:${PORT}/admin/login.html`);
     console.log(`Main Admin ->     mainadmin / admin123`);
     console.log(`==================================================\n`);
-  });
-}
-
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
