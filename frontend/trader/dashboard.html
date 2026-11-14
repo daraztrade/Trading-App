@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daraz Trade - Trader Dashboard</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23ee4d07'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='%23ffffff' font-family='sans-serif' font-weight='bold'>D</text></svg>" />
+  <link rel="stylesheet" href="/shared/theme.css" />
+  <script src="/shared/dialog.js"></script>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
+  <style>
+    .app-shell { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 250px;
+      padding: 20px 14px;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; bottom: 0; left: 0;
+      z-index: 100;
+      transition: transform 0.25s ease;
+    }
+    .sidebar-brand {
+      font-size: 1.35rem;
+      font-weight: 800;
+      padding: 0 12px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-section {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      padding: 12px 12px 6px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.92rem;
+      margin-bottom: 4px;
+      transition: all 0.15s ease;
+    }
+    .main-area {
+      flex: 1;
+      margin-left: 250px;
+      padding: 18px 24px 60px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+.menu-btn {
+  display: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.ticker-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+  color: var(--text-muted);
+}
+    .ticker-item span {
+      color: var(--color-orange);
+      font-weight: 700;
+      margin-left: 6px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+    }
+    .stat-val {
+      font-size: 1.55rem;
+      font-weight: 800;
+      margin: 6px 0 4px;
+    }
+    .stat-sub { font-size: 0.8rem; }
+    .trade-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 18px;
+    }
+canvas {
+  width: 100%;
+  height: 250px;
+  background: #0d1117;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+    .tier-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 10px 0 16px;
+    }
+    .tier-btn {
+      padding: 10px 6px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      text-align: center;
+      font-size: 0.84rem;
+    }
+    .tier-btn strong {
+      display: block;
+      color: var(--color-orange);
+      font-size: 0.95rem;
+    }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.92rem;
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 999;
+    }
+    .modal-backdrop.open { display: flex; }
+    .win-modal {
+      border-radius: var(--radius-lg);
+      padding: 32px 24px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    .trophy { font-size: 3.6rem; margin-bottom: 8px; }
+    .win-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .tx-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.88rem;
+    }
+    .hidden { display: none !important; }
+    @media (max-width: 860px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main-area { margin-left: 0; padding: 14px; }
+      .menu-btn { display: inline-block; }
+      .trade-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span>🛍️ DARAZ TRADE</span>
+      <button type="button" class="menu-btn" onclick="toggleSidebar()">✕</button>
+    </div>
+
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" onclick="switchTab('overview', this)">📊 Dashboard</div>
+    <div class="nav-item" onclick="switchTab('trade', this)">⚡ Trade</div>
+
+    <div class="nav-section">Account</div>  
+    <div class="nav-item" onclick="switchTab('withdraw', this)">⬆️ Withdraw</div>
+    <div class="nav-item" onclick="switchTab('history', this)">🕒 History</div>
+    <div class="nav-item" onclick="switchTab('profile', this)">👤 Profile</div>
+    <div class="nav-item" onclick="switchTab('help', this)">🎧 Help Center</div>
+
+    <div class="sidebar-footer">
+      <div class="nav-item" onclick="installPWA()">📲 Download App</div>
+      <div class="nav-item nav-logout" onclick="logout()">🚪 Logout</div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="menu-btn" onclick="toggleSidebar()">☰</button>
+        <div>
+          <h2 class="page-title">Dashboard Overview</h2>
+          <span class="welcome-sub">Welcome back, <strong id="topUsername">Trader</strong></span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <select id="currencySwitcher" title="Select Display Currency" aria-label="Select Display Currency" class="currency-select" onchange="changeDisplayCurrency()">
+          <option value="PKR">PKR (Rs)</option>
+          <option value="INR">INR (₹)</option>
+          <option value="BDT">BDT (৳)</option>
+          <option value="USDT">USDT ($)</option>
+        </select>
+        <button type="button" class="btn-secondary" onclick="switchTab('trade')">+ New Trade</button>
+      </div>
+    </div>
+
+    <!-- LIVE CRYPTO TICKER -->
+    <div class="ticker-bar" id="tickerBar">
+      <div class="ticker-item">BTC/PKR <span>Loading...</span></div>
+    </div>
+
+    <!-- CUSTOM ERROR SENDER BANNER -->
+    <div id="customErrorBanner" class="card error-banner hidden">
+      <div class="error-banner-inner">
+        <div>
+          <strong id="errBannerTitle" class="error-banner-title">System Alert</strong>
+          <p id="errBannerMsg" class="error-banner-msg"></p>
+        </div>
+        <button type="button" class="btn-primary btn-xs" onclick="dismissErrorBanner()">Dismiss</button>
+      </div>
+    </div>
+
+    <!-- TAB 1: DASHBOARD OVERVIEW -->
+    <section id="tab-overview">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Balance (<span class="currCode">PKR</span>)</div>
+          <div class="stat-val val-orange" id="statBalance">Rs 0.00</div>
+          <div class="stat-sub sub-muted" id="statInOrder">In Order: Rs 0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Withdraw (<span class="currCode">PKR</span>)</div>
+          <div class="stat-val val-dark" id="statWithdraw">Rs 0.00</div>
+          <div class="stat-sub sub-link" onclick="switchTab('history')">View history →</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Tax Rate</div>
+          <div class="stat-val val-orange" id="statTax">0%</div>
+          <div class="stat-sub sub-muted">Applied on all trades</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Credit Score</div>
+          <div class="stat-val val-dark" id="statScore">100</div>
+          <div class="stat-sub sub-muted" id="statScoreHint">▲ Min 90 required to withdraw</div>
+        </div>
+      </div>
+
+      <div class="trade-grid">
+        <div class="card">
+          <div class="chart-header">
+            <div>
+              <strong id="chartPairTitle">BTC/PKR</strong>
+              <div class="chart-price" id="chartLivePrice">Rs 0.00</div>
+            </div>
+            <button type="button" class="btn-primary" onclick="switchTab('trade')">Start Trading →</button>
+          </div>
+          <canvas id="marketChart"></canvas>
+        </div>
+
+        <div class="card">
+          <h3 class="section-heading">Active & Recent Trades</h3>
+          <div id="overviewTradesList" class="muted-list">No trades placed yet.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: TIMED PERCENTAGE TRADE -->
+    <section id="tab-trade" class="hidden">
+      <div class="trade-grid">
+        <div class="card">
+          <h3 class="section-heading">Live Market Chart</h3>
+          <div class="field">
+            <label for="tradePair">Select Trading Asset</label>
+            <select id="tradePair" onchange="updateChartPair()">
+              <option value="BTC/PKR">BTC/PKR (Bitcoin)</option>
+              <option value="ETH/PKR">ETH/PKR (Ethereum)</option>
+              <option value="BNB/PKR">BNB/PKR (Binance Coin)</option>
+              <option value="SOL/PKR">SOL/PKR (Solana)</option>
+            </select>
+          </div>
+          <canvas id="tradeChartCanvas"></canvas>
+        </div>
+
+        <div class="card">
+          <h3 class="section-heading">Place Timed Trade</h3>
+          <span class="tier-label">Select Duration & Profit %</span>
+          <div class="tier-grid" id="durationTiers">
+            <div class="tier-btn active" data-sec="60" onclick="selectDuration(this)">60 Seconds<strong id="pct-60"></strong></div>
+            <div class="tier-btn" data-sec="80" onclick="selectDuration(this)">80 Seconds<strong id="pct-80"></strong></div>
+            <div class="tier-btn" data-sec="120" onclick="selectDuration(this)">120 Seconds<strong id="pct-120"></strong></div>
+          </div>
+
+          <div class="field">
+            <label for="tradeAmount">Investment Amount (Available: <span id="tradeAvailBal">Rs 0.00</span>)</label>
+            <input type="number" id="tradeAmount" placeholder="Enter amount (e.g. 500)" min="1" />
+          </div>
+
+          <div class="trade-actions">
+            <button type="button" class="btn-primary w-full" onclick="executeTrade('UP')">Submit Trade</button>            
+          </div>
+
+          <div id="activeTradeBox" class="active-trade-box hidden">
+            <div class="active-trade-label">TRADE IN PROGRESS</div>
+            <div id="tradeCountdown" class="active-trade-timer">60s</div>
+            <div id="tradeLiveSummary" class="active-trade-summary"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: CRYPTO DEPOSIT + PROOF UPLOAD -->
+    
+
+    <!-- TAB 4: WITHDRAWAL -->
+    <section id="tab-withdraw" class="hidden">
+      <div class="card card-narrow">
+        <h3 class="section-heading">Withdraw Funds</h3>
+        <div id="creditScoreGateNotice" class="score-notice">
+          Credit Score Requirement: <strong>90 / 100</strong> — Your Score: <strong id="wdrCurrentScore">100</strong>
+        </div>
+
+        <form id="withdrawForm">
+       <div class="field">
+         <label for="wdrAmount">Withdraw Amount (<span class="currCode">PKR</span>)</label>
+        <input type="number" id="wdrAmount" placeholder="Enter amount" required />
+      </div>
+      <div class="field">
+      <label for="wdrAccount">Account Number / Wallet Address</label>
+      <input type="text" id="wdrAccount" placeholder="e.g. EasyPaisa / JazzCash / IBAN" required />
+        </div>
+        <button type="submit" class="btn-primary w-full">Submit Withdrawal</button>
+</form>
+      </div>
+    </section>
+
+    <!-- TAB 5: TRANSACTION HISTORY -->
+    <section id="tab-history" class="hidden">
+      <div class="card">
+        <h3 class="section-heading">Transaction History</h3>
+        <div id="txHistoryList" class="muted-list">No transactions yet.</div>
+      </div>
+    </section>
+
+<!-- TAB 6: PROFILE & SECURITY -->
+    <section id="tab-profile" class="hidden">
+      <div class="field">
+  <label for="profInviteLink">Your Invitation Link (Click to Copy)</label>
+  <input type="text" id="profInviteLink" readonly class="wallet-copy-input" onclick="copyInviteLink()" />
+</div>
+      <div class="trade-grid">
+        <div class="card">
+          <h3 class="section-heading">Account & Personal Details</h3>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Account Status</div>
+              <div class="stat-val val-orange" id="profStatus">ACTIVE</div>
+              <div class="stat-sub sub-muted">Joined: <span id="profJoined">-</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Credit Standing</div>
+              <div class="stat-val val-dark" id="profScore">100</div>
+              <div class="stat-sub sub-muted" id="profWithdrawStatus">Withdrawals Unlocked</div>
+            </div>
+          </div>
+
+          <form id="updateProfileForm">
+            <div class="field">
+              <label for="profUserField">Username</label>
+              <input type="text" id="profUserField" readonly />
+            </div>
+            <div class="field">
+              <label for="profEmailField">Registered Email</label>
+              <input type="email" id="profEmailField" readonly />
+            </div>
+            <div class="trade-actions">
+              <div class="field">
+                <label for="profFirstName">First Name</label>
+                <input type="text" id="profFirstName" placeholder="First Name" required />
+              </div>
+              <div class="field">
+                <label for="profLastName">Last Name</label>
+                <input type="text" id="profLastName" placeholder="Last Name" required />
+              </div>
+            </div>
+            <div class="trade-actions">
+              <div class="field">
+                <label for="profCountryField">Country</label>
+                <input type="text" id="profCountryField" readonly />
+              </div>
+              <div class="field">
+                <label for="profMobileField">Mobile Number</label>
+                <input type="text" id="profMobileField" placeholder="3001234567" />
+              </div>
+            </div>
+            <button type="submit" class="btn-primary w-full">Save Profile Details</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3 class="section-heading">Change Password</h3>
+          <p class="section-sub">Keep your Daraz Trade account secure by updating your password regularly.</p>
+          <form id="changePassForm">
+            <div class="field">
+              <label for="oldPass">Current Password</label>
+              <input type="password" id="oldPass" required />
+            </div>
+            <div class="field">
+              <label for="newPass">New Password</label>
+              <input type="password" id="newPass" required />
+            </div>
+            <button type="submit" class="btn-secondary w-full">Update Password</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 7: HELP CENTER -->
+    <section id="tab-help" class="hidden">
+      <div class="trade-grid">
+        <div class="card">
+          <h3 class="section-heading">Contact Help Center</h3>
+          <p class="section-sub">Need help with deposits, trades, or account verification? Send a direct message to our Admin & Guard team.</p>
+          <form id="helpForm">
+            <div class="field">
+              <label for="helpSubject">Subject</label>
+              <input type="text" id="helpSubject" placeholder="e.g. Deposit Verification" required />
+            </div>
+            <div class="field">
+              <label for="helpMessage">Message</label>
+              <textarea id="helpMessage" rows="4" placeholder="Describe your issue..." required></textarea>
+            </div>
+            <button type="submit" class="btn-primary">Send Message</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3 class="section-heading">Your Support Tickets</h3>
+          <div id="ticketsList" class="muted-list">No messages sent yet.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- "CONGRATULATIONS! YOU WON" MODAL -->
+<div class="modal-backdrop" id="winModal">
+  <div class="win-modal">
+    <div class="trophy">🏆</div>
+    <div class="win-badge">TRADE WON</div>
+    <h2 class="win-title">Congratulations! You Won</h2>
+    <p id="winModalText" class="win-desc">
+      Excellent trade! Your winnings have been credited to your balance.
+    </p>
+    <button type="button" class="btn-primary win-btn" onclick="closeWinModal()">🏠 Go to Dashboard</button>
+  </div>
+</div>
+
+<!-- FLOATING LIVE SOCIAL-PROOF TOAST -->
+<div id="liveSocialToast" class="live-social-toast">
+  <div id="toastIcon" class="toast-icon">💰</div>
+  <div>
+    <div id="toastText" class="toast-text">Shamir K. deposited PKR 10,000</div>
+    <div id="toastTime" class="toast-time">● 2 mins ago</div>
+  </div>
+</div>
+
+<script>
+  const currentUser = JSON.parse(localStorage.getItem('traderUser'));
+  if (!currentUser) window.location.href = '/index.html';
+
+  let appState = null;
+  let selectedDuration = 60;
+  let priceHistory = [];
+  let activeErrorId = null;
+  let seenSettledTrades = new Set();
+
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+  }
+
+  function switchTab(tabName, el) {
+    document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+    if (el) {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+    }
+    if (window.innerWidth <= 860) document.getElementById('sidebar').classList.remove('open');
+  }
+
+  function formatMoney(baseAmount) {
+    if (!appState) return `Rs ${Number(baseAmount).toFixed(2)}`;
+    const code = document.getElementById('currencySwitcher').value || 'PKR';
+    const curr = appState.settings.currencies.find(c => c.code === code) || { symbol: 'Rs', rateToBase: 1 };
+    const converted = Number(baseAmount) * curr.rateToBase;
+    return `${curr.symbol}${converted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function changeDisplayCurrency() {
+    const code = document.getElementById('currencySwitcher').value;
+    document.querySelectorAll('.currCode').forEach(el => el.textContent = code);
+    if (appState) renderDashboard();
+  }
+
+  function updateChartPair() {
+    priceHistory = [];
+    if (appState) renderDashboard();
+  }
+
+  async function fetchDashboard() {
+    try {
+      const res = await fetch('/api/trader/dashboard', {
+        headers: { 'x-user-id': currentUser.id }
+      });
+      if (res.status === 401 || res.status === 403) {
+        const err = await res.json();
+        alert(err.error || 'Session expired');
+        return logout();
+      }
+      appState = await res.json();
+      localStorage.setItem('traderUser', JSON.stringify(appState.user));
+      renderDashboard();
+    } catch (e) {}
+  }
+
+  function copyInviteLink()
+  {
+  const inp = document.getElementById('profInviteLink');
+  inp.select();
+  navigator.clipboard?.writeText(inp.value);
+  alert('Invitation link copied to clipboard!');
+  }
+
+  function renderDashboard() {
+    const { user, settings, prices, trades, transactions, tickets, customErrors } = appState;
+
+    const refCode = user.invitationCode || user.username.toUpperCase();
+    document.getElementById('profInviteLink').value = `${window.location.origin}/?ref=${encodeURIComponent(refCode)}`;
+
+    const currSel = document.getElementById('currencySwitcher');
+    if (currSel.options.length !== settings.currencies.length) {
+      const prev = currSel.value || user.currency || 'PKR';
+      currSel.innerHTML = settings.currencies.map(c => `<option value="${c.code}">${c.code} (${c.symbol})</option>`).join('');
+      currSel.value = prev;
+    }
+
+    document.getElementById('topUsername').textContent = user.firstName || user.username;
+    document.getElementById('statBalance').textContent = formatMoney(user.balance);
+    document.getElementById('statInOrder').textContent = `In Order: ${formatMoney(user.inOrderBalance)}`;
+    document.getElementById('statWithdraw').textContent = formatMoney(user.totalWithdrawn);
+    document.getElementById('statTax').textContent = `${settings.taxRate}%`;
+    document.getElementById('statScore').textContent = user.creditScore;
+    document.getElementById('tradeAvailBal').textContent = formatMoney(user.balance);
+    document.getElementById('wdrCurrentScore').textContent = `${user.creditScore} / ${settings.minCreditScoreForWithdraw}`;
+    
+    document.getElementById('profStatus').textContent = user.status || 'ACTIVE';
+    document.getElementById('profJoined').textContent = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Today';
+    document.getElementById('profScore').textContent = `${user.creditScore} / 100`;
+    document.getElementById('profWithdrawStatus').textContent =
+      user.creditScore >= settings.minCreditScoreForWithdraw ? '✓ Withdrawals Unlocked' : `▲ Need ${settings.minCreditScoreForWithdraw} to withdraw`;
+
+    document.getElementById('profUserField').value = user.username;
+    document.getElementById('profEmailField').value = user.email;
+    document.getElementById('profCountryField').value = user.country;
+    if (document.activeElement.id !== 'profFirstName') document.getElementById('profFirstName').value = user.firstName || '';
+    if (document.activeElement.id !== 'profLastName') document.getElementById('profLastName').value = user.lastName || '';
+    if (document.activeElement.id !== 'profMobileField') document.getElementById('profMobileField').value = user.mobile || '';
+
+    document.getElementById('tickerBar').innerHTML = Object.entries(prices).map(([pair, val]) =>
+      `<div class="ticker-item">${pair}<span>${formatMoney(val)}</span></div>`
+    ).join('');
+
+    const activePair = document.getElementById('tradePair').value;
+    document.getElementById('chartPairTitle').textContent = activePair;
+    document.getElementById('chartLivePrice').textContent = formatMoney(prices[activePair]);
+
+    priceHistory.push(prices[activePair]);
+    if (priceHistory.length > 40) priceHistory.shift();
+    drawChart('marketChart');
+    drawChart('tradeChartCanvas');
+
+    if (customErrors && customErrors.length > 0) {
+      const latestErr = customErrors[0];
+      activeErrorId = latestErr.id;
+      document.getElementById('errBannerTitle').textContent = latestErr.title;
+      document.getElementById('errBannerMsg').textContent = latestErr.message;
+      document.getElementById('customErrorBanner').classList.remove('hidden');
+    }
+
+const running = trades.find(t => t.status === 'RUNNING');
+  if (running) {
+    const rem = Math.max(0, Math.ceil((running.expiresAt - Date.now()) / 1000));
+    document.getElementById('activeTradeBox').classList.remove('hidden');
+    document.getElementById('tradeCountdown').textContent = `${rem}s`;
+    document.getElementById('tradeLiveSummary').textContent = `${running.pair} | Stake: ${formatMoney(running.stake)} | Duration: ${running.durationSeconds}s`;
+  } else {
+    document.getElementById('activeTradeBox').classList.add('hidden');
+  }
+
+    trades.forEach(t => {
+      if (t.status === 'WON' && !seenSettledTrades.has(t.id)) {
+        seenSettledTrades.add(t.id);
+        if (Date.now() - new Date(t.settledAt).getTime() < 15000) {
+          document.getElementById('winModalText').textContent =
+            `Excellent trade on ${t.pair}! You won +${formatMoney(t.profit)} profit.`;
+          document.getElementById('winModal').classList.add('open');
+        }
+      }
+    });
+
+    document.getElementById('overviewTradesList').innerHTML = trades.length
+      ? trades.slice(0, 6).map(t => `
+          <div class="tx-row">
+            <div><strong>${t.pair}</strong> (${t.direction})<br><small>${t.durationSeconds}s • </small></div>
+            <div>
+              <strong>${t.status}</strong><br>
+              <small>${formatMoney(t.stake)}</small>
+            </div>
+          </div>`).join('')
+      : 'No trades placed yet.';
+
+    document.getElementById('txHistoryList').innerHTML = transactions.length
+      ? transactions.map(tx => `
+          <div class="tx-row">
+            <div>
+              <strong>${tx.note}</strong><br>
+              <small>Trx: ${tx.trx} • ${new Date(tx.timestamp).toLocaleString()}</small>
+            </div>
+            <div>
+              <strong>${tx.amount >= 0 ? '+' : ''}${formatMoney(tx.amount)}</strong><br>
+              <small>Post: ${formatMoney(tx.postBalance)}</small>
+            </div>
+          </div>`).join('')
+      : 'No transactions yet.';
+
+    document.getElementById('ticketsList').innerHTML = tickets.length
+      ? tickets.map(tk => `
+          <div class="tx-row">
+            <div>
+              <strong>${tk.subject}</strong> (${tk.status})
+              <p>${tk.message}</p>
+              ${tk.reply ? `<p><strong>Admin Reply:</strong> ${tk.reply}</p>` : ''}
+            </div>
+          </div>`).join('')
+      : 'No messages sent yet.';
+  }
+
+  function drawChart(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || priceHistory.length < 2) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = canvas.offsetWidth || 600;
+    const h = canvas.height = 250;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) {
+      const y = (h / 5) * i;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
+    const min = Math.min(...priceHistory);
+    const max = Math.max(...priceHistory);
+    const range = max - min || 1;
+
+    const coords = priceHistory.map((p, idx) => ({
+      x: (idx / (priceHistory.length - 1)) * (w - 24) + 12,
+      y: h - 24 - ((p - min) / range) * (h - 48)
+    }));
+
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(238, 77, 7, 0.25)');
+    grad.addColorStop(1, 'rgba(238, 77, 7, 0.0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(coords[0].x, h);
+    coords.forEach(c => ctx.lineTo(c.x, c.y));
+    ctx.lineTo(coords[coords.length - 1].x, h);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#ee4d07';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    coords.forEach((c, idx) => idx === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.stroke();
+
+    const last = coords[coords.length - 1];
+    ctx.fillStyle = '#ee4d07';
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function selectDuration(el) {
+    document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    selectedDuration = Number(el.dataset.sec);
+  }
+
+  async function executeTrade(direction) {
+    const stake = Number(document.getElementById('tradeAmount').value);
+    const pair = document.getElementById('tradePair').value;
+    if (!stake || stake <= 0) return alert('Enter a valid trade amount.');
+
+    const res = await fetch('/api/trades/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      body: JSON.stringify({ pair, direction, stake, durationSeconds: selectedDuration })
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error);
+    document.getElementById('tradeAmount').value = '';
+    fetchDashboard();
+  }
+
+document.getElementById('withdrawForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/wallet/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      body: JSON.stringify({
+        amount: document.getElementById('wdrAmount').value,
+        method: 'Direct Transfer',
+        accountDetails: document.getElementById('wdrAccount').value
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error);
+    alert(data.message);
+    e.target.reset();
+    fetchDashboard();
+  });
+
+  document.getElementById('changePassForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      body: JSON.stringify({
+        oldPassword: document.getElementById('oldPass').value,
+        newPassword: document.getElementById('newPass').value
+      })
+    });
+    const data = await res.json();
+    alert(data.error || data.message);
+    if (res.ok) e.target.reset();
+  });
+
+document.getElementById('updateProfileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/auth/complete-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      body: JSON.stringify({
+        firstName: document.getElementById('profFirstName').value.trim(),
+        lastName: document.getElementById('profLastName').value.trim()
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Could not update profile.');
+    alert('Profile details updated successfully!');
+    fetchDashboard();
+  });
+
+  document.getElementById('helpForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/help-center/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      body: JSON.stringify({
+        subject: document.getElementById('helpSubject').value,
+        message: document.getElementById('helpMessage').value
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error);
+    e.target.reset();
+    fetchDashboard();
+  });
+
+  async function dismissErrorBanner() {
+    document.getElementById('customErrorBanner').classList.add('hidden');
+    if (activeErrorId) {
+      await fetch(`/api/trader/errors/${activeErrorId}/dismiss`, {
+        method: 'POST',
+        headers: { 'x-user-id': currentUser.id }
+      });
+    }
+  }
+
+  function closeWinModal() {
+    document.getElementById('winModal').classList.remove('open');
+    switchTab('overview');
+  }
+
+  function installPWA() {
+    alert('To install Daraz Trade App:\n• Chrome / Edge Desktop: Click the Install icon in the right side of the address bar.\n• Mobile Browser: Tap Menu (⋮) -> "Add to Home Screen".');
+  }
+
+  function logout() {
+    localStorage.removeItem('traderUser');
+    window.location.href = '/index.html';
+  }
+
+  // Live Social-Proof Pakistani Activity Toast
+  async function showRandomActivity() {
+    try {
+      const res = await fetch('/api/public/live-activity');
+      const item = await res.json();
+      const toast = document.getElementById('liveSocialToast');
+      const icon = item.action === 'deposited' ? '📥' : item.action === 'withdrew' ? '💸' : '🏆';
+
+      document.getElementById('toastIcon').textContent = icon;
+      document.getElementById('toastText').textContent = item.text;
+      document.getElementById('toastTime').textContent = `● ${item.timeAgo}`;
+
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 4500);
+    } catch (e) {}
+  }
+
+  setTimeout(showRandomActivity, 2500);
+  setInterval(showRandomActivity, 9000);
+
+  fetchDashboard();
+  // Instant Real-Time Sync with SQLite Backend
+const traderStream = new EventSource('/api/stream');
+traderStream.onmessage = () => fetchDashboard();
+  setInterval(fetchDashboard, 1500);
+</script>
+</body>
+</html>

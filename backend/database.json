@@ -1,0 +1,157 @@
+{
+  "settings": {
+    "defaultCurrency": "PKR",
+    "currencies": [
+      {
+        "code": "PKR",
+        "symbol": "Rs",
+        "name": "Pakistani Rupee",
+        "rateToBase": 1
+      },
+      {
+        "code": "INR",
+        "symbol": "₹",
+        "name": "Indian Rupee",
+        "rateToBase": 0.3
+      },
+      {
+        "code": "BDT",
+        "symbol": "৳",
+        "name": "Bangladeshi Taka",
+        "rateToBase": 0.43
+      },
+      {
+        "code": "USDT",
+        "symbol": "$",
+        "name": "Tether USD",
+        "rateToBase": 0.0036
+      }
+    ],
+    "taxRate": 0,
+    "minCreditScoreForWithdraw": 850,
+    "tradeOutcomeMode": "WIN_DEFAULT",
+    "payoutPercentages": {
+      "60": 25,
+      "80": 30,
+      "120": 50
+    },
+    "globalTradeBan": {
+      "enabled": false,
+      "message": "Trading is currently paused for system maintenance."
+    },
+    "globalWithdrawBan": {
+      "enabled": false,
+      "message": "Withdrawals are temporarily disabled. Please try later."
+    },
+    "cryptoWallets": {
+      "USDT (TRC20)": "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE",
+      "BTC (Bitcoin)": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+      "ETH (ERC20)": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+      "BNB (BEP20)": "bnb1grpf0955h0ykzq3ar5nmum7y6gdfl6lxfn46h2"
+    }
+  },
+  "users": [
+    {
+      "id": "admin-1",
+      "username": "mainadmin",
+      "email": "admin@xtradew.online",
+      "password": "admin123",
+      "role": "MAIN_ADMIN",
+      "firstName": "Main",
+      "lastName": "Admin",
+      "status": "ACTIVE",
+      "permissions": {
+        "canApproveWithdrawals": true
+      }
+    },
+    {
+      "id": "usr-1794527150880",
+      "username": "Muhammad Bilal",
+      "email": "bilal7lodhi@gmail.com",
+      "country": "Pakistan",
+      "mobile": "+923006387558",
+      "currency": "PKR",
+      "invitationCode": "",
+      "password": "asd",
+      "role": "TRADER",
+      "firstName": "asd",
+      "lastName": "asda",
+      "profileCompleted": true,
+      "status": "ACTIVE",
+      "tradeBan": {
+        "enabled": false,
+        "message": "Trading is restricted on your account."
+      },
+      "withdrawBan": {
+        "enabled": false,
+        "message": "Withdrawals are restricted on your account."
+      },
+      "balance": 0,
+      "inOrderBalance": 0,
+      "totalWithdrawn": 0,
+      "creditScore": 1000
+    },
+    {
+      "id": "usr-1794528437794",
+      "username": "okay lodhi",
+      "email": "bilal2lodhi@gmail.com",
+      "country": "Pakistan",
+      "mobile": "+923006387558",
+      "currency": "PKR",
+      "invitationCode": "",
+      "password": "as",
+      "role": "TRADER",
+      "firstName": "bills",
+      "lastName": "lods",
+      "profileCompleted": true,
+      "status": "ACTIVE",
+      "tradeBan": {
+        "enabled": false,
+        "message": "Trading is restricted on your account."
+      },
+      "withdrawBan": {
+        "enabled": false,
+        "message": "Withdrawals are restricted on your account."
+      },
+      "balance": 0,
+      "inOrderBalance": 0,
+      "totalWithdrawn": 0,
+      "creditScore": 1000
+    },
+    {
+      "id": "usr-1794529967887",
+      "username": "asd",
+      "email": "asd@gmail.com",
+      "country": "Pakistan",
+      "mobile": "+922006408334",
+      "currency": "PKR",
+      "invitationCode": "",
+      "password": "asd",
+      "role": "TRADER",
+      "firstName": "asd",
+      "lastName": "asd",
+      "profileCompleted": true,
+      "status": "ACTIVE",
+      "tradeBan": {
+        "enabled": false,
+        "message": "Trading is restricted on your account."
+      },
+      "withdrawBan": {
+        "enabled": false,
+        "message": "Withdrawals are restricted on your account."
+      },
+      "balance": 0,
+      "inOrderBalance": 0,
+      "totalWithdrawn": 0,
+      "creditScore": 1000
+    }
+  ],
+  "trades": [],
+  "deposits": [],
+  "withdrawals": [],
+  "transactions": [],
+  "tickets": [],
+  "customErrors": [],
+  "auditLogs": [],
+  "botKeys": []
+}

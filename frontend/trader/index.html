@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daraz Trade - Sign In & Create Account</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/shared/theme.css" />
+  <script src="/shared/dialog.js"></script>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: radial-gradient(circle at top, #131d31 0%, var(--bg-main) 65%);
+    }
+    .auth-box {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 32px 26px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+    .brand-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .brand-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--color-primary);
+      letter-spacing: 0.5px;
+    }
+    .brand-header h2 {
+      margin-top: 10px;
+      font-size: 1.45rem;
+    }
+    .brand-header p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .field {
+      margin-bottom: 14px;
+    }
+    .field label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+    .field input, .field select {
+      width: 100%;
+      padding: 11px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-size: 0.92rem;
+      outline: none;
+    }
+    .field input:focus, .field select:focus {
+      border-color: var(--color-secondary);
+    }
+    .phone-group {
+      display: flex;
+      gap: 8px;
+    }
+    .phone-code {
+      width: 82px !important;
+      text-align: center;
+      font-weight: 700;
+      color: var(--color-primary) !important;
+    }
+    .alert {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .alert.error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--color-danger);
+      color: #fca5a5;
+    }
+    .switch-link {
+      text-align: center;
+      margin-top: 18px;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+    .switch-link a {
+      color: var(--color-secondary);
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .install-banner {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-color);
+      text-align: center;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="auth-box">
+    <div class="brand-header">
+      <div class="brand-logo">📈 Daraz Trade</div>
+      <h2 id="formTitle">Create Your Account</h2>
+      <p id="formSubtitle">Join now and start your investment journey</p>
+    </div>
+
+    <div id="alertBox" class="alert error"></div>
+
+    <!-- REGISTER FORM (Defaults to Pakistan +92 & PKR) -->
+    <form id="registerForm">
+      <div class="grid-2">
+        <div class="field">
+          <label>Username</label>
+          <input type="text" id="regUsername" placeholder="Enter username" required />
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="regEmail" placeholder="Enter email" required />
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>Country</label>
+          <select id="regCountry" onchange="syncCountryDefaults()">
+            <option value="Pakistan" data-code="+92" data-curr="PKR" selected>Pakistan</option>
+            <option value="India" data-code="+91" data-curr="INR">India</option>
+            <option value="Bangladesh" data-code="+880" data-curr="BDT">Bangladesh</option>
+            <option value="UAE" data-code="+971" data-curr="USDT">United Arab Emirates</option>
+            <option value="United Kingdom" data-code="+44" data-curr="USDT">United Kingdom</option>
+            <option value="United States" data-code="+1" data-curr="USDT">United States</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Preferred Currency</label>
+          <select id="regCurrency">
+            <option value="PKR" selected>PKR (Rs)</option>
+            <option value="INR">INR (₹)</option>
+            <option value="BDT">BDT (৳)</option>
+            <option value="USDT">USDT ($)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Mobile Number</label>
+        <div class="phone-group">
+          <input type="text" id="regPhoneCode" class="phone-code" value="+92" readonly />
+          <input type="tel" id="regMobile" placeholder="300 1234567" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Invitation Code (Optional)</label>
+        <input type="text" id="regInvite" placeholder="Cct0vDDRGR" />
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="regPassword" placeholder="••••••••" required />
+        </div>
+        <div class="field">
+          <label>Confirm Password</label>
+          <input type="password" id="regConfirm" placeholder="••••••••" required />
+        </div>
+      </div>
+
+      <button type="submit" class="btn-secondary" style="width: 100%; margin-top: 6px;">Create Account</button>
+
+      <div class="switch-link">
+        Already have an account? <a onclick="toggleMode('LOGIN')">Sign In</a>
+      </div>
+    </form>
+
+    <!-- LOGIN FORM -->
+    <form id="loginForm" class="hidden">
+      <div class="field">
+        <label>Username or Email</label>
+        <input type="text" id="loginUser" placeholder="Enter username or email" required />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="loginPass" placeholder="••••••••" required />
+      </div>
+      <button type="submit" class="btn-secondary" style="width: 100%; margin-top: 6px;">Sign In</button>
+
+      <div class="switch-link">
+        Don't have an account? <a onclick="toggleMode('REGISTER')">Create Account</a>
+      </div>
+    </form>
+
+    <!-- COMPLETE PROFILE STEP (Shown right after signup) -->
+    <form id="profileForm" class="hidden">
+      <div style="background: rgba(59, 130, 246, 0.15); border: 1px solid var(--color-info); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+        <strong style="color: #93c5fd;">Complete your profile</strong>
+        <p style="font-size: 0.83rem; color: var(--text-muted); margin-top: 4px;">You need to complete your profile by providing the information below.</p>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>First Name *</label>
+          <input type="text" id="profFirst" required />
+        </div>
+        <div class="field">
+          <label>Last Name *</label>
+          <input type="text" id="profLast" required />
+        </div>
+      </div>
+      <button type="submit" class="btn-primary" style="width: 100%;">Submit & Enter Dashboard</button>
+    </form>
+
+    <!-- DOWNLOAD / INSTALL APP BUTTON -->
+    <div class="install-banner">
+      <button type="button" id="installAppBtn" class="btn-primary" style="font-size: 0.82rem; padding: 8px 14px;" onclick="triggerInstall()">
+        📲 Download Daraz Trade App
+      </button>
+    </div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+
+    // Load dynamic currencies from Admin settings
+    async function loadCurrencies() {
+      try {
+        const res = await fetch('/api/public/config');
+        const data = await res.json();
+        if (data.currencies) {
+          const sel = document.getElementById('regCurrency');
+          sel.innerHTML = data.currencies.map(c =>
+            `<option value="${c.code}" ${c.code === 'PKR' ? 'selected' : ''}>${c.code} (${c.symbol})</option>`
+          ).join('');
+        }
+      } catch (e) {}
+    }
+    loadCurrencies();
+
+    function syncCountryDefaults() {
+      const sel = document.getElementById('regCountry');
+      const opt = sel.options[sel.selectedIndex];
+      document.getElementById('regPhoneCode').value = opt.dataset.code;
+      document.getElementById('regCurrency').value = opt.dataset.curr;
+    }
+
+    function showError(msg) {
+      const box = document.getElementById('alertBox');
+      box.textContent = msg;
+      box.style.display = 'block';
+    }
+
+    function toggleMode(mode) {
+      document.getElementById('alertBox').style.display = 'none';
+      document.getElementById('registerForm').classList.toggle('hidden', mode !== 'REGISTER');
+      document.getElementById('loginForm').classList.toggle('hidden', mode !== 'LOGIN');
+      document.getElementById('profileForm').classList.add('hidden');
+      document.getElementById('formTitle').textContent = mode === 'LOGIN' ? 'Welcome Back' : 'Create Your Account';
+      document.getElementById('formSubtitle').textContent = mode === 'LOGIN' ? 'Sign in to access your trading dashboard' : 'Join now and start your investment journey';
+    }
+
+    // Register Handler
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('regPassword').value;
+      if (password !== document.getElementById('regConfirm').value) {
+        return showError('Passwords do not match.');
+      }
+      const payload = {
+        username: document.getElementById('regUsername').value.trim(),
+        email: document.getElementById('regEmail').value.trim(),
+        country: document.getElementById('regCountry').value,
+        mobile: document.getElementById('regPhoneCode').value + document.getElementById('regMobile').value.trim(),
+        currency: document.getElementById('regCurrency').value,
+        invitationCode: document.getElementById('regInvite').value.trim(),
+        password
+      };
+
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) return showError(data.error);
+
+      localStorage.setItem('traderUser', JSON.stringify(data.user));
+      // Show Profile Completion Step
+      document.getElementById('registerForm').classList.add('hidden');
+      document.getElementById('profileForm').classList.remove('hidden');
+      document.getElementById('formTitle').textContent = 'Almost Done';
+      document.getElementById('formSubtitle').textContent = 'Verify your identity details';
+    });
+
+    // Complete Profile Handler
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const user = JSON.parse(localStorage.getItem('traderUser'));
+      const res = await fetch('/api/auth/complete-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': user.id },
+        body: JSON.stringify({
+          firstName: document.getElementById('profFirst').value.trim(),
+          lastName: document.getElementById('profLast').value.trim()
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) return showError(data.error);
+      localStorage.setItem('traderUser', JSON.stringify(data.user));
+      window.location.href = '/dashboard.html';
+    });
+
+    // Login Handler
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          login: document.getElementById('loginUser').value.trim(),
+          password: document.getElementById('loginPass').value,
+          portal: 'TRADER'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) return showError(data.error);
+      localStorage.setItem('traderUser', JSON.stringify(data.user));
+      window.location.href = '/dashboard.html';
+    });
+
+    // PWA Install Prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+    });
+    function triggerInstall() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+      } else {
+        alert('To install Daraz Trade App:\n• On Android Chrome: Tap the 3 dots (⋮) -> "Install app" or "Add to Home Screen"\n• On iPhone Safari: Tap Share -> "Add to Home Screen"');
+      }
+    }
+
+    const refParam = new URLSearchParams(window.location.search).get('ref');
+    if (refParam && document.getElementById('regInvite')) {
+    document.getElementById('regInvite').value = refParam;
+    }
+
+  </script>
+</body>
+</html>
