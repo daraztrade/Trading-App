@@ -69,8 +69,23 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 
 app.use('/shared', express.static(SHARED_DIR));
 app.use('/uploads', express.static(UPLOADS_DIR));
-app.use('/admin', express.static(ADMIN_DIR));
-app.use('/', express.static(TRADER_DIR));
+app.get('/admin', (req, res) => {
+  res.redirect('/admin/login.html');
+});
+
+const PORTAL_MODE = process.env.PORTAL_MODE || 'ALL';
+
+if (PORTAL_MODE === 'ADMIN') {
+  app.get('/', (req, res) => res.redirect('/login.html'));
+  app.use('/', express.static(ADMIN_DIR));
+} else if (PORTAL_MODE === 'TRADER') {
+  app.use('/admin', (req, res) => res.status(404).send('Not Found'));
+  app.use('/', express.static(TRADER_DIR));
+} else {
+  app.get('/admin', (req, res) => res.redirect('/admin/login.html'));
+  app.use('/admin', express.static(ADMIN_DIR));
+  app.use('/', express.static(TRADER_DIR));
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
@@ -473,7 +488,7 @@ app.post('/api/auth/login', (req, res) => {
   const user = formatUserRow(row);
   if (user.status !== 'ACTIVE') return res.status(403).json({ error: `Account is ${user.status}.` });
   if (portal === 'ADMIN' && user.role === 'TRADER') return res.status(403).json({ error: 'Traders cannot access the Admin Portal.' });
-  if (portal === 'TRADER' && user.role !== 'TRADER') return res.status(403).json({ error: 'Staff must log in via /admin/login.html' });
+  if (portal === 'TRADER' && user.role !== 'TRADER') return res.status(403).json({ error: 'Staff must log in via the Admin Portal.' });
 
   res.json({ user });
 });

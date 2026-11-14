@@ -369,7 +369,7 @@
 
 <script>
   const staff = JSON.parse(localStorage.getItem('staffUser'));
-  if (!staff) window.location.href = '/admin/login.html';
+  if (!staff) window.location.href = './login.html';
 
   document.getElementById('staffName').textContent = staff.username;
   document.getElementById('staffRoleLabel').textContent = staff.role;
@@ -762,7 +762,7 @@ async function replyTicket(id) {
 
   function logout() {
     localStorage.removeItem('staffUser');
-    window.location.href = '/admin/login.html';
+    window.location.href = './login.html';
   }
 
   loadAdminData();
