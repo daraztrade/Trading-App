@@ -97,6 +97,7 @@ async function dbAll(sql, args = []) {
   return res.rows.map(r => ({ ...r }));
 }
 
+const defaultSettings = {
 defaultCurrency: 'BTC',
   currencies: [
     { code: 'BTC', symbol: '₿', name: 'Bitcoin', rateToBase: 0.000000033 },
