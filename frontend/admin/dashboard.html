@@ -7,803 +7,1221 @@
   <link rel="stylesheet" href="/shared/theme.css" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
   <style>
-    .layout { display: flex; min-height: 100vh; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #090d16; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+    .admin-shell { display: flex; min-height: 100vh; }
+
+    /* SIDEBAR */
     .sidebar {
-      width: 245px;
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--border-color);
-      padding: 20px 14px;
+      width: 260px;
+      background: #0d1322;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 18px 12px;
       position: fixed;
       top: 0; bottom: 0; left: 0;
-      display: flex;
-      flex-direction: column;
+      z-index: 200;
+      overflow-y: auto;
+      transition: transform 0.25s ease;
     }
+    .sidebar.collapsed { transform: translateX(-100%); }
     .brand {
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       font-weight: 800;
-      color: var(--color-primary);
-      padding: 0 10px 18px;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 14px;
+      color: #f97316;
+      padding: 4px 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      margin-bottom: 12px;
     }
-    .role-pill {
-      display: inline-block;
-      font-size: 0.7rem;
-      background: rgba(99, 102, 241, 0.2);
+    .role-badge {
+      font-size: 0.68rem;
+      background: rgba(99,102,241,0.22);
       color: #a5b4fc;
-      padding: 2px 8px;
-      border-radius: 4px;
-      margin-top: 4px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      display: inline-block;
+      margin-top: 3px;
     }
-    .nav-btn {
-      padding: 10px 12px;
-      border-radius: var(--radius-sm);
-      color: var(--text-muted);
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 14px;
+      border-radius: 8px;
+      color: #94a3b8;
       cursor: pointer;
       font-size: 0.9rem;
       font-weight: 600;
       margin-bottom: 4px;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+    .nav-item.active {
+      background: linear-gradient(90deg, #4f46e5, #6366f1);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(79,70,229,0.35);
+    }
+    .submenu {
+      background: #090e1a;
+      border-radius: 8px;
+      padding: 6px 4px;
+      margin: 2px 0 8px;
+      border-left: 2px solid #4f46e5;
+    }
+    .sub-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 14px 9px 22px;
+      border-radius: 6px;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .sub-item:hover { color: #fff; background: rgba(255,255,255,0.04); }
+    .sub-item.active { color: #818cf8; background: rgba(99,102,241,0.12); }
+    .badge-count {
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .badge-count.green { background: #10b981; }
+
+    /* MAIN AREA & TOPBAR */
+    .main {
+      flex: 1;
+      margin-left: 260px;
+      padding: 18px 24px 60px;
+      transition: margin-left 0.25s ease;
+      min-width: 0;
+    }
+    .main.expanded { margin-left: 0; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0d1322;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 12px 18px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .hamburger-btn {
+      background: #161f35;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      font-size: 1.25rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hamburger-btn:hover { border-color: #6366f1; }
+
+    /* CARDS & GRIDS */
+    .card {
+      background: #0d1322;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #0d1322;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stat-left { display: flex; align-items: center; gap: 14px; }
+    .stat-icon {
+      width: 46px; height: 46px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.35rem;
+      background: rgba(99,102,241,0.15);
+      color: #818cf8;
+    }
+    .stat-val { font-size: 1.45rem; font-weight: 800; color: #fff; }
+    .stat-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.6px; color: #94a3b8; margin-top: 2px; }
+    .view-all-btn {
+      background: transparent;
+      border: 1px solid rgba(99,102,241,0.45);
+      color: #818cf8;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .view-all-btn:hover { background: rgba(99,102,241,0.15); }
+
+    /* TABLE & TOOLBAR */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .search-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .input-dark, .select-dark {
+      background: #131b2e;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      padding: 9px 13px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      outline: none;
+    }
+    .input-dark:focus, .select-dark:focus { border-color: #6366f1; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th {
+      text-align: left;
+      padding: 12px 14px;
+      background: #141c30;
+      color: #94a3b8;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      vertical-align: middle;
+    }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .user-handle { color: #6366f1; font-weight: 600; font-size: 0.82rem; display: block; margin-top: 2px; }
+    .btn-details {
+      background: transparent;
+      border: 1px solid #4f46e5;
+      color: #818cf8;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-details:hover { background: #4f46e5; color: #fff; }
+
+    /* USER DETAIL PAGE */
+    .detail-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .d-card {
+      border-radius: 12px;
+      padding: 18px;
+      color: #fff;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .nav-btn:hover, .nav-btn.active {
-      background: rgba(99, 102, 241, 0.16);
-      color: #fff;
-    }
-    .badge-count {
-      background: var(--color-danger);
-      color: #fff;
-      font-size: 0.72rem;
-      padding: 1px 7px;
-      border-radius: 999px;
-    }
-    .content {
-      flex: 1;
-      margin-left: 245px;
-      padding: 22px 26px 60px;
-    }
-    .metrics-grid {
+    .d-blue { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
+    .d-indigo { background: linear-gradient(135deg, #3730a3, #4f46e5); }
+    .d-green { background: linear-gradient(135deg, #065f46, #059669); }
+    .d-plum { background: linear-gradient(135deg, #581c87, #7e22ce); }
+
+    .action-pills {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 14px;
-      margin-bottom: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
     }
-    .metric-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    .metric-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
+    .pill-btn {
+      border: none;
+      padding: 11px 14px;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.84rem;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.3rem;
-      background: rgba(99, 102, 241, 0.18);
+      gap: 6px;
     }
-    table {
+    .pill-green { background: #10b981; }
+    .pill-red { background: #ef4444; }
+    .pill-blue { background: #3b82f6; }
+    .pill-purple { background: #6366f1; }
+    .pill-orange { background: #f59e0b; }
+    .pill-indigo { background: #4f46e5; }
+
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .form-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+    .field label { display: block; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
+    .field input, .field select {
       width: 100%;
-      border-collapse: collapse;
-      font-size: 0.86rem;
+      background: #131b2e;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.88rem;
     }
-    th, td {
-      text-align: left;
-      padding: 12px 10px;
-      border-bottom: 1px solid var(--border-color);
-    }
-    th { color: var(--text-muted); font-size: 0.78rem; text-transform: uppercase; }
-    .btn-sm {
-      padding: 5px 10px;
-      font-size: 0.78rem;
-      border-radius: 6px;
+    .toggle-pill {
+      width: 100%;
+      padding: 10px;
       border: none;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 0.8rem;
+      color: #fff;
       cursor: pointer;
-      font-weight: 600;
-      margin: 2px;
+      letter-spacing: 0.5px;
     }
-    .btn-green { background: var(--color-primary); color: #052e16; }
-    .btn-red { background: var(--color-danger); color: #fff; }
-    .btn-blue { background: var(--color-info); color: #fff; }
-    .btn-purple { background: var(--color-secondary); color: #fff; }
-    .field { margin-bottom: 12px; }
-    .field label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; }
-    .field input, .field select, .field textarea {
-      width: 100%;
-      padding: 9px 11px;
-      background: var(--bg-input);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      color: var(--text-main);
+    .toggle-on { background: #10b981; }
+    .toggle-off { background: #ef4444; }
+
+    .tag { padding: 3px 9px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; }
+    .tag-win { background: rgba(16,185,129,0.18); color: #34d399; }
+    .tag-loss { background: rgba(239,68,68,0.18); color: #f87171; }
+    .tag-run { background: rgba(245,158,11,0.18); color: #fbbf24; }
+
+    .btn-sm { padding: 5px 10px; border-radius: 6px; border: none; font-size: 0.76rem; font-weight: 700; cursor: pointer; color: #fff; margin-right: 4px; }
+    .btn-win { background: #10b981; }
+    .btn-loss { background: #ef4444; }
+    .btn-void { background: #64748b; }
+
+    /* CUSTOM OBSIDIAN MODAL */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(5,8,15,0.78);
+      display: none; align-items: center; justify-content: center; z-index: 999; padding: 16px;
     }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+      background: #0f172a; border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px; padding: 24px; width: 100%; max-width: 420px;
+    }
     .hidden { display: none !important; }
-    @media (max-width: 860px) {
-      html, body { max-width: 100%; overflow-x: hidden; }
-      .sidebar { position: static; width: 100%; flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 10px; }
-      .content { margin-left: 0; width: 100%; padding: 12px; overflow-x: auto; }
-      .grid-2 { grid-template-columns: 1fr; }
-      table { display: block; overflow-x: auto; white-space: nowrap; }
+    .toast-msg {
+      position: fixed; bottom: 20px; right: 20px; background: #10b981; color: #fff;
+      padding: 11px 18px; border-radius: 8px; font-weight: 700; font-size: 0.86rem;
+      z-index: 1000; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    }
+    @media (max-width: 900px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .main { margin-left: 0; padding: 14px; }
+      .form-grid-2, .form-grid-4 { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
 
-<div class="layout">
-  <aside class="sidebar">
+<div class="admin-shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="adminSidebar">
     <div class="brand">
-      <div>📈 Daraz Trade ADMIN</div>
-      <div class="role-pill" id="staffRoleLabel">MAIN_ADMIN</div>
+      <div>
+        <div>📈 DARAZ ADMIN</div>
+        <span class="role-badge" id="actorRoleBadge">MAIN_ADMIN</span>
+      </div>
+      <button class="hamburger-btn" style="width:32px;height:32px;font-size:1rem;" onclick="toggleAdminSidebar()">✕</button>
     </div>
 
-    <div class="nav-btn active" onclick="showTab('dashboard', this)">🏠 Dashboard</div>
-    <div class="nav-btn" onclick="showTab('deposits', this)">💰 Deposit Proofs <span class="badge-count" id="navDepCount">0</span></div>
-    <div class="nav-btn" onclick="showTab('withdrawals', this)">🏦 Withdrawals <span class="badge-count" id="navWdrCount">0</span></div>
-    <div class="nav-btn" onclick="showTab('users', this)">👥 Manage Users</div>
-    <div class="nav-btn" onclick="showTab('trades', this)">⚡ Live Trades</div>
-    <div class="nav-btn" onclick="showTab('help', this)">🎧 Help Center <span class="badge-count" id="navTktCount">0</span></div>
-    <div class="nav-btn" onclick="showTab('errors', this)">⚠️ Error Sender</div>
-    <div class="nav-btn main-only" onclick="showTab('staff', this)">🛡️ Sub-Admins (Guards)</div>
-    <div class="nav-btn main-only" onclick="showTab('settings', this)">⚙️ Platform Settings</div>
-    <div class="nav-btn" onclick="showTab('logs', this)">📜 Audit Logs</div>
+    <div class="nav-item active" id="nav-dashboard" onclick="showSection('dashboard', this)">
+      <span>🏠 Dashboard</span>
+    </div>
 
-    <div style="margin-top: auto;">
-      <div class="nav-btn" style="color: var(--color-danger);" onclick="logout()">🚪 Logout</div>
+    <!-- COLLAPSIBLE MANAGE ORDER MENU -->
+    <div class="nav-item" id="nav-manage-order" onclick="toggleOrderMenu()">
+      <span>📊 Manage Order</span>
+      <span id="orderArrow">▼</span>
+    </div>
+    <div class="submenu" id="orderSubmenu">
+      <div class="sub-item" id="sub-running" onclick="showSection('running-trades', this)">
+        <span>⊙ Running Trade</span>
+        <span class="badge-count green" id="badgeRunning">0</span>
+      </div>
+      <div class="sub-item" id="sub-orders" onclick="showSection('order-history', this)">
+        <span>⊙ Order History</span>
+      </div>
+      <div class="sub-item" id="sub-trades" onclick="showSection('trade-history', this)">
+        <span>⊙ Trade History</span>
+      </div>
+    </div>
+
+    <div class="nav-item" id="nav-users" onclick="showSection('users', this)">
+      <span>👥 Manage Users</span>
+      <span class="badge-count" id="badgeUsers">0</span>
+    </div>
+
+    <div class="nav-item" id="nav-deposits" onclick="showSection('deposits', this)">
+      <span>💰 Deposit Proofs</span>
+      <span class="badge-count" id="badgeDep">0</span>
+    </div>
+
+    <div class="nav-item" id="nav-withdrawals" onclick="showSection('withdrawals', this)">
+      <span>🏦 Withdrawals</span>
+      <span class="badge-count" id="badgeWdr">0</span>
+    </div>
+
+    <div class="nav-item" id="nav-tickets" onclick="showSection('tickets', this)">
+      <span>🎧 Help Center</span>
+      <span class="badge-count" id="badgeTkt">0</span>
+    </div>
+
+    <div class="nav-item" id="nav-errors" onclick="showSection('errors', this)">
+      <span>⚠️ Error Sender</span>
+    </div>
+
+    <div class="nav-item" id="nav-settings" onclick="showSection('settings', this)">
+      <span>⚙️ Settings</span>
+    </div>
+
+    <div class="nav-item" style="color:#f87171;margin-top:16px;" onclick="adminLogout()">
+      <span>🚪 Logout</span>
     </div>
   </aside>
 
-  <main class="content">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h2>Admin Command Center</h2>
-      <span style="font-size: 0.85rem; color: var(--text-muted);">Logged in as <strong id="staffName" style="color: #fff;"></strong></span>
+  <!-- MAIN AREA -->
+  <main class="main" id="adminMain">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="hamburger-btn" title="Toggle Menu & Running Trades" onclick="toggleAdminSidebar()">☰</button>
+        <div>
+          <strong style="font-size:1.1rem;" id="pageHeaderTitle">Dashboard Overview</strong>
+          <div style="font-size:0.78rem;color:#94a3b8;">Logged in as <strong id="actorName" style="color:#fff;">mainadmin</strong></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-details" onclick="showSection('running-trades')">⚡ Running Trades (<span id="topRunningCount">0</span>)</button>
+        <button class="btn-details" onclick="showSection('users')">👥 All Users</button>
+      </div>
     </div>
 
-    <!-- TAB 1: DASHBOARD METRICS GRID -->
-    <section id="tab-dashboard">
-      <div class="metrics-grid">
-        <div class="metric-card"><div class="metric-icon">👥</div><div><div style="font-size:1.4rem;font-weight:800;" id="mTotalUsers">0</div><small style="color:var(--text-muted)">TOTAL USERS</small></div></div>
-        <div class="metric-card"><div class="metric-icon" style="background:rgba(16,185,129,0.2)">✅</div><div><div style="font-size:1.4rem;font-weight:800;" id="mActiveUsers">0</div><small style="color:var(--text-muted)">ACTIVE USERS</small></div></div>
-        <div class="metric-card"><div class="metric-icon">🔄</div><div><div style="font-size:1.4rem;font-weight:800;" id="mTotalTrades">0</div><small style="color:var(--text-muted)">TOTAL TRADES</small></div></div>
-        <div class="metric-card"><div class="metric-icon" style="background:rgba(245,158,11,0.2)">⏳</div><div><div style="font-size:1.4rem;font-weight:800;" id="mRunningTrades">0</div><small style="color:var(--text-muted)">RUNNING TRADES</small></div></div>
-        <div class="metric-card"><div class="metric-icon">📥</div><div><div style="font-size:1.4rem;font-weight:800;" id="mPendingDep">0</div><small style="color:var(--text-muted)">PENDING DEPOSITS</small></div></div>
-        <div class="metric-card"><div class="metric-icon">📤</div><div><div style="font-size:1.4rem;font-weight:800;" id="mPendingWdr">0</div><small style="color:var(--text-muted)">PENDING WITHDRAWALS</small></div></div>
-      </div>
-
-      <div class="card">
-        <h3 style="margin-bottom: 12px;">Recent Guard & Admin Activity</h3>
-        <div id="dashAuditPreview" style="font-size: 0.85rem; color: var(--text-muted);">No activity logged yet.</div>
-      </div>
-    </section>
-
-    <!-- TAB 2: DEPOSIT PROOFS REVIEW -->
-    <section id="tab-deposits" class="hidden">
-      <div class="card">
-        <h3 style="margin-bottom: 12px;">Crypto Deposit Proofs (Top-Up Queue)</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th><th>Trader</th><th>Crypto</th><th>Amount (PKR)</th><th>Tx Hash</th><th>Proof</th><th>Status</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="depositsTable"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- TAB 3: WITHDRAWALS (WITH EDIT ACCOUNT DETAILS) -->
-    <section id="tab-withdrawals" class="hidden">
-      <div class="card">
-        <h3 style="margin-bottom: 12px;">Withdrawals Queue (Editable Receiving Accounts)</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th><th>Trader</th><th>Amount</th><th>Method</th><th>Receiving Account</th><th>Status</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="withdrawalsTable"></tbody>
-        </table>
-      </div>
-    </section>
-
-<!-- TAB 4: MANAGE USERS (IMPERSONATE, PASSWORD, FAKE MONEY, BAN MESSAGES) -->
-    <section id="tab-users" class="hidden">
-      <div class="card">
-        <h3 style="margin-bottom: 12px;">Manage Traders & Guard Controls</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>User</th><th>Balance (PKR)</th><th>Credit Score</th><th>Status</th><th>Bans</th><th>Controls</th>
-            </tr>
-          </thead>
-          <tbody id="usersTable"></tbody>
-        </table>
-      </div>
-
-      <!-- CUSTOMER CURRENT TRADE & TRADE HISTORY PANEL -->
-      <div id="customerTradeInspector" class="card hidden" style="margin-top: 16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <h3 id="inspectorTitle">Customer Trades</h3>
-          <button type="button" class="btn-sm btn-red" onclick="document.getElementById('customerTradeInspector').classList.add('hidden')">Close</button>
+    <!-- SECTION 1: DASHBOARD -->
+    <section id="sec-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-left">
+            <div class="stat-icon">👥</div>
+            <div>
+              <div class="stat-val" id="stTotalUsers">0</div>
+              <div class="stat-lbl">Total Users</div>
+            </div>
+          </div>
+          <button class="view-all-btn" onclick="showSection('users')">View All</button>
         </div>
-        <h4 style="margin-bottom: 8px; color: var(--color-orange);">⚡ Current Active Trade</h4>
-        <div id="adminCustomerCurrentTrade"></div>
-
-        <h4 style="margin: 16px 0 8px; color: var(--text-main);">📜 Customer Trade History</h4>
-        <div id="adminCustomerTradeHistory" style="max-height: 240px; overflow-y: auto;"></div>
-      </div>
-    </section>
-
-    <!-- TAB 5: LIVE TRADES MONITOR -->
-    <section id="tab-trades" class="hidden">
-      <div class="card">
-        <h3 style="margin-bottom: 12px;">All Platform Trades</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th><th>Trader</th><th>Pair</th><th>Dir</th><th>Stake</th><th>Profit %</th><th>Status</th><th>Guard Action</th>
-            </tr>
-          </thead>
-          <tbody id="tradesTable"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- TAB 6: HELP CENTER INBOX -->
-    <section id="tab-help" class="hidden">
-      <div class="card">
-        <h3 style="margin-bottom: 12px;">Customer Help Center Messages</h3>
-        <div id="adminTicketsList"></div>
-      </div>
-    </section>
-
-    <!-- TAB 7: ERROR SENDER -->
-    <section id="tab-errors" class="hidden">
-      <div class="card" style="max-width: 520px;">
-        <h3 style="margin-bottom: 8px;">Error Sender (Push Live Alert to Trader)</h3>
-        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 14px;">Send a custom error or warning banner directly to a specific trader's screen or broadcast to everyone.</p>
-        <form id="errorSenderForm">
-          <div class="field">
-            <label>Target Trader</label>
-            <select id="errTargetUser"></select>
-          </div>
-          <div class="field">
-            <label>Alert Title</label>
-            <input type="text" id="errTitle" placeholder="e.g. Verification Required" required />
-          </div>
-          <div class="field">
-            <label>Error Message</label>
-            <textarea id="errMessage" rows="3" placeholder="Enter message shown to trader..." required></textarea>
-          </div>
-          <button type="submit" class="btn-red btn-sm" style="padding: 10px 18px; font-size: 0.9rem;">Send Error Alert</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- TAB 8: SUB-ADMINS (GUARDS) - MAIN ADMIN ONLY -->
-    <section id="tab-staff" class="hidden">
-      <div class="grid-2">
-        <div class="card">
-          <h3 style="margin-bottom: 12px;">Create Sub-Admin (Guard)</h3>
-          <form id="subAdminForm">
-            <div class="field">
-              <label>Guard Username</label>
-              <input type="text" id="subUser" required />
+        <div class="stat-card">
+          <div class="stat-left">
+            <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#10b981;">✅</div>
+            <div>
+              <div class="stat-val" id="stActiveUsers">0</div>
+              <div class="stat-lbl">Active Users</div>
             </div>
-            <div class="field">
-              <label>Guard Password</label>
-              <input type="password" id="subPass" required />
-            </div>
-            <div class="field">
-              <label><input type="checkbox" id="subCanWdr" style="width: auto; margin-right: 6px;" /> Allow Sub-Admin to Approve Withdrawals</label>
-            </div>
-            <button type="submit" class="btn-primary">Create Guard Account</button>
-          </form>
+          </div>
+          <button class="view-all-btn" onclick="showSection('users')">View All</button>
         </div>
+        <div class="stat-card">
+          <div class="stat-left">
+            <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b;">⚡</div>
+            <div>
+              <div class="stat-val" id="stRunningTrades">0</div>
+              <div class="stat-lbl">Running Trades</div>
+            </div>
+          </div>
+          <button class="view-all-btn" onclick="showSection('running-trades')">View All</button>
+        </div>
+        <div class="stat-card">
+          <div class="stat-left">
+            <div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#3b82f6;">📈</div>
+            <div>
+              <div class="stat-val" id="stTotalTrades">0</div>
+              <div class="stat-lbl">Total Trades</div>
+            </div>
+          </div>
+          <button class="view-all-btn" onclick="showSection('trade-history')">View All</button>
+        </div>
+      </div>
 
-        <div class="card">
-          <h3 style="margin-bottom: 12px;">Active Staff & Guards</h3>
-          <div id="staffList"></div>
+      <div class="card">
+        <div class="toolbar">
+          <h3 style="margin:0;">⚡ Live Running Trades</h3>
+          <button class="view-all-btn" onclick="showSection('running-trades')">Open Full Running Trades →</button>
+        </div>
+        <div class="table-wrap" id="dashRunningWrap"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: RUNNING TRADES -->
+    <section id="sec-running-trades" class="hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h3 style="margin:0;">⚡ Running Trades (Live Control)</h3>
+          <span style="font-size:0.82rem;color:#94a3b8;">Override any active trade to Force Win or Force Loss before timer expires</span>
+        </div>
+        <div class="table-wrap" id="runningTradesTable"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: ORDER HISTORY -->
+    <section id="sec-order-history" class="hidden">
+      <div class="card">
+        <h3 style="margin-top:0;">📋 Order History</h3>
+        <div class="table-wrap" id="orderHistoryTable"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: TRADE HISTORY -->
+    <section id="sec-trade-history" class="hidden">
+      <div class="card">
+        <h3 style="margin-top:0;">📜 Settled Trade History</h3>
+        <div class="table-wrap" id="tradeHistoryTable"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: ALL USERS (WITH FILTER & SEARCH) -->
+    <section id="sec-users" class="hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h3 style="margin:0;">All Users</h3>
+          <div class="search-group">
+            <select id="userFilterSelect" class="select-dark" onchange="renderUsersTable()">
+              <option value="ALL">All Users</option>
+              <option value="ACTIVE">Active Only</option>
+              <option value="BANNED">Banned / Frozen</option>
+              <option value="WIN_DEFAULT">Outcome: Default (Win)</option>
+              <option value="FORCE_WIN">Outcome: Force Win</option>
+              <option value="FORCE_LOSS">Outcome: Force Loss</option>
+            </select>
+            <input type="text" id="userSearchInput" class="input-dark" placeholder="Username / Email / Phone..." oninput="renderUsersTable()" />
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>USER</th>
+                <th>EMAIL-PHONE</th>
+                <th>COUNTRY</th>
+                <th>BALANCE</th>
+                <th>TRADE MODE</th>
+                <th>JOINED AT</th>
+                <th>ACTION</th>
+              </tr>
+            </thead>
+            <tbody id="allUsersTbody"></tbody>
+          </table>
         </div>
       </div>
     </section>
 
-    <!-- TAB 9: PLATFORM SETTINGS - MAIN ADMIN ONLY -->
-    <section id="tab-settings" class="hidden">
-      <div class="grid-2">
-        <div class="card">
-          <h3 style="margin-bottom: 12px;">Trade Win Default & Profit Tiers</h3>
+    <!-- SECTION 6: USER DETAIL VIEW -->
+    <section id="sec-user-detail" class="hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;" id="detailHeading">User Detail</h3>
+        <button class="btn-details" onclick="showSection('users')">← Back to All Users</button>
+      </div>
+
+      <div class="detail-cards">
+        <div class="d-card d-blue">
+          <div>
+            <div style="font-size:1.5rem;font-weight:800;" id="udTotalOrder">0</div>
+            <div style="font-size:0.75rem;opacity:0.85;">TOTAL ORDER</div>
+          </div>
+          <div style="font-size:1.8rem;">📑</div>
+        </div>
+        <div class="d-card d-indigo">
+          <div>
+            <div style="font-size:1.5rem;font-weight:800;" id="udTotalTrade">0</div>
+            <div style="font-size:0.75rem;opacity:0.85;">TOTAL TRADE</div>
+          </div>
+          <div style="font-size:1.8rem;">📊</div>
+        </div>
+        <div class="d-card d-green">
+          <div>
+            <div style="font-size:1.5rem;font-weight:800;" id="udTotalDeposit">0</div>
+            <div style="font-size:0.75rem;opacity:0.85;">TOTAL DEPOSIT</div>
+          </div>
+          <div style="font-size:1.8rem;">💳</div>
+        </div>
+        <div class="d-card d-plum">
+          <div>
+            <div style="font-size:1.5rem;font-weight:800;" id="udTotalTx">0</div>
+            <div style="font-size:0.75rem;opacity:0.85;">TRANSACTIONS</div>
+          </div>
+          <div style="font-size:1.8rem;">⇄</div>
+        </div>
+      </div>
+
+      <!-- ACTION PILLS -->
+      <div class="action-pills">
+        <button class="pill-btn pill-green" onclick="openBalanceModal('ADD')">⊕ + Balance</button>
+        <button class="pill-btn pill-red" onclick="openBalanceModal('SUB')">⊖ - Balance</button>
+        <button class="pill-btn pill-purple" onclick="impersonateSelectedUser()">🔑 Login as User</button>
+        <button class="pill-btn pill-orange" id="udBanPillBtn" onclick="toggleBanSelectedUser()">🚫 Ban User</button>
+        <button class="pill-btn pill-indigo" onclick="openPasswordModal()">🔒 Change Password</button>
+      </div>
+
+      <!-- INFORMATION & TRADE CONTROL FORM -->
+      <div class="card">
+        <h4 style="margin-top:0;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:10px;" id="udFormTitle">Information of User</h4>
+
+        <div class="form-grid-2">
+          <div class="field"><label>First Name *</label><input type="text" id="udFirstName" /></div>
+          <div class="field"><label>Last Name *</label><input type="text" id="udLastName" /></div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="field"><label>Email *</label><input type="email" id="udEmail" /></div>
+          <div class="field"><label>Mobile Number *</label><input type="text" id="udMobile" /></div>
+        </div>
+
+        <div class="form-grid-2">
           <div class="field">
-            <label>Trade Outcome Mode</label>
-            <select id="setTradeMode">
-              <option value="WIN_DEFAULT">Trade Win Default (Auto Win)</option>
-              <option value="MARKET">Live Market Price Movement</option>
-              <option value="LOSS_DEFAULT">Force Loss Mode</option>
+            <label>Trade Outcome Control (Per User)</label>
+            <select id="udTradeOutcome">
+              <option value="WIN_DEFAULT">Default (Win by Default)</option>
+              <option value="FORCE_WIN">Force Win (User Always Wins)</option>
+              <option value="FORCE_LOSS">Force Loss (User Always Loses)</option>
             </select>
           </div>
-          <div class="grid-2">
-            <div class="field"><label>60s Profit %</label><input type="number" id="setPct60" /></div>
-            <div class="field"><label>80s Profit %</label><input type="number" id="setPct80" /></div>
-          </div>
-          <div class="grid-2">
-            <div class="field"><label>120s Profit %</label><input type="number" id="setPct120" /></div>
-            <div class="field"><label>Min Credit Score to Withdraw</label><input type="number" id="setMinScore" /></div>
-          </div>
-
-          <h4 style="margin: 14px 0 8px;">Global Ban Messages</h4>
-          <div class="field">
-            <label><input type="checkbox" id="setGlobalTradeBan" style="width:auto;" /> Enable Global Trade Ban</label>
-            <input type="text" id="setGlobalTradeMsg" placeholder="Trade ban message..." />
-          </div>
-          <div class="field">
-            <label><input type="checkbox" id="setGlobalWdrBan" style="width:auto;" /> Enable Global Withdraw Ban</label>
-            <input type="text" id="setGlobalWdrMsg" placeholder="Withdraw ban message..." />
-          </div>
-
-          <button class="btn-primary" onclick="savePlatformSettings()">Save Trading & Ban Settings</button>
+          <div class="field"><label>Credit Score (0 - 100)</label><input type="number" id="udCreditScore" min="0" max="100" /></div>
         </div>
 
-        <div class="card">
-          <h3 style="margin-bottom: 12px;">Currencies & Crypto Deposit Wallets</h3>
-          <div id="walletInputs"></div>
+        <div class="field"><label>Address</label><input type="text" id="udAddress" /></div>
 
-          <h4 style="margin: 16px 0 8px;">Add New Currency</h4>
-          <div class="grid-2">
-            <div class="field"><input type="text" id="newCurrCode" placeholder="Code (e.g. AED)" /></div>
-            <div class="field"><input type="text" id="newCurrSym" placeholder="Symbol (e.g. د.إ)" /></div>
-          </div>
-          <div class="field"><input type="number" step="0.0001" id="newCurrRate" placeholder="Rate relative to 1 PKR (e.g. 0.013)" /></div>
-          <button class="btn-secondary btn-sm" onclick="addNewCurrency()">+ Add Currency</button>
+        <div class="form-grid-4">
+          <div class="field"><label>City</label><input type="text" id="udCity" /></div>
+          <div class="field"><label>State</label><input type="text" id="udState" /></div>
+          <div class="field"><label>Zip/Postal</label><input type="text" id="udZip" /></div>
+          <div class="field"><label>Country *</label><input type="text" id="udCountry" /></div>
         </div>
+
+        <div class="form-grid-4">
+          <div class="field">
+            <label>Email Verification</label>
+            <button type="button" class="toggle-pill toggle-on" id="togEmail" onclick="flipToggle('togEmail','VERIFIED','UNVERIFIED')">VERIFIED</button>
+          </div>
+          <div class="field">
+            <label>Mobile Verification</label>
+            <button type="button" class="toggle-pill toggle-on" id="togMobile" onclick="flipToggle('togMobile','VERIFIED','UNVERIFIED')">VERIFIED</button>
+          </div>
+          <div class="field">
+            <label>KYC Verification</label>
+            <button type="button" class="toggle-pill toggle-on" id="togKyc" onclick="flipToggle('togKyc','VERIFIED','UNVERIFIED')">VERIFIED</button>
+          </div>
+          <div class="field">
+            <label>Account Status</label>
+            <button type="button" class="toggle-pill toggle-on" id="togStatus" onclick="flipToggle('togStatus','ACTIVE','BANNED')">ACTIVE</button>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="field">
+            <label>Withdraw Permission</label>
+            <button type="button" class="toggle-pill toggle-on" id="togWithdraw" onclick="flipToggle('togWithdraw','ALLOWED','DISABLED')">ALLOWED</button>
+          </div>
+          <div class="field">
+            <label>Trade Permission</label>
+            <button type="button" class="toggle-pill toggle-on" id="togTrade" onclick="flipToggle('togTrade','ALLOWED','BANNED')">ALLOWED</button>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="field"><label>Withdraw Message</label><input type="text" id="udWithdrawMsg" placeholder="Reason shown if disabled" /></div>
+          <div class="field"><label>Trade Ban Message</label><input type="text" id="udTradeMsg" placeholder="Reason shown when trade is banned" /></div>
+        </div>
+
+        <button type="button" class="pill-btn pill-indigo" style="width:100%;padding:13px;" onclick="saveUserDetail()">Submit</button>
+      </div>
+
+      <!-- USER WALLET & RECENT TRADES -->
+      <div class="card">
+        <div style="font-size:0.75rem;color:#f59e0b;font-weight:700;">● TOTAL BALANCE IN PKR</div>
+        <div style="font-size:1.65rem;font-weight:800;margin:4px 0 16px;" id="udWalletBalance">0.00 PKR</div>
+        <h4 style="margin:0 0 10px;">User Trade History</h4>
+        <div class="table-wrap" id="udTradesWrap"></div>
       </div>
     </section>
 
-    <!-- TAB 10: AUDIT LOGS -->
-    <section id="tab-logs" class="hidden">
+    <!-- SECTION 7: DEPOSITS -->
+    <section id="sec-deposits" class="hidden">
       <div class="card">
-        <h3 style="margin-bottom: 12px;">Guard & Admin Audit Trail</h3>
-        <div id="fullAuditLogs" style="font-size: 0.85rem;"></div>
+        <h3 style="margin-top:0;">💰 Deposit Proofs Queue</h3>
+        <div class="table-wrap" id="depositsTable"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: WITHDRAWALS -->
+    <section id="sec-withdrawals" class="hidden">
+      <div class="card">
+        <h3 style="margin-top:0;">🏦 Withdrawal Requests</h3>
+        <div class="table-wrap" id="withdrawalsTable"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 9: HELP CENTER -->
+    <section id="sec-tickets" class="hidden">
+      <div class="card">
+        <h3 style="margin-top:0;">🎧 Help Center Tickets</h3>
+        <div class="table-wrap" id="ticketsTable"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 10: ERROR SENDER -->
+    <section id="sec-errors" class="hidden">
+      <div class="card" style="max-width:520px;">
+        <h3 style="margin-top:0;">⚠️ Send Custom Alert to Trader</h3>
+        <div class="field"><label>Target User</label><select id="errTargetUser"></select></div>
+        <div class="field"><label>Alert Title</label><input type="text" id="errTitle" placeholder="System Verification Required" /></div>
+        <div class="field"><label>Message</label><input type="text" id="errMessage" placeholder="Enter message shown on trader dashboard" /></div>
+        <button class="pill-btn pill-indigo" style="width:100%;" onclick="sendCustomError()">Send Alert</button>
+      </div>
+    </section>
+
+    <!-- SECTION 11: SETTINGS -->
+    <section id="sec-settings" class="hidden">
+      <div class="card" style="max-width:520px;">
+        <h3 style="margin-top:0;">⚙️ Global Platform Settings</h3>
+        <div class="field">
+          <label>Global Default Trade Outcome</label>
+          <select id="setTradeMode">
+            <option value="WIN_DEFAULT">Win by Default</option>
+            <option value="LOSS_DEFAULT">Loss by Default</option>
+            <option value="MARKET">Real Market Price</option>
+          </select>
+        </div>
+        <div class="field"><label>Min Credit Score for Withdraw</label><input type="number" id="setMinScore" /></div>
+        <button class="pill-btn pill-indigo" style="width:100%;" onclick="saveGlobalSettings()">Save Settings</button>
       </div>
     </section>
   </main>
 </div>
 
-<script>
-  const staff = JSON.parse(localStorage.getItem('staffUser'));
-  if (!staff) window.location.href = './login.html';
+<!-- CUSTOM OBSIDIAN MODAL (NO BROWSER POPUPS) -->
+<div class="modal-backdrop" id="customModal">
+  <div class="modal-box">
+    <h3 style="margin-top:0;" id="modalTitle">Action</h3>
+    <div id="modalBody"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn-details" onclick="closeCustomModal()">Cancel</button>
+      <button class="pill-btn pill-indigo" id="modalConfirmBtn">Confirm</button>
+    </div>
+  </div>
+</div>
 
-  document.getElementById('staffName').textContent = staff.username;
-  document.getElementById('staffRoleLabel').textContent = staff.role;
-  if (staff.role !== 'MAIN_ADMIN') {
-    document.querySelectorAll('.main-only').forEach(el => el.classList.add('hidden'));
-  }
+<div class="toast-msg" id="adminToast">Saved!</div>
+
+<script>
+  const staffUser = JSON.parse(localStorage.getItem('staffUser'));
+  if (!staffUser) window.location.href = './login.html';
 
   let adminData = null;
+  let selectedUserId = null;
 
-  function showTab(name, el) {
+  function showToast(msg, isErr = false) {
+    const t = document.getElementById('adminToast');
+    t.textContent = msg;
+    t.style.background = isErr ? '#ef4444' : '#10b981';
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+  }
+
+  function adminHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'x-user-id': staffUser.id,
+      'x-session-token': localStorage.getItem('staffToken') || ''
+    };
+  }
+
+  function toggleAdminSidebar() {
+    const sb = document.getElementById('adminSidebar');
+    const main = document.getElementById('adminMain');
+    if (window.innerWidth <= 900) {
+      sb.classList.toggle('mobile-open');
+    } else {
+      sb.classList.toggle('collapsed');
+      main.classList.toggle('expanded');
+    }
+    // Also expand Manage Order submenu so running trades are immediately accessible
+    document.getElementById('orderSubmenu').classList.remove('hidden');
+  }
+
+  function toggleOrderMenu() {
+    const sub = document.getElementById('orderSubmenu');
+    const hidden = sub.classList.toggle('hidden');
+    document.getElementById('orderArrow').textContent = hidden ? '▶' : '▼';
+  }
+
+  function showSection(sec, el) {
     document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(`tab-${name}`).classList.remove('hidden');
+    document.getElementById(`sec-${sec}`).classList.remove('hidden');
     if (el) {
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.nav-item, .sub-item').forEach(n => n.classList.remove('active'));
       el.classList.add('active');
     }
+    const titles = {
+      'dashboard': 'Dashboard Overview',
+      'running-trades': 'Running Trades',
+      'order-history': 'Order History',
+      'trade-history': 'Trade History',
+      'users': 'All Users',
+      'user-detail': 'User Detail',
+      'deposits': 'Deposit Proofs',
+      'withdrawals': 'Withdrawals',
+      'tickets': 'Help Center',
+      'errors': 'Error Sender',
+      'settings': 'Settings'
+    };
+    document.getElementById('pageHeaderTitle').textContent = titles[sec] || 'Admin Command Center';
+    if (window.innerWidth <= 900) document.getElementById('adminSidebar').classList.remove('mobile-open');
   }
 
-  async function loadAdminData() {
-    const res = await fetch('/api/admin/overview', { headers: { 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '', 'x-session-token': localStorage.getItem('staffToken') || '' } });
-    if (!res.ok) return logout();
-    adminData = await res.json();
-    renderAdmin();
+  function timeAgo(iso) {
+    if (!iso) return '-';
+    const diff = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)} mins ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
   }
 
-  function renderAdmin() {
-    const { stats, traders, staff: staffList, deposits, withdrawals, trades, tickets, auditLogs, settings } = adminData;
+  async function fetchAdminOverview() {
+    try {
+      const res = await fetch('/api/admin/overview', { headers: adminHeaders() });
+      if (res.status === 401 || res.status === 403) return adminLogout();
+      adminData = await res.json();
+      renderAdminUI();
+    } catch (_) {}
+  }
 
-    // Metrics
-    document.getElementById('mTotalUsers').textContent = stats.totalUsers;
-    document.getElementById('mActiveUsers').textContent = stats.activeUsers;
-    document.getElementById('mTotalTrades').textContent = stats.totalTrades;
-    document.getElementById('mRunningTrades').textContent = stats.runningTrades;
-    document.getElementById('mPendingDep').textContent = stats.pendingDeposits;
-    document.getElementById('mPendingWdr').textContent = stats.pendingWithdrawals;
+  function renderAdminUI() {
+    if (!adminData) return;
+    const { actor, stats, traders, trades, deposits, withdrawals, tickets, settings } = adminData;
 
-    document.getElementById('navDepCount').textContent = stats.pendingDeposits;
-    document.getElementById('navWdrCount').textContent = stats.pendingWithdrawals;
-    document.getElementById('navTktCount').textContent = stats.openTickets;
+    document.getElementById('actorName').textContent = actor.username;
+    document.getElementById('actorRoleBadge').textContent = actor.role;
 
-    // Deposits Table
-    document.getElementById('depositsTable').innerHTML = deposits.map(d => `
-      <tr>
-        <td>${d.id}</td>
+    document.getElementById('stTotalUsers').textContent = stats.totalUsers;
+    document.getElementById('stActiveUsers').textContent = stats.activeUsers;
+    document.getElementById('stRunningTrades').textContent = stats.runningTrades;
+    document.getElementById('stTotalTrades').textContent = stats.totalTrades;
+
+    document.getElementById('badgeRunning').textContent = stats.runningTrades;
+    document.getElementById('topRunningCount').textContent = stats.runningTrades;
+    document.getElementById('badgeUsers').textContent = stats.totalUsers;
+    document.getElementById('badgeDep').textContent = stats.pendingDeposits;
+    document.getElementById('badgeWdr').textContent = stats.pendingWithdrawals;
+    document.getElementById('badgeTkt').textContent = stats.openTickets;
+
+    const running = trades.filter(t => t.status === 'RUNNING');
+    const settled = trades.filter(t => t.status !== 'RUNNING');
+
+    const runningHtml = buildTradesTable(running, true);
+    document.getElementById('dashRunningWrap').innerHTML = runningHtml;
+    document.getElementById('runningTradesTable').innerHTML = runningHtml;
+    document.getElementById('orderHistoryTable').innerHTML = buildTradesTable(trades, false);
+    document.getElementById('tradeHistoryTable').innerHTML = buildTradesTable(settled, false);
+
+    renderUsersTable();
+
+    // Error sender dropdown
+    const errSel = document.getElementById('errTargetUser');
+    if (errSel.options.length <= 1) {
+      errSel.innerHTML = `<option value="ALL">All Traders</option>` +
+        traders.map(u => `<option value="${u.id}">${u.username} (${u.email})</option>`).join('');
+    }
+
+    // Settings inputs
+    if (document.activeElement.id !== 'setTradeMode') document.getElementById('setTradeMode').value = settings.tradeOutcomeMode || 'WIN_DEFAULT';
+    if (document.activeElement.id !== 'setMinScore') document.getElementById('setMinScore').value = settings.minCreditScoreForWithdraw ?? 90;
+
+    // Deposits
+    document.getElementById('depositsTable').innerHTML = deposits.length ? `
+      <table><thead><tr><th>USER</th><th>CRYPTO</th><th>AMOUNT</th><th>PROOF</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
+      ${deposits.map(d => `<tr>
         <td><strong>${d.username}</strong></td>
         <td>${d.cryptoCurrency}</td>
-        <td>Rs ${d.amount}</td>
-        <td>${d.txHash}</td>
-        <td><a href="${d.proofUrl}" target="_blank" style="color:var(--color-info)">View Receipt</a></td>
-        <td><strong>${d.status}</strong></td>
-        <td>
-          ${d.status === 'PENDING' ? `
-            <button class="btn-sm btn-green" onclick="reviewDeposit('${d.id}', 'APPROVE')">Approve</button>
-            <button class="btn-sm btn-red" onclick="reviewDeposit('${d.id}', 'REJECT')">Reject</button>
-          ` : `By ${d.reviewedBy || '-'}`}
-        </td>
-      </tr>
-    `).join('');
+        <td>PKR ${Number(d.amount).toLocaleString()}</td>
+        <td><a href="${d.proofUrl}" target="_blank" style="color:#818cf8;">View Receipt</a></td>
+        <td><span class="tag ${d.status==='APPROVED'?'tag-win':d.status==='REJECTED'?'tag-loss':'tag-run'}">${d.status}</span></td>
+        <td>${d.status==='PENDING' ? `<button class="btn-sm btn-win" onclick="reviewDeposit('${d.id}','APPROVE')">Approve</button><button class="btn-sm btn-loss" onclick="reviewDeposit('${d.id}','REJECT')">Reject</button>` : '-'}</td>
+      </tr>`).join('')}
+      </tbody></table>` : '<p style="color:#94a3b8;">No deposit proofs submitted.</p>';
 
-    // Withdrawals Table (With Edit Account Button)
-    document.getElementById('withdrawalsTable').innerHTML = withdrawals.map(w => `
-      <tr>
-        <td>${w.id}</td>
+    // Withdrawals
+    document.getElementById('withdrawalsTable').innerHTML = withdrawals.length ? `
+      <table><thead><tr><th>USER</th><th>AMOUNT</th><th>ACCOUNT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
+      ${withdrawals.map(w => `<tr>
         <td><strong>${w.username}</strong></td>
-        <td>Rs ${w.amount}</td>
-        <td>${w.method}</td>
-        <td>
-          <code>${w.accountDetails}</code>
-          <button class="btn-sm btn-blue" onclick="editWithdrawAccount('${w.id}', '${w.accountDetails}')">Edit</button>
-        </td>
-        <td><strong>${w.status}</strong></td>
-        <td>
-          ${w.status === 'PENDING' ? `
-            <button class="btn-sm btn-green" onclick="reviewWithdrawal('${w.id}', 'APPROVE')">Approve</button>
-            <button class="btn-sm btn-red" onclick="reviewWithdrawal('${w.id}', 'REJECT')">Reject</button>
-          ` : w.status}
-        </td>
-      </tr>
-    `).join('');
+        <td>PKR ${Number(w.amount).toLocaleString()}</td>
+        <td>${w.accountDetails}</td>
+        <td><span class="tag ${w.status==='APPROVED'?'tag-win':w.status==='REJECTED'?'tag-loss':'tag-run'}">${w.status}</span></td>
+        <td>${w.status==='PENDING' ? `<button class="btn-sm btn-win" onclick="reviewWithdrawal('${w.id}','APPROVE')">Approve</button><button class="btn-sm btn-loss" onclick="reviewWithdrawal('${w.id}','REJECT')">Reject</button>` : '-'}</td>
+      </tr>`).join('')}
+      </tbody></table>` : '<p style="color:#94a3b8;">No withdrawal requests.</p>';
 
-    // Users Table
-    document.getElementById('usersTable').innerHTML = traders.map(u => `
-      <tr>
-        <td><strong>${u.username}</strong><br><small style="color:var(--text-muted)">${u.email} (${u.country})</small></td>
-        <td>Rs ${u.balance.toFixed(2)}</td>
-        <td>${u.creditScore}</td>
-        <td><strong style="color:${u.status === 'ACTIVE' ? 'var(--color-primary)' : 'var(--color-danger)'}">${u.status}</strong></td>
-        <td>
-          <small>Trade: ${u.tradeBan?.enabled ? 'BANNED' : 'OK'} | Wdr: ${u.withdrawBan?.enabled ? 'BANNED' : 'OK'}</small>
-        </td>
-        <td>
-          <button class="btn-sm btn-red" onclick="toggleGuardStatus('${u.id}', '${u.status === 'ACTIVE' ? 'FROZEN' : 'ACTIVE'}')">${u.status === 'ACTIVE' ? 'Freeze' : 'Unfreeze'}</button>
-          <button class="btn-sm btn-blue" onclick="configureUserBans('${u.id}')">Ban Msgs</button>
-          <button class="btn-sm btn-purple" onclick="viewCustomerTrades('${u.id}', '${u.username}')">Trades</button>
-          ${staff.role === 'MAIN_ADMIN' ? `
-            <button class="btn-sm btn-green" onclick="adjustUser('${u.id}', ${u.creditScore})">+/- Money & Score</button>
-            <button class="btn-sm btn-purple" onclick="loginAsUser('${u.id}')">Login as User</button>
-            <button class="btn-sm btn-blue" onclick="resetUserPassword('${u.id}', '${u.username}')">Reset Pass</button>
-          ` : ''}
-        </td>
-      </tr>
-    `).join('');
-
-    // Trades Table
-    document.getElementById('tradesTable').innerHTML = trades.map(t => `
-      <tr>
-        <td>${t.id}</td>
-        <td>${t.username}</td>
-        <td>${t.pair}</td>
-        <td>${t.direction}</td>
-        <td>Rs ${t.stake}</td>
-        <td>+${t.payoutPercent}%</td>
-        <td><strong>${t.status}</strong></td>
-        <td>${t.status === 'RUNNING' ? `<button class="btn-sm btn-red" onclick="voidTrade('${t.id}')">Void Trade</button>` : '-'}</td>
-      </tr>
-    `).join('');
-
-    // Help Center Tickets
-// Help Center Tickets (Preserves active typing during live refresh)
-    const draftReplies = {};
-    document.querySelectorAll('[id^="reply-"]').forEach(inp => {
-      draftReplies[inp.id] = inp.value;
-    });
-    const focusedId = document.activeElement?.id;
-
-document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets.map(tk => `
-      <div class="card" style="margin-bottom: 12px; padding: 14px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <strong>${tk.subject} — <span style="color:var(--color-orange)">@${tk.username}</span></strong>
-          <span style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:6px; background:${tk.status === 'OPEN' ? 'rgba(238, 77, 7, 0.18)' : 'rgba(16, 185, 129, 0.18)'}; color:${tk.status === 'OPEN' ? '#fb923c' : '#34d399'};">${tk.status}</span>
-        </div>
-        <p style="margin: 8px 0; color: var(--text-main);">${tk.message}</p>
-        ${tk.reply ? `<div style="background:rgba(255, 255, 255, 0.04); border-left:3px solid var(--color-orange); padding:8px 12px; border-radius:6px; margin-bottom:10px; font-size:0.85rem; color:var(--text-main);"><strong>Admin Reply (${tk.repliedBy || 'Staff'}):</strong> ${tk.reply}</div>` : ''}
-        <div style="display:flex; gap:8px;">
-          <input type="text" id="reply-${tk.id}" value="${(draftReplies[`reply-${tk.id}`] || '').replace(/"/g, '&quot;')}" placeholder="Write reply to @${tk.username}..." style="flex:1;" />
-          <button type="button" class="btn-primary btn-sm" onclick="replyTicket('${tk.id}')">Send Reply</button>
-        </div>
-      </div>
-    `).join('') : 'No support tickets yet.';
-
-    if (focusedId && document.getElementById(focusedId)) {
-      const el = document.getElementById(focusedId);
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
-    }
-
-    // Error Sender Target Dropdown
-    const errSel = document.getElementById('errTargetUser');
-    if (errSel.options.length === 0) {
-      errSel.innerHTML = `<option value="ALL">ALL TRADERS (Broadcast)</option>` +
-        traders.map(u => `<option value="${u.id}">@${u.username} (${u.email})</option>`).join('');
-    }
-
-    // Main Admin Staff & Settings
-    if (staff.role === 'MAIN_ADMIN') {
-      document.getElementById('staffList').innerHTML = staffList.map(s => `
-        <div style="padding:10px 0; border-bottom:1px solid var(--border-color);">
-          <strong>${s.username}</strong> (${s.role}) — Withdrawals Perm: ${s.permissions?.canApproveWithdrawals ? 'Yes' : 'No'}
-        </div>
-      `).join('');
-
-      if (!document.getElementById('setPct60').value) {
-        document.getElementById('setTradeMode').value = settings.tradeOutcomeMode;
-        document.getElementById('setPct60').value = settings.payoutPercentages['60'];
-        document.getElementById('setPct80').value = settings.payoutPercentages['80'];
-        document.getElementById('setPct120').value = settings.payoutPercentages['120'];
-        document.getElementById('setMinScore').value = settings.minCreditScoreForWithdraw;
-        document.getElementById('setGlobalTradeBan').checked = settings.globalTradeBan?.enabled;
-        document.getElementById('setGlobalTradeMsg').value = settings.globalTradeBan?.message || '';
-        document.getElementById('setGlobalWdrBan').checked = settings.globalWithdrawBan?.enabled;
-        document.getElementById('setGlobalWdrMsg').value = settings.globalWithdrawBan?.message || '';
-
-        document.getElementById('walletInputs').innerHTML = Object.entries(settings.cryptoWallets).map(([k, v]) => `
-          <div class="field"><label>${k}</label><input type="text" data-wallet="${k}" value="${v}" /></div>
-        `).join('');
-      }
-    }
-
-    // Audit Logs
-    const logsHTML = auditLogs.map(l => `
-      <div style="padding:8px 0; border-bottom:1px solid var(--border-color);">
-        <strong>[${l.actorRole}] ${l.actorUsername}</strong> → <code>${l.action}</code> on <strong>${l.target}</strong> (${l.details})
-        <small style="color:var(--text-dim); float:right;">${new Date(l.timestamp).toLocaleTimeString()}</small>
-      </div>
-    `).join('');
-    document.getElementById('dashAuditPreview').innerHTML = logsHTML || 'No logs yet.';
-    document.getElementById('fullAuditLogs').innerHTML = logsHTML || 'No logs yet.';
+    // Tickets
+    document.getElementById('ticketsTable').innerHTML = tickets.length ? `
+      <table><thead><tr><th>USER</th><th>SUBJECT</th><th>MESSAGE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
+      ${tickets.map(tk => `<tr>
+        <td><strong>${tk.username}</strong></td>
+        <td>${tk.subject}</td>
+        <td>${tk.message}${tk.reply ? `<div style="color:#34d399;font-size:0.8rem;margin-top:4px;">Reply: ${tk.reply}</div>` : ''}</td>
+        <td><span class="tag ${tk.status==='ANSWERED'?'tag-win':'tag-run'}">${tk.status}</span></td>
+        <td><button class="btn-details" onclick="openReplyModal('${tk.id}')">Reply</button></td>
+      </tr>`).join('')}
+      </tbody></table>` : '<p style="color:#94a3b8;">No support tickets.</p>';
   }
 
-  // Action Handlers
+  function buildTradesTable(list, isRunning) {
+    if (!list.length) return '<p style="color:#94a3b8;margin:8px 0;">No trades found.</p>';
+    return `<table>
+      <thead><tr><th>ID</th><th>TRADER</th><th>PAIR</th><th>STAKE</th><th>PAYOUT</th><th>TIME / STATUS</th><th>ADMIN CONTROL</th></tr></thead>
+      <tbody>
+        ${list.map(t => {
+          const rem = Math.max(0, Math.ceil((Number(t.expiresAt) - Date.now()) / 1000));
+          const tagCls = t.status === 'WON' ? 'tag-win' : t.status === 'LOST' ? 'tag-loss' : 'tag-run';
+          return `<tr>
+            <td><strong>${t.id}</strong></td>
+            <td>@${t.username}</td>
+            <td>${t.pair} (${t.direction})</td>
+            <td>PKR ${Number(t.stake).toLocaleString()}</td>
+            <td>+${t.payoutPercent}%</td>
+            <td>${isRunning ? `<span class="tag tag-run">${rem}s left</span>` : `<span class="tag ${tagCls}">${t.status}</span>`}</td>
+            <td>${isRunning ? `
+              <button class="btn-sm btn-win" onclick="setTradeOutcome('${t.id}','WIN')">Force Win</button>
+              <button class="btn-sm btn-loss" onclick="setTradeOutcome('${t.id}','LOSS')">Force Loss</button>
+              <button class="btn-sm btn-void" onclick="voidTrade('${t.id}')">Void</button>
+            ` : `Profit: PKR ${Number(t.profit || 0).toLocaleString()}`}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  }
+
+  function renderUsersTable() {
+    if (!adminData) return;
+    const q = (document.getElementById('userSearchInput').value || '').toLowerCase().trim();
+    const filter = document.getElementById('userFilterSelect').value;
+
+    const filtered = adminData.traders.filter(u => {
+      const matchesText = !q ||
+        u.username.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.firstName + ' ' + u.lastName).toLowerCase().includes(q) ||
+        (u.mobile || '').toLowerCase().includes(q);
+
+      if (!matchesText) return false;
+      if (filter === 'ACTIVE') return u.status === 'ACTIVE';
+      if (filter === 'BANNED') return u.status !== 'ACTIVE';
+      if (filter === 'WIN_DEFAULT') return (u.tradeOutcome || 'WIN_DEFAULT') === 'WIN_DEFAULT';
+      if (filter === 'FORCE_WIN') return u.tradeOutcome === 'FORCE_WIN';
+      if (filter === 'FORCE_LOSS') return u.tradeOutcome === 'FORCE_LOSS';
+      return true;
+    });
+
+    const tbody = document.getElementById('allUsersTbody');
+    tbody.innerHTML = filtered.length ? filtered.map(u => {
+      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.username;
+      const modeTag = u.tradeOutcome === 'FORCE_LOSS'
+        ? '<span class="tag tag-loss">Force Loss</span>'
+        : u.tradeOutcome === 'FORCE_WIN'
+          ? '<span class="tag tag-win">Force Win</span>'
+          : '<span class="tag tag-run">Default Win</span>';
+      return `<tr>
+        <td>
+          <strong>${fullName}</strong>
+          <span class="user-handle">@${u.username}</span>
+        </td>
+        <td>
+          <div>${u.email}</div>
+          <small style="color:#94a3b8;">${u.mobile || '-'}</small>
+        </td>
+        <td><strong>${u.country || 'PK'}</strong></td>
+        <td><strong>PKR ${Number(u.balance).toLocaleString()}</strong></td>
+        <td>${modeTag}</td>
+        <td>
+          <div>${new Date(u.createdAt).toLocaleDateString()}</div>
+          <small style="color:#94a3b8;">${timeAgo(u.createdAt)}</small>
+        </td>
+        <td><button class="btn-details" onclick="openUserDetail('${u.id}')">🖥 Details</button></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="7" style="text-align:center;color:#94a3b8;">No matching users found.</td></tr>';
+  }
+
+  // ==========================================================================
+  // USER DETAIL VIEW & CONTROLS
+  // ==========================================================================
+  async function openUserDetail(userId) {
+    selectedUserId = userId;
+    const res = await fetch(`/api/admin/users/${userId}/detail`, { headers: adminHeaders() });
+    if (!res.ok) return showToast('Could not load user details', true);
+    const { user, trades, deposits, transactions } = await res.json();
+
+    document.getElementById('detailHeading').textContent = `User Detail - @${user.username}`;
+    document.getElementById('udFormTitle').textContent = `Information of ${user.firstName || user.username} ${user.lastName || ''}`;
+    document.getElementById('udTotalOrder').textContent = trades.length;
+    document.getElementById('udTotalTrade').textContent = trades.length;
+    document.getElementById('udTotalDeposit').textContent = deposits.length;
+    document.getElementById('udTotalTx').textContent = transactions.length;
+
+    document.getElementById('udFirstName').value = user.firstName || '';
+    document.getElementById('udLastName').value = user.lastName || '';
+    document.getElementById('udEmail').value = user.email || '';
+    document.getElementById('udMobile').value = user.mobile || '';
+    document.getElementById('udTradeOutcome').value = user.tradeOutcome || 'WIN_DEFAULT';
+    document.getElementById('udCreditScore').value = user.creditScore ?? 100;
+    document.getElementById('udAddress').value = user.address || '';
+    document.getElementById('udCity').value = user.city || '';
+    document.getElementById('udState').value = user.state || '';
+    document.getElementById('udZip').value = user.zip || '';
+    document.getElementById('udCountry').value = user.country || 'Pakistan';
+    document.getElementById('udWithdrawMsg').value = user.withdrawBan?.message || '';
+    document.getElementById('udTradeMsg').value = user.tradeBan?.message || '';
+    document.getElementById('udWalletBalance').textContent = `${Number(user.balance).toLocaleString()} PKR`;
+
+    setToggleState('togEmail', user.emailVerified, 'VERIFIED', 'UNVERIFIED');
+    setToggleState('togMobile', user.mobileVerified, 'VERIFIED', 'UNVERIFIED');
+    setToggleState('togKyc', user.kycVerified, 'VERIFIED', 'UNVERIFIED');
+    setToggleState('togStatus', user.status === 'ACTIVE', 'ACTIVE', 'BANNED');
+    setToggleState('togWithdraw', !user.withdrawBan?.enabled, 'ALLOWED', 'DISABLED');
+    setToggleState('togTrade', !user.tradeBan?.enabled, 'ALLOWED', 'BANNED');
+
+    document.getElementById('udBanPillBtn').textContent = user.status === 'ACTIVE' ? '🚫 Ban User' : '✅ Unban User';
+    document.getElementById('udTradesWrap').innerHTML = buildTradesTable(trades, false);
+
+    showSection('user-detail');
+  }
+
+  function setToggleState(id, isOn, onTxt, offTxt) {
+    const btn = document.getElementById(id);
+    btn.dataset.on = isOn ? '1' : '0';
+    btn.textContent = isOn ? onTxt : offTxt;
+    btn.className = `toggle-pill ${isOn ? 'toggle-on' : 'toggle-off'}`;
+  }
+
+  function flipToggle(id, onTxt, offTxt) {
+    const btn = document.getElementById(id);
+    const next = btn.dataset.on !== '1';
+    setToggleState(id, next, onTxt, offTxt);
+  }
+
+  async function saveUserDetail() {
+    if (!selectedUserId) return;
+    const payload = {
+      firstName: document.getElementById('udFirstName').value.trim(),
+      lastName: document.getElementById('udLastName').value.trim(),
+      email: document.getElementById('udEmail').value.trim(),
+      mobile: document.getElementById('udMobile').value.trim(),
+      country: document.getElementById('udCountry').value.trim(),
+      address: document.getElementById('udAddress').value.trim(),
+      city: document.getElementById('udCity').value.trim(),
+      state: document.getElementById('udState').value.trim(),
+      zip: document.getElementById('udZip').value.trim(),
+      creditScore: Number(document.getElementById('udCreditScore').value),
+      tradeOutcome: document.getElementById('udTradeOutcome').value,
+      emailVerified: document.getElementById('togEmail').dataset.on === '1',
+      mobileVerified: document.getElementById('togMobile').dataset.on === '1',
+      kycVerified: document.getElementById('togKyc').dataset.on === '1',
+      status: document.getElementById('togStatus').dataset.on === '1' ? 'ACTIVE' : 'BANNED',
+      withdrawBan: {
+        enabled: document.getElementById('togWithdraw').dataset.on !== '1',
+        message: document.getElementById('udWithdrawMsg').value.trim()
+      },
+      tradeBan: {
+        enabled: document.getElementById('togTrade').dataset.on !== '1',
+        message: document.getElementById('udTradeMsg').value.trim()
+      }
+    };
+
+    const res = await fetch(`/api/admin/users/${selectedUserId}/profile`, {
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Error saving user', true);
+    showToast('User details & trade controls updated!');
+    fetchAdminOverview();
+    openUserDetail(selectedUserId);
+  }
+
+  // CUSTOM MODALS FOR +BALANCE, -BALANCE, PASSWORD, TICKET REPLY
+  function openCustomModal(title, bodyHtml, onConfirm) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').innerHTML = bodyHtml;
+    const btn = document.getElementById('modalConfirmBtn');
+    btn.onclick = onConfirm;
+    document.getElementById('customModal').classList.add('open');
+  }
+  function closeCustomModal() {
+    document.getElementById('customModal').classList.remove('open');
+  }
+
+  function openBalanceModal(mode) {
+    const label = mode === 'ADD' ? 'Amount to Add (PKR)' : 'Amount to Subtract (PKR)';
+    openCustomModal(
+      mode === 'ADD' ? '➕ Add Balance' : '➖ Subtract Balance',
+      `<div class="field"><label>${label}</label><input type="number" id="modalBalAmt" placeholder="e.g. 5000" min="1" /></div>`,
+      async () => {
+        const amt = Number(document.getElementById('modalBalAmt').value);
+        if (!amt || amt <= 0) return;
+        const delta = mode === 'ADD' ? amt : -amt;
+        const res = await fetch(`/api/admin/users/${selectedUserId}/adjust`, {
+          method: 'POST', headers: adminHeaders(), body: JSON.stringify({ balanceDelta: delta })
+        });
+        closeCustomModal();
+        if (res.ok) {
+          showToast(`Balance ${mode === 'ADD' ? 'added' : 'deducted'}!`);
+          fetchAdminOverview();
+          openUserDetail(selectedUserId);
+        }
+      }
+    );
+  }
+
+  function openPasswordModal() {
+    openCustomModal(
+      '🔒 Change User Password',
+      `<div class="field"><label>New Password</label><input type="text" id="modalNewPass" placeholder="Enter new password" /></div>`,
+      async () => {
+        const newPassword = document.getElementById('modalNewPass').value.trim();
+        if (!newPassword) return;
+        const res = await fetch(`/api/admin/users/${selectedUserId}/reset-password`, {
+          method: 'POST', headers: adminHeaders(), body: JSON.stringify({ newPassword })
+        });
+        closeCustomModal();
+        if (res.ok) showToast('Password updated!');
+      }
+    );
+  }
+
+  function openReplyModal(ticketId) {
+    openCustomModal(
+      '💬 Reply to Support Ticket',
+      `<div class="field"><label>Reply Message</label><input type="text" id="modalReplyTxt" placeholder="Write reply..." /></div>`,
+      async () => {
+        const reply = document.getElementById('modalReplyTxt').value.trim();
+        if (!reply) return;
+        await fetch(`/api/admin/tickets/${ticketId}/reply`, {
+          method: 'POST', headers: adminHeaders(), body: JSON.stringify({ reply })
+        });
+        closeCustomModal();
+        showToast('Reply sent!');
+        fetchAdminOverview();
+      }
+    );
+  }
+
+  async function toggleBanSelectedUser() {
+    const isCurrentlyActive = document.getElementById('togStatus').dataset.on === '1';
+    setToggleState('togStatus', !isCurrentlyActive, 'ACTIVE', 'BANNED');
+    await saveUserDetail();
+  }
+
+  async function impersonateSelectedUser() {
+    const res = await fetch(`/api/admin/users/${selectedUserId}/impersonate`, {
+      method: 'POST', headers: adminHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error, true);
+    localStorage.setItem('traderUser', JSON.stringify(data.user));
+    localStorage.setItem('traderToken', data.token);
+    window.open('/', '_blank');
+  }
+
+  async function setTradeOutcome(tradeId, outcome) {
+    const res = await fetch(`/api/admin/trades/${tradeId}/outcome`, {
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify({ outcome })
+    });
+    if (res.ok) {
+      showToast(`Trade set to ${outcome}`);
+      fetchAdminOverview();
+    }
+  }
+
+  async function voidTrade(tradeId) {
+    const res = await fetch(`/api/admin/trades/${tradeId}/void`, {
+      method: 'POST', headers: adminHeaders()
+    });
+    if (res.ok) {
+      showToast('Trade voided & refunded');
+      fetchAdminOverview();
+    }
+  }
+
   async function reviewDeposit(id, action) {
     await fetch(`/api/admin/deposits/${id}/review`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({ action })
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify({ action })
     });
-    loadAdminData();
-  }
-
-  async function editWithdrawAccount(id, currentAcc) {
-    const updated = prompt('Edit Trader Receiving Account / Wallet Address:', currentAcc);
-    if (updated === null) return;
-    await fetch(`/api/admin/withdrawals/${id}/edit-account`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({ accountDetails: updated })
-    });
-    loadAdminData();
+    showToast(`Deposit ${action}D`);
+    fetchAdminOverview();
   }
 
   async function reviewWithdrawal(id, action) {
-    const res = await fetch(`/api/admin/withdrawals/${id}/review`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({ action })
+    await fetch(`/api/admin/withdrawals/${id}/review`, {
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify({ action })
     });
-    const d = await res.json();
-    if (!res.ok) alert(d.error);
-    loadAdminData();
+    showToast(`Withdrawal ${action}D`);
+    fetchAdminOverview();
   }
 
-  async function toggleGuardStatus(id, status) {
-    await fetch(`/api/admin/users/${id}/guard`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({ status })
-    });
-    loadAdminData();
-  }
-
-  async function configureUserBans(id) {
-    const tEnable = confirm('Enable TRADE BAN for this trader? (OK = Yes, Cancel = No)');
-    const tMsg = tEnable ? prompt('Enter Trade Ban Message:', 'Trading restricted on your account.') : '';
-    const wEnable = confirm('Enable WITHDRAW BAN for this trader? (OK = Yes, Cancel = No)');
-    const wMsg = wEnable ? prompt('Enter Withdraw Ban Message:', 'Withdrawals restricted on your account.') : '';
-
-    await fetch(`/api/admin/users/${id}/guard`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({
-        tradeBan: { enabled: tEnable, message: tMsg },
-        withdrawBan: { enabled: wEnable, message: wMsg }
-      })
-    });
-    loadAdminData();
-  }
-
-  async function adjustUser(id, currentScore) {
-    const delta = prompt('Enter Fake Money amount to ADD (e.g. 5000) or DEDUCT (e.g. -1000). Leave 0 for no balance change:', '5000');
-    if (delta === null) return;
-    const score = prompt('Set Credit Score (0 - 100, Min 90 to withdraw):', currentScore);
-    if (score === null) return;
-
-    await fetch(`/api/admin/users/${id}/adjust`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({ balanceDelta: Number(delta), creditScore: Number(score) })
-    });
-    loadAdminData();
-  }
-
-  async function loginAsUser(id) {
-    const res = await fetch(`/api/admin/users/${id}/impersonate`, {
-      method: 'POST',
-      headers: { 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' }
-    });
-    const data = await res.json();
-    if (res.ok) {
-      localStorage.setItem('traderUser', JSON.stringify(data.user));
-      window.open('/dashboard.html', '_blank');
-    }
-  }
-
-  async function resetUserPassword(id, username) {
-    const newPassword = prompt(`Enter new password for ${username}:`);
-    if (!newPassword) return;
-    const res = await fetch(`/api/admin/users/${id}/reset-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({ newPassword })
-    });
-    const data = await res.json();
-    alert(data.message || data.error);
-  }
-
-  async function voidTrade(id) {
-    await fetch(`/api/admin/trades/${id}/void`, {
-      method: 'POST',
-      headers: { 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' }
-    });
-    loadAdminData();
-  }
-
-async function replyTicket(id) {
-    const input = document.getElementById(`reply-${id}`);
-    const reply = input ? input.value.trim() : '';
-    if (!reply) return alert('Please write a reply first.');
-
-    const res = await fetch(`/api/admin/tickets/${id}/reply`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({ reply })
-    });
-    const data = await res.json();
-    if (!res.ok) return alert(data.error || 'Failed to send reply.');
-
-    input.value = '';
-    loadAdminData();
-  }
-
-  document.getElementById('errorSenderForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+  async function sendCustomError() {
+    const targetUserId = document.getElementById('errTargetUser').value;
+    const title = document.getElementById('errTitle').value.trim();
+    const message = document.getElementById('errMessage').value.trim();
+    if (!message) return showToast('Enter a message', true);
     await fetch('/api/admin/error-sender', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({
-        targetUserId: document.getElementById('errTargetUser').value,
-        title: document.getElementById('errTitle').value,
-        message: document.getElementById('errMessage').value
-      })
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify({ targetUserId, title, message })
     });
-    alert('Error alert sent!');
-    e.target.reset();
-  });
-
-  document.getElementById('subAdminForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const res = await fetch('/api/admin/subadmins', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({
-        username: document.getElementById('subUser').value.trim(),
-        password: document.getElementById('subPass').value,
-        canApproveWithdrawals: document.getElementById('subCanWdr').checked
-      })
-    });
-    const d = await res.json();
-    alert(d.message || d.error);
-    e.target.reset();
-    loadAdminData();
-  });
-
-  async function savePlatformSettings() {
-    const wallets = {};
-    document.querySelectorAll('[data-wallet]').forEach(inp => {
-      wallets[inp.dataset.wallet] = inp.value.trim();
-    });
-
-    await fetch('/api/admin/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({
-        tradeOutcomeMode: document.getElementById('setTradeMode').value,
-        payoutPercentages: {
-          "60": Number(document.getElementById('setPct60').value),
-          "80": Number(document.getElementById('setPct80').value),
-          "120": Number(document.getElementById('setPct120').value)
-        },
-        minCreditScoreForWithdraw: Number(document.getElementById('setMinScore').value),
-        globalTradeBan: {
-          enabled: document.getElementById('setGlobalTradeBan').checked,
-          message: document.getElementById('setGlobalTradeMsg').value
-        },
-        globalWithdrawBan: {
-          enabled: document.getElementById('setGlobalWdrBan').checked,
-          message: document.getElementById('setGlobalWdrMsg').value
-        },
-        cryptoWallets: wallets
-      })
-    });
-    alert('Platform settings updated!');
-    loadAdminData();
+    document.getElementById('errTitle').value = '';
+    document.getElementById('errMessage').value = '';
+    showToast('Alert sent to trader!');
   }
 
-  async function addNewCurrency() {
-    const code = document.getElementById('newCurrCode').value.trim().toUpperCase();
-    const symbol = document.getElementById('newCurrSym').value.trim();
-    const rateToBase = Number(document.getElementById('newCurrRate').value);
-    if (!code || !symbol || !rateToBase) return alert('Fill all currency fields.');
-
-    const updatedCurrencies = [...adminData.settings.currencies, { code, symbol, name: code, rateToBase }];
+  async function saveGlobalSettings() {
+    const tradeOutcomeMode = document.getElementById('setTradeMode').value;
+    const minCreditScoreForWithdraw = Number(document.getElementById('setMinScore').value);
     await fetch('/api/admin/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
-      body: JSON.stringify({ currencies: updatedCurrencies })
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify({ tradeOutcomeMode, minCreditScoreForWithdraw })
     });
-    alert(`${code} added!`);
-    loadAdminData();
+    showToast('Global settings saved!');
+    fetchAdminOverview();
   }
 
-  function logout() {
+  function adminLogout() {
     localStorage.removeItem('staffUser');
     localStorage.removeItem('staffToken');
     window.location.href = './login.html';
   }
 
-  loadAdminData();
-  // Instant Real-Time Sync with SQLite Backend
+  fetchAdminOverview();
   const adminStream = new EventSource('/api/stream');
-  adminStream.onmessage = () => loadAdminData();
-  setInterval(loadAdminData, 3000);
-
-function viewCustomerTrades(userId, username) {
-    const panel = document.getElementById('customerTradeInspector');
-    document.getElementById('inspectorTitle').textContent = `Trades for @${username}`;
-    panel.classList.remove('hidden');
-
-    const allTrades = (adminData && adminData.trades) || [];
-    const userTrades = allTrades.filter(t => t.userId === userId);
-    const currentTrade = userTrades.find(t => t.status === 'RUNNING');
-
-    document.getElementById('adminCustomerCurrentTrade').innerHTML = currentTrade
-      ? `<div class="score-notice">
-           <strong>${currentTrade.pair}</strong> • Stake: <strong>Rs ${currentTrade.stake}</strong> • Duration: ${currentTrade.durationSeconds}s (RUNNING)
-         </div>`
-      : `<p class="sub-muted">No active trade running right now.</p>`;
-
-    document.getElementById('adminCustomerTradeHistory').innerHTML = userTrades.length
-      ? userTrades.map(t => `
-          <div class="tx-row">
-            <div><strong>${t.pair}</strong> (${t.durationSeconds}s)<br><small>${new Date(t.createdAt).toLocaleString()}</small></div>
-            <div><strong>${t.status}</strong><br><small>Stake: Rs ${t.stake}</small></div>
-          </div>
-        `).join('')
-      : `<p class="sub-muted">No trade history found for this customer.</p>`;
-
-    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
+  adminStream.onmessage = () => fetchAdminOverview();
+  setInterval(fetchAdminOverview, 2000);
 </script>
 </body>
 </html>

