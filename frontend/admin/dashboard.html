@@ -125,6 +125,13 @@
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .hidden { display: none !important; }
+    @media (max-width: 860px) {
+      html, body { max-width: 100%; overflow-x: hidden; }
+      .sidebar { position: static; width: 100%; flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 10px; }
+      .content { margin-left: 0; width: 100%; padding: 12px; overflow-x: auto; }
+      .grid-2 { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; white-space: nowrap; }
+    }
   </style>
 </head>
 <body>

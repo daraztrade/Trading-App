@@ -230,12 +230,31 @@ canvas {
       font-size: 0.88rem;
     }
     .hidden { display: none !important; }
+html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    .main-area, .card, .trade-grid > div, .stats-grid > div {
+      min-width: 0;
+      max-width: 100%;
+    }
     @media (max-width: 860px) {
       .sidebar { transform: translateX(-100%); }
       .sidebar.open { transform: translateX(0); }
-      .main-area { margin-left: 0; padding: 14px; }
+      .main-area {
+        margin-left: 0;
+        width: 100%;
+        padding: 12px 12px 70px;
+      }
       .menu-btn { display: inline-block; }
       .trade-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .stat-val { font-size: 1.2rem; }
+      .topbar { flex-wrap: wrap; gap: 8px; }
+      .topbar-right { width: 100%; justify-content: space-between; }
+      .pro-price-hero { font-size: 1.45rem; word-break: break-word; }
+      .telemetry-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      canvas { height: 230px; }
     }
   </style>
 </head>
