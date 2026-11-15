@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daraz Trade - Admin & Guard Command Center</title>
+  <meta name="robots" content="noindex, nofollow" />
+   <title>Daraz Trade</title>
   <link rel="stylesheet" href="/shared/theme.css" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
   <style>
@@ -664,6 +665,10 @@
         <div style="font-size:1.65rem;font-weight:800;margin:4px 0 16px;" id="udWalletBalance">0.00 PKR</div>
         <h4 style="margin:0 0 10px;">User Trade History</h4>
         <div class="table-wrap" id="udTradesWrap"></div>
+        <h4 style="margin:20px 0 10px;">Recent Login History</h4>
+<div class="table-wrap" id="udLoginsWrap"></div>
+<h4 style="margin:20px 0 10px;">Sent Alerts & Notifications</h4>
+<div class="table-wrap" id="udAlertsWrap"></div>
       </div>
     </section>
 
@@ -977,46 +982,67 @@
   // ==========================================================================
   // USER DETAIL VIEW & CONTROLS
   // ==========================================================================
-  async function openUserDetail(userId) {
-    selectedUserId = userId;
-    const res = await fetch(`/api/admin/users/${userId}/detail`, { headers: adminHeaders() });
-    if (!res.ok) return showToast('Could not load user details', true);
-    const { user, trades, deposits, transactions } = await res.json();
+function populateUserDetailFields(user) {
+  document.getElementById('detailHeading').textContent = `User Detail - @${user.username}`;
+  document.getElementById('udFormTitle').textContent = `Information of ${user.firstName || user.username} ${user.lastName || ''}`;
+  document.getElementById('udFirstName').value = user.firstName || '';
+  document.getElementById('udLastName').value = user.lastName || '';
+  document.getElementById('udEmail').value = user.email || '';
+  document.getElementById('udMobile').value = user.mobile || '';
+  document.getElementById('udTradeOutcome').value = user.tradeOutcome || 'WIN_DEFAULT';
+  document.getElementById('udCreditScore').value = user.creditScore ?? 100;
+  document.getElementById('udAddress').value = user.address || '';
+  document.getElementById('udCity').value = user.city || '';
+  document.getElementById('udState').value = user.state || '';
+  document.getElementById('udZip').value = user.zip || '';
+  document.getElementById('udCountry').value = user.country || 'Pakistan';
+  document.getElementById('udWithdrawMsg').value = user.withdrawBan?.message || '';
+  document.getElementById('udTradeMsg').value = user.tradeBan?.message || '';
+  document.getElementById('udWalletBalance').textContent = `${Number(user.balance).toLocaleString()} PKR`;
 
-    document.getElementById('detailHeading').textContent = `User Detail - @${user.username}`;
-    document.getElementById('udFormTitle').textContent = `Information of ${user.firstName || user.username} ${user.lastName || ''}`;
-    document.getElementById('udTotalOrder').textContent = trades.length;
-    document.getElementById('udTotalTrade').textContent = trades.length;
-    document.getElementById('udTotalDeposit').textContent = deposits.length;
-    document.getElementById('udTotalTx').textContent = transactions.length;
+  setToggleState('togEmail', user.emailVerified, 'VERIFIED', 'UNVERIFIED');
+  setToggleState('togMobile', user.mobileVerified, 'VERIFIED', 'UNVERIFIED');
+  setToggleState('togKyc', user.kycVerified, 'VERIFIED', 'UNVERIFIED');
+  setToggleState('togStatus', user.status === 'ACTIVE', 'ACTIVE', 'BANNED');
+  setToggleState('togWithdraw', !user.withdrawBan?.enabled, 'ALLOWED', 'DISABLED');
+  setToggleState('togTrade', !user.tradeBan?.enabled, 'ALLOWED', 'BANNED');
+  document.getElementById('udBanPillBtn').textContent = user.status === 'ACTIVE' ? '🚫 Ban User' : '✅ Unban User';
+}
 
-    document.getElementById('udFirstName').value = user.firstName || '';
-    document.getElementById('udLastName').value = user.lastName || '';
-    document.getElementById('udEmail').value = user.email || '';
-    document.getElementById('udMobile').value = user.mobile || '';
-    document.getElementById('udTradeOutcome').value = user.tradeOutcome || 'WIN_DEFAULT';
-    document.getElementById('udCreditScore').value = user.creditScore ?? 100;
-    document.getElementById('udAddress').value = user.address || '';
-    document.getElementById('udCity').value = user.city || '';
-    document.getElementById('udState').value = user.state || '';
-    document.getElementById('udZip').value = user.zip || '';
-    document.getElementById('udCountry').value = user.country || 'Pakistan';
-    document.getElementById('udWithdrawMsg').value = user.withdrawBan?.message || '';
-    document.getElementById('udTradeMsg').value = user.tradeBan?.message || '';
-    document.getElementById('udWalletBalance').textContent = `${Number(user.balance).toLocaleString()} PKR`;
-
-    setToggleState('togEmail', user.emailVerified, 'VERIFIED', 'UNVERIFIED');
-    setToggleState('togMobile', user.mobileVerified, 'VERIFIED', 'UNVERIFIED');
-    setToggleState('togKyc', user.kycVerified, 'VERIFIED', 'UNVERIFIED');
-    setToggleState('togStatus', user.status === 'ACTIVE', 'ACTIVE', 'BANNED');
-    setToggleState('togWithdraw', !user.withdrawBan?.enabled, 'ALLOWED', 'DISABLED');
-    setToggleState('togTrade', !user.tradeBan?.enabled, 'ALLOWED', 'BANNED');
-
-    document.getElementById('udBanPillBtn').textContent = user.status === 'ACTIVE' ? '🚫 Ban User' : '✅ Unban User';
-    document.getElementById('udTradesWrap').innerHTML = buildTradesTable(trades, false);
-
+async function openUserDetail(userId) {
+  selectedUserId = userId;
+  const cached = adminData?.traders?.find(u => u.id === userId);
+  if (cached) {
+    populateUserDetailFields(cached);
+    document.getElementById('udTradesWrap').innerHTML = '<p style="color:#94a3b8;">Loading history...</p>';
+    document.getElementById('udLoginsWrap').innerHTML = '<p style="color:#94a3b8;">Loading logins...</p>';
+    document.getElementById('udAlertsWrap').innerHTML = '<p style="color:#94a3b8;">Loading alerts...</p>';
     showSection('user-detail');
   }
+
+  const res = await fetch(`/api/admin/users/${userId}/detail`, { headers: adminHeaders() });
+  if (!res.ok) return showToast('Could not load user details', true);
+  const { user, trades, deposits, transactions, logins = [], notifications = [] } = await res.json();
+
+  populateUserDetailFields(user);
+  document.getElementById('udTotalOrder').textContent = trades.length;
+  document.getElementById('udTotalTrade').textContent = trades.length;
+  document.getElementById('udTotalDeposit').textContent = deposits.length;
+  document.getElementById('udTotalTx').textContent = transactions.length;
+  document.getElementById('udTradesWrap').innerHTML = buildTradesTable(trades, false);
+
+  document.getElementById('udLoginsWrap').innerHTML = logins.length ? `
+    <table><thead><tr><th>TIME</th><th>IP ADDRESS</th><th>DEVICE / BROWSER</th></tr></thead><tbody>
+    ${logins.map(l => `<tr><td>${new Date(l.timestamp).toLocaleString()}</td><td><strong>${l.ip}</strong></td><td style="color:#94a3b8;">${l.userAgent}</td></tr>`).join('')}
+    </tbody></table>` : '<p style="color:#94a3b8;">No recorded logins yet.</p>';
+
+  document.getElementById('udAlertsWrap').innerHTML = notifications.length ? `
+    <table><thead><tr><th>TITLE</th><th>MESSAGE</th><th>SENT BY</th><th>TIME</th></tr></thead><tbody>
+    ${notifications.map(n => `<tr><td><strong>${n.title}</strong></td><td>${n.message}</td><td>${n.sentBy}</td><td>${new Date(n.createdAt).toLocaleString()}</td></tr>`).join('')}
+    </tbody></table>` : '<p style="color:#94a3b8;">No alerts sent to this user.</p>';
+
+  if (!cached) showSection('user-detail');
+}
 
   function setToggleState(id, isOn, onTxt, offTxt) {
     const btn = document.getElementById(id);

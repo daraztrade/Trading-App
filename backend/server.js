@@ -731,15 +731,17 @@ app.post('/api/auth/change-password', requireAuth(['TRADER', 'SUB_ADMIN', 'MAIN_
 app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
   tickMarketPrices();
   await settleExpiredTrades();
-  const freshUser = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]));
-  const settings = await getSettings();
-  const trades = await dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.user.id]);
-  const transactions = await dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.user.id]);
-  const tickets = await dbAll('SELECT * FROM tickets WHERE userId = ? ORDER BY createdAt DESC', [req.user.id]);
-  const customErrors = await dbAll("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC", [req.user.id]);
+  const [userRow, settings, trades, transactions, tickets, customErrors] = await Promise.all([
+    dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]),
+    getSettings(),
+    dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.user.id]),
+    dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.user.id]),
+    dbAll('SELECT * FROM tickets WHERE userId = ? ORDER BY createdAt DESC', [req.user.id]),
+    dbAll("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC", [req.user.id])
+  ]);
 
   res.json({
-    user: freshUser,
+    user: formatUserRow(userRow),
     settings,
     prices: marketPrices,
     trades,
@@ -895,18 +897,18 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
 
 app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   await settleExpiredTrades();
-  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
+  const [row, trades, deposits, withdrawals, transactions, logins, notifications] = await Promise.all([
+    dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]),
+    dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.params.id]),
+    dbAll('SELECT * FROM deposits WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.params.id]),
+    dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.params.id]),
+    dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 50', [req.params.id]),
+    dbAll('SELECT * FROM login_logs WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.params.id]),
+    dbAll("SELECT * FROM custom_errors WHERE targetUserId = ? OR targetUserId = 'ALL' ORDER BY createdAt DESC LIMIT 25", [req.params.id])
+  ]);
   if (!row) return res.status(404).json({ error: 'Trader not found.' });
 
-  const user = formatUserRow(row);
-  const trades = await dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [user.id]);
-  const deposits = await dbAll('SELECT * FROM deposits WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [user.id]);
-  const withdrawals = await dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [user.id]);
-  const transactions = await dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 50', [user.id]);
-  const logins = await dbAll('SELECT * FROM login_logs WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [user.id]);
-  const notifications = await dbAll("SELECT * FROM custom_errors WHERE targetUserId = ? OR targetUserId = 'ALL' ORDER BY createdAt DESC LIMIT 25", [user.id]);
-
-  res.json({ user, trades, deposits, withdrawals, transactions, logins, notifications });
+  res.json({ user: formatUserRow(row), trades, deposits, withdrawals, transactions, logins, notifications });
 });
 
 app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
