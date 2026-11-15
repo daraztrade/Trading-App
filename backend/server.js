@@ -4,14 +4,13 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
-const { DatabaseSync } = require('node:sqlite');
+const { createClient } = require('@libsql/client');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-
 
 const UPLOADS_DIR = process.env.VERCEL
   ? path.join('/tmp', 'uploads')
@@ -23,13 +22,10 @@ const SHARED_DIR = path.join(__dirname, '../frontend/shared');
 
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-} 
+}
 
 app.use('/shared', express.static(SHARED_DIR));
 app.use('/uploads', express.static(UPLOADS_DIR));
-app.get('/admin', (req, res) => {
-  res.redirect('/admin/login.html');
-});
 
 const PORTAL_MODE = process.env.PORTAL_MODE || 'ALL';
 
@@ -55,7 +51,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ==========================================================================
-// REAL-TIME SSE BROADCASTER (Instant Sync for Admins, Guards & Traders)
+// REAL-TIME SSE BROADCASTER
 // ==========================================================================
 const sseClients = new Set();
 
@@ -80,143 +76,30 @@ function broadcastEvent(type, payload = {}) {
 }
 
 // ==========================================================================
-// SQLITE RELATIONAL DATABASE INITIALIZATION (daraz_trade.db)
+// TURSO (LIBSQL) CLOUD DATABASE CLIENT & QUERY HELPERS
 // ==========================================================================
-const DB_PATH = process.env.VERCEL
-  ? path.join('/tmp', 'daraz_trade.db')
-  : path.join(__dirname, 'daraz_trade.db');
+const turso = createClient({
+  url: process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, 'daraz_trade_local.db')}`,
+  authToken: process.env.TURSO_AUTH_TOKEN
+});
 
-const db = new DatabaseSync(DB_PATH);
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
+async function dbRun(sql, args = []) {
+  return await turso.execute({ sql, args });
+}
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  );
+async function dbGet(sql, args = []) {
+  const res = await turso.execute({ sql, args });
+  return res.rows[0] ? { ...res.rows[0] } : null;
+}
 
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'TRADER',
-    firstName TEXT DEFAULT '',
-    lastName TEXT DEFAULT '',
-    country TEXT DEFAULT 'Pakistan',
-    mobile TEXT DEFAULT '',
-    currency TEXT DEFAULT 'PKR',
-    invitationCode TEXT DEFAULT '',
-    profileCompleted INTEGER DEFAULT 0,
-    status TEXT DEFAULT 'ACTIVE',
-    balance REAL DEFAULT 0,
-    inOrderBalance REAL DEFAULT 0,
-    totalWithdrawn REAL DEFAULT 0,
-    creditScore INTEGER DEFAULT 100,
-    tradeBanEnabled INTEGER DEFAULT 0,
-    tradeBanMessage TEXT DEFAULT 'Trading is restricted on your account.',
-    withdrawBanEnabled INTEGER DEFAULT 0,
-    withdrawBanMessage TEXT DEFAULT 'Withdrawals are restricted on your account.',
-    canApproveWithdrawals INTEGER DEFAULT 0,
-    createdAt TEXT NOT NULL
-  );
+async function dbAll(sql, args = []) {
+  const res = await turso.execute({ sql, args });
+  return res.rows.map(r => ({ ...r }));
+}
 
-  CREATE TABLE IF NOT EXISTS trades (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    username TEXT NOT NULL,
-    pair TEXT NOT NULL,
-    direction TEXT NOT NULL,
-    stake REAL NOT NULL,
-    payoutPercent REAL NOT NULL,
-    durationSeconds INTEGER NOT NULL,
-    entryPrice REAL NOT NULL,
-    exitPrice REAL,
-    profit REAL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'RUNNING',
-    createdAt INTEGER NOT NULL,
-    expiresAt INTEGER NOT NULL,
-    settledAt TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS deposits (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    username TEXT NOT NULL,
-    cryptoCurrency TEXT NOT NULL,
-    walletAddress TEXT NOT NULL,
-    amount REAL NOT NULL,
-    txHash TEXT NOT NULL,
-    proofUrl TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'PENDING',
-    reviewedBy TEXT,
-    createdAt TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS withdrawals (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    username TEXT NOT NULL,
-    amount REAL NOT NULL,
-    method TEXT NOT NULL,
-    accountDetails TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'PENDING',
-    createdAt TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS transactions (
-    trx TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    username TEXT NOT NULL,
-    type TEXT NOT NULL,
-    amount REAL NOT NULL,
-    postBalance REAL NOT NULL,
-    note TEXT NOT NULL,
-    timestamp TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS tickets (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    username TEXT NOT NULL,
-    subject TEXT NOT NULL,
-    message TEXT NOT NULL,
-    reply TEXT DEFAULT '',
-    repliedBy TEXT DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'OPEN',
-    createdAt TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS custom_errors (
-    id TEXT PRIMARY KEY,
-    targetUserId TEXT NOT NULL,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    active INTEGER DEFAULT 1,
-    sentBy TEXT NOT NULL,
-    createdAt TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS audit_logs (
-    id TEXT PRIMARY KEY,
-    actorUsername TEXT NOT NULL,
-    actorRole TEXT NOT NULL,
-    action TEXT NOT NULL,
-    target TEXT NOT NULL,
-    details TEXT NOT NULL,
-    timestamp TEXT NOT NULL
-  );
-`);
-
-// Auto-normalize any legacy 1000-scale scores & 850 withdrawal threshold in existing DBs
-db.exec("UPDATE users SET creditScore = 100 WHERE creditScore > 100;");
-db.exec("UPDATE settings SET value = '90' WHERE key = 'minCreditScoreForWithdraw' AND value = '850';");
-
-// Settings Helpers
 const defaultSettings = {
   defaultCurrency: 'PKR',
-currencies: [
+  currencies: [
     { code: 'INR', symbol: '₹', name: 'Indian Rupee', rateToBase: 0.30 },
     { code: 'BTC', symbol: '₿', name: 'Bitcoin', rateToBase: 0.000000033 },
     { code: 'ETH', symbol: 'Ξ', name: 'Ethereum', rateToBase: 0.00000105 },
@@ -247,8 +130,153 @@ currencies: [
   }
 };
 
-function getSettings() {
-  const rows = db.prepare('SELECT key, value FROM settings').all();
+let dbInitPromise = null;
+function ensureDbInitialized() {
+  if (dbInitPromise) return dbInitPromise;
+  dbInitPromise = (async () => {
+    await turso.batch([
+      `CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'TRADER',
+        firstName TEXT DEFAULT '',
+        lastName TEXT DEFAULT '',
+        country TEXT DEFAULT 'Pakistan',
+        mobile TEXT DEFAULT '',
+        currency TEXT DEFAULT 'PKR',
+        invitationCode TEXT DEFAULT '',
+        profileCompleted INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'ACTIVE',
+        balance REAL DEFAULT 0,
+        inOrderBalance REAL DEFAULT 0,
+        totalWithdrawn REAL DEFAULT 0,
+        creditScore INTEGER DEFAULT 100,
+        tradeBanEnabled INTEGER DEFAULT 0,
+        tradeBanMessage TEXT DEFAULT 'Trading is restricted on your account.',
+        withdrawBanEnabled INTEGER DEFAULT 0,
+        withdrawBanMessage TEXT DEFAULT 'Withdrawals are restricted on your account.',
+        canApproveWithdrawals INTEGER DEFAULT 0,
+        createdAt TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS trades (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        username TEXT NOT NULL,
+        pair TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        stake REAL NOT NULL,
+        payoutPercent REAL NOT NULL,
+        durationSeconds INTEGER NOT NULL,
+        entryPrice REAL NOT NULL,
+        exitPrice REAL,
+        profit REAL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'RUNNING',
+        createdAt INTEGER NOT NULL,
+        expiresAt INTEGER NOT NULL,
+        settledAt TEXT
+      )`,
+      `CREATE TABLE IF NOT EXISTS deposits (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        username TEXT NOT NULL,
+        cryptoCurrency TEXT NOT NULL,
+        walletAddress TEXT NOT NULL,
+        amount REAL NOT NULL,
+        txHash TEXT NOT NULL,
+        proofUrl TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        reviewedBy TEXT,
+        createdAt TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS withdrawals (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        username TEXT NOT NULL,
+        amount REAL NOT NULL,
+        method TEXT NOT NULL,
+        accountDetails TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        createdAt TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS transactions (
+        trx TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        username TEXT NOT NULL,
+        type TEXT NOT NULL,
+        amount REAL NOT NULL,
+        postBalance REAL NOT NULL,
+        note TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS tickets (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        username TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        message TEXT NOT NULL,
+        reply TEXT DEFAULT '',
+        repliedBy TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'OPEN',
+        createdAt TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS custom_errors (
+        id TEXT PRIMARY KEY,
+        targetUserId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        active INTEGER DEFAULT 1,
+        sentBy TEXT NOT NULL,
+        createdAt TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS audit_logs (
+        id TEXT PRIMARY KEY,
+        actorUsername TEXT NOT NULL,
+        actorRole TEXT NOT NULL,
+        action TEXT NOT NULL,
+        target TEXT NOT NULL,
+        details TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+      )`
+    ], 'write');
+
+    const countRow = await dbGet('SELECT COUNT(*) as c FROM settings');
+    if (!countRow || Number(countRow.c) === 0) {
+      await saveSettings(defaultSettings);
+    }
+
+    const existingAdmin = await dbGet('SELECT id FROM users WHERE username = ?', ['mainadmin']);
+    if (!existingAdmin) {
+      await dbRun(
+        `INSERT INTO users (id, username, email, password, role, firstName, lastName, status, canApproveWithdrawals, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['admin-1', 'mainadmin', 'admin@daraztrade.online', 'admin123', 'MAIN_ADMIN', 'Main', 'Admin', 'ACTIVE', 1, new Date().toISOString()]
+      );
+    }
+  })().catch(err => {
+    dbInitPromise = null;
+    throw err;
+  });
+  return dbInitPromise;
+}
+
+app.use('/api', async (req, res, next) => {
+  try {
+    await ensureDbInitialized();
+    next();
+  } catch (err) {
+    console.error('Turso DB Init Error:', err);
+    res.status(500).json({ error: 'Database connection error. Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.' });
+  }
+});
+
+async function getSettings() {
+  const rows = await dbAll('SELECT key, value FROM settings');
   const result = { ...defaultSettings };
   for (const r of rows) {
     result[r.key] = JSON.parse(r.value);
@@ -256,24 +284,12 @@ function getSettings() {
   return result;
 }
 
-function saveSettings(obj) {
-  const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
-  for (const [k, v] of Object.entries(obj)) {
-    upsert.run(k, JSON.stringify(v));
-  }
-}
-
-// Seed default settings & Main Admin if empty
-if (db.prepare('SELECT COUNT(*) as c FROM settings').get().c === 0) {
-  saveSettings(defaultSettings);
-}
-
-const existingAdmin = db.prepare('SELECT id FROM users WHERE username = ?').get('mainadmin');
-if (!existingAdmin) {
-  db.prepare(`
-    INSERT INTO users (id, username, email, password, role, firstName, lastName, status, canApproveWithdrawals, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run('admin-1', 'mainadmin', 'admin@daraztrade.online', 'admin123', 'MAIN_ADMIN', 'Main', 'Admin', 'ACTIVE', 1, new Date().toISOString());
+async function saveSettings(obj) {
+  const stmts = Object.entries(obj).map(([k, v]) => ({
+    sql: 'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    args: [k, JSON.stringify(v)]
+  }));
+  if (stmts.length) await turso.batch(stmts, 'write');
 }
 
 function generateTrx() {
@@ -284,6 +300,10 @@ function formatUserRow(row) {
   if (!row) return null;
   return {
     ...row,
+    balance: Number(row.balance || 0),
+    inOrderBalance: Number(row.inOrderBalance || 0),
+    totalWithdrawn: Number(row.totalWithdrawn || 0),
+    creditScore: Number(row.creditScore ?? 100),
     profileCompleted: Boolean(row.profileCompleted),
     tradeBan: { enabled: Boolean(row.tradeBanEnabled), message: row.tradeBanMessage },
     withdrawBan: { enabled: Boolean(row.withdrawBanEnabled), message: row.withdrawBanMessage },
@@ -291,11 +311,12 @@ function formatUserRow(row) {
   };
 }
 
-function logAudit(actor, action, target, details) {
-  db.prepare(`
-    INSERT INTO audit_logs (id, actorUsername, actorRole, action, target, details, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(generateTrx(), actor.username, actor.role, action, target, details, new Date().toISOString());
+async function logAudit(actor, action, target, details) {
+  await dbRun(
+    `INSERT INTO audit_logs (id, actorUsername, actorRole, action, target, details, timestamp)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [generateTrx(), actor.username, actor.role, action, target, details, new Date().toISOString()]
+  );
 }
 
 // ==========================================================================
@@ -308,23 +329,27 @@ const marketPrices = {
   'SOL/PKR': 54320.00
 };
 
-setInterval(() => {
+function tickMarketPrices() {
   for (const pair in marketPrices) {
     const changePercent = (Math.random() - 0.5) * 0.0024;
     marketPrices[pair] = Number((marketPrices[pair] * (1 + changePercent)).toFixed(2));
   }
-  settleExpiredTrades();
+}
+
+setInterval(() => {
+  tickMarketPrices();
+  settleExpiredTrades().catch(() => {});
 }, 1000);
 
-function settleExpiredTrades() {
+async function settleExpiredTrades() {
   const now = Date.now();
-  const expired = db.prepare("SELECT * FROM trades WHERE status = 'RUNNING' AND expiresAt <= ?").all(now);
+  const expired = await dbAll("SELECT * FROM trades WHERE status = 'RUNNING' AND expiresAt <= ?", [now]);
   if (!expired.length) return;
 
-  const settings = getSettings();
+  const settings = await getSettings();
 
   for (const trade of expired) {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(trade.userId);
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
     if (!user) continue;
 
     let exitPrice = marketPrices[trade.pair];
@@ -334,38 +359,56 @@ function settleExpiredTrades() {
     if (mode === 'WIN_DEFAULT') {
       won = true;
       exitPrice = trade.direction === 'UP'
-        ? Number((trade.entryPrice * 1.0015).toFixed(2))
-        : Number((trade.entryPrice * 0.9985).toFixed(2));
+        ? Number((Number(trade.entryPrice) * 1.0015).toFixed(2))
+        : Number((Number(trade.entryPrice) * 0.9985).toFixed(2));
     } else if (mode === 'LOSS_DEFAULT') {
       won = false;
     } else {
-      won = (trade.direction === 'UP' && exitPrice > trade.entryPrice) ||
-            (trade.direction === 'DOWN' && exitPrice < trade.entryPrice);
+      won = (trade.direction === 'UP' && exitPrice > Number(trade.entryPrice)) ||
+            (trade.direction === 'DOWN' && exitPrice < Number(trade.entryPrice));
     }
 
     const settledAt = new Date().toISOString();
-    const newInOrder = Math.max(0, Number((user.inOrderBalance - trade.stake).toFixed(2)));
+    const stake = Number(trade.stake);
+    const payoutPercent = Number(trade.payoutPercent);
+    const newInOrder = Math.max(0, Number((Number(user.inOrderBalance) - stake).toFixed(2)));
 
-    if (won) {  
-      const profit = Number((trade.stake * (trade.payoutPercent / 100)).toFixed(2));
-      const totalReturn = Number((trade.stake + profit).toFixed(2));
-      const newBalance = Number((user.balance + totalReturn).toFixed(2));
-      const newScore = Math.min(100, user.creditScore + 5);
+    if (won) {
+      const profit = Number((stake * (payoutPercent / 100)).toFixed(2));
+      const totalReturn = Number((stake + profit).toFixed(2));
+      const newBalance = Number((Number(user.balance) + totalReturn).toFixed(2));
+      const newScore = Math.min(100, Number(user.creditScore) + 5);
 
-      db.prepare('UPDATE users SET balance = ?, inOrderBalance = ?, creditScore = ? WHERE id = ?')
-        .run(newBalance, newInOrder, newScore, user.id);
-      db.prepare("UPDATE trades SET status = 'WON', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ?")
-        .run(exitPrice, profit, settledAt, trade.id);
-      db.prepare('INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(generateTrx(), user.id, user.username, 'TRADE_WIN', totalReturn, newBalance, `Trade Win (${trade.pair} +${trade.payoutPercent}%)`, settledAt);
+      await turso.batch([
+        {
+          sql: 'UPDATE users SET balance = ?, inOrderBalance = ?, creditScore = ? WHERE id = ?',
+          args: [newBalance, newInOrder, newScore, user.id]
+        },
+        {
+          sql: "UPDATE trades SET status = 'WON', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ?",
+          args: [exitPrice, profit, settledAt, trade.id]
+        },
+        {
+          sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          args: [generateTrx(), user.id, user.username, 'TRADE_WIN', totalReturn, newBalance, `Trade Win (${trade.pair} +${payoutPercent}%)`, settledAt]
+        }
+      ], 'write');
     } else {
-      const newScore = Math.max(0, user.creditScore - 15);
-      db.prepare('UPDATE users SET inOrderBalance = ?, creditScore = ? WHERE id = ?')
-        .run(newInOrder, newScore, user.id);
-      db.prepare("UPDATE trades SET status = 'LOST', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ?")
-        .run(exitPrice, -trade.stake, settledAt, trade.id);
-      db.prepare('INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(generateTrx(), user.id, user.username, 'TRADE_LOSS', -trade.stake, user.balance, `Trade Loss (${trade.pair})`, settledAt);
+      const newScore = Math.max(0, Number(user.creditScore) - 15);
+      await turso.batch([
+        {
+          sql: 'UPDATE users SET inOrderBalance = ?, creditScore = ? WHERE id = ?',
+          args: [newInOrder, newScore, user.id]
+        },
+        {
+          sql: "UPDATE trades SET status = 'LOST', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ?",
+          args: [exitPrice, -stake, settledAt, trade.id]
+        },
+        {
+          sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          args: [generateTrx(), user.id, user.username, 'TRADE_LOSS', -stake, Number(user.balance), `Trade Loss (${trade.pair})`, settledAt]
+        }
+      ], 'write');
     }
   }
 
@@ -373,7 +416,7 @@ function settleExpiredTrades() {
 }
 
 // ==========================================================================
-// AUTH MIDDLEWARE
+// AUTH MIDDLEWARE & SIGNED TOKENS
 // ==========================================================================
 const SESSION_SECRET = process.env.SESSION_SECRET || 'daraz-trade-hmac-secret-2026';
 
@@ -381,12 +424,7 @@ function signSession(user) {
   const payload = Buffer.from(JSON.stringify({
     id: user.id,
     username: user.username,
-    email: user.email,
-    role: user.role,
-    country: user.country,
-    currency: user.currency,
-    balance: user.balance,
-    creditScore: user.creditScore
+    role: user.role
   })).toString('base64url');
   const sig = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
   return `${payload}.${sig}`;
@@ -405,54 +443,43 @@ function verifySession(token) {
 }
 
 function requireAuth(roles = []) {
-  return (req, res, next) => {
-    const userId = req.headers['x-user-id'];
-    const token = req.headers['x-session-token'];
-    let row = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  return async (req, res, next) => {
+    try {
+      const userId = req.headers['x-user-id'];
+      const token = req.headers['x-session-token'];
+      let effectiveId = userId;
 
-    if (!row && token) {
-      const claims = verifySession(token);
-      if (claims && claims.id === userId) {
-        db.prepare(`
-          INSERT OR IGNORE INTO users (id, username, email, password, role, country, currency, status, balance, creditScore, canApproveWithdrawals, createdAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)
-        `).run(
-          claims.id,
-          claims.username,
-          claims.email || `${claims.username}@daraztrade.online`,
-          'restored',
-          claims.role || 'TRADER',
-          claims.country || 'Pakistan',
-          claims.currency || 'PKR',
-          claims.balance ?? 0,
-          claims.creditScore ?? 100,
-          claims.role === 'MAIN_ADMIN' ? 1 : 0,
-          new Date().toISOString()
-        );
-        row = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+      if (!effectiveId && token) {
+        const claims = verifySession(token);
+        if (claims?.id) effectiveId = claims.id;
       }
-    }
 
-    if (!row) return res.status(401).json({ error: 'Unauthorized. Please log in.' });
+      if (!effectiveId) return res.status(401).json({ error: 'Unauthorized. Please log in.' });
 
-    const user = formatUserRow(row);
-    if (user.status === 'BANNED' || user.status === 'FROZEN') {
-      return res.status(403).json({ error: `Account is ${user.status}. Contact Help Center.` });
-    }
-    if (roles.length && !roles.includes(user.role)) {
-      return res.status(403).json({ error: 'Access denied.' });
-    }
+      const row = await dbGet('SELECT * FROM users WHERE id = ?', [effectiveId]);
+      if (!row) return res.status(401).json({ error: 'Unauthorized. Please log in.' });
 
-    req.user = user;
-    next();
+      const user = formatUserRow(row);
+      if (user.status === 'BANNED' || user.status === 'FROZEN') {
+        return res.status(403).json({ error: `Account is ${user.status}. Contact Help Center.` });
+      }
+      if (roles.length && !roles.includes(user.role)) {
+        return res.status(403).json({ error: 'Access denied.' });
+      }
+
+      req.user = user;
+      next();
+    } catch (err) {
+      next(err);
+    }
   };
 }
 
 // ==========================================================================
 // TRADER & PUBLIC ROUTES
 // ==========================================================================
-app.get('/api/public/config', (req, res) => {
-  const s = getSettings();
+app.get('/api/public/config', async (req, res) => {
+  const s = await getSettings();
   res.json({
     currencies: s.currencies,
     defaultCurrency: s.defaultCurrency,
@@ -460,7 +487,6 @@ app.get('/api/public/config', (req, res) => {
   });
 });
 
-// Live Pakistani Activity Feed (Display Only)
 const pakistaniNames = [
   'Shamir K.', 'Javeria N.', 'Zainab S.', 'Bilal A.', 'Hamza R.',
   'Ayesha T.', 'Usman M.', 'Fatima Z.', 'Omer F.', 'Hira B.',
@@ -483,57 +509,35 @@ app.get('/api/public/live-activity', (req, res) => {
   res.json({ id: Date.now(), text: `${name} ${action} PKR ${amount}`, action, timeAgo: `${minsAgo} mins ago` });
 });
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { username, email, country, mobile, currency, password, invitationCode } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: 'Username, email, and password are required.' });
 
-  const exists = db.prepare('SELECT id FROM users WHERE username = ? OR email = ?').get(username, email);
+  const exists = await dbGet('SELECT id FROM users WHERE username = ? OR email = ?', [username, email]);
   if (exists) return res.status(400).json({ error: 'Username or email already exists.' });
 
   const id = 'usr-' + Date.now();
-  db.prepare(`
-    INSERT INTO users (id, username, email, password, role, country, mobile, currency, invitationCode, createdAt)
-    VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?)
-  `).run(id, username, email, password, country || 'Pakistan', mobile || '', currency || 'PKR', invitationCode || '', new Date().toISOString());
+  await dbRun(
+    `INSERT INTO users (id, username, email, password, role, country, mobile, currency, invitationCode, createdAt)
+     VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?)`,
+    [id, username, email, password, country || 'Pakistan', mobile || '', currency || 'PKR', invitationCode || '', new Date().toISOString()]
+  );
 
-  const user = formatUserRow(db.prepare('SELECT * FROM users WHERE id = ?').get(id));
+  const user = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [id]));
   broadcastEvent('NEW_USER', { username });
   res.json({ message: 'Account created', user, token: signSession(user) });
 });
 
-app.post('/api/auth/complete-profile', requireAuth(['TRADER']), (req, res) => {
+app.post('/api/auth/complete-profile', requireAuth(['TRADER']), async (req, res) => {
   const { firstName, lastName } = req.body;
-  db.prepare('UPDATE users SET firstName = ?, lastName = ?, profileCompleted = 1 WHERE id = ?')
-    .run(firstName, lastName, req.user.id);
-  const user = formatUserRow(db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id));
+  await dbRun('UPDATE users SET firstName = ?, lastName = ?, profileCompleted = 1 WHERE id = ?', [firstName, lastName, req.user.id]);
+  const user = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]));
   res.json({ message: 'Profile completed', user });
 });
 
-app.post('/api/auth/login', (req, res) => {
-  const { login, password, portal, savedProfile } = req.body;
-  let row = db.prepare('SELECT * FROM users WHERE (username = ? OR email = ?) AND password = ?').get(login, login, password);
-
-  if (!row && savedProfile && (savedProfile.username === login || savedProfile.email === login) && savedProfile.password === password) {
-    db.prepare(`
-      INSERT OR IGNORE INTO users (id, username, email, password, role, firstName, lastName, country, mobile, currency, status, balance, creditScore, createdAt)
-      VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?)
-    `).run(
-      savedProfile.id || ('usr-' + Date.now()),
-      savedProfile.username,
-      savedProfile.email,
-      savedProfile.password,
-      savedProfile.firstName || '',
-      savedProfile.lastName || '',
-      savedProfile.country || 'Pakistan',
-      savedProfile.mobile || '',
-      savedProfile.currency || 'PKR',
-      savedProfile.balance ?? 0,
-      savedProfile.creditScore ?? 100,
-      savedProfile.createdAt || new Date().toISOString()
-    );
-    row = db.prepare('SELECT * FROM users WHERE username = ?').get(savedProfile.username);
-  }
-
+app.post('/api/auth/login', async (req, res) => {
+  const { login, password, portal } = req.body;
+  const row = await dbGet('SELECT * FROM users WHERE (username = ? OR email = ?) AND password = ?', [login, login, password]);
   if (!row) return res.status(401).json({ error: 'Invalid credentials.' });
 
   const user = formatUserRow(row);
@@ -544,23 +548,25 @@ app.post('/api/auth/login', (req, res) => {
   res.json({ user, token: signSession(user) });
 });
 
-app.post('/api/auth/change-password', requireAuth(['TRADER', 'SUB_ADMIN', 'MAIN_ADMIN']), (req, res) => {
+app.post('/api/auth/change-password', requireAuth(['TRADER', 'SUB_ADMIN', 'MAIN_ADMIN']), async (req, res) => {
   const { oldPassword, newPassword } = req.body;
   if (req.user.password !== oldPassword) return res.status(400).json({ error: 'Current password is incorrect.' });
-  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(newPassword, req.user.id);
+  await dbRun('UPDATE users SET password = ? WHERE id = ?', [newPassword, req.user.id]);
   res.json({ message: 'Password updated successfully.' });
 });
 
-app.get('/api/trader/dashboard', requireAuth(['TRADER']), (req, res) => {
-  settleExpiredTrades();
-  const settings = getSettings();
-  const trades = db.prepare('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 30').all(req.user.id);
-  const transactions = db.prepare('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 25').all(req.user.id);
-  const tickets = db.prepare('SELECT * FROM tickets WHERE userId = ? ORDER BY createdAt DESC').all(req.user.id);
-  const customErrors = db.prepare("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC").all(req.user.id);
+app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
+  tickMarketPrices();
+  await settleExpiredTrades();
+  const freshUser = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]));
+  const settings = await getSettings();
+  const trades = await dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.user.id]);
+  const transactions = await dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.user.id]);
+  const tickets = await dbAll('SELECT * FROM tickets WHERE userId = ? ORDER BY createdAt DESC', [req.user.id]);
+  const customErrors = await dbAll("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC", [req.user.id]);
 
   res.json({
-    user: req.user,
+    user: freshUser,
     settings,
     prices: marketPrices,
     trades,
@@ -570,13 +576,13 @@ app.get('/api/trader/dashboard', requireAuth(['TRADER']), (req, res) => {
   });
 });
 
-app.post('/api/trader/errors/:id/dismiss', requireAuth(['TRADER']), (req, res) => {
-  db.prepare('UPDATE custom_errors SET active = 0 WHERE id = ? AND targetUserId = ?').run(req.params.id, req.user.id);
+app.post('/api/trader/errors/:id/dismiss', requireAuth(['TRADER']), async (req, res) => {
+  await dbRun('UPDATE custom_errors SET active = 0 WHERE id = ? AND targetUserId = ?', [req.params.id, req.user.id]);
   res.json({ ok: true });
 });
 
-app.post('/api/trades/execute', requireAuth(['TRADER']), (req, res) => {
-  const settings = getSettings();
+app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
+  const settings = await getSettings();
   if (settings.globalTradeBan?.enabled) return res.status(403).json({ error: settings.globalTradeBan.message });
   if (req.user.tradeBan?.enabled) return res.status(403).json({ error: req.user.tradeBan.message });
 
@@ -596,36 +602,43 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), (req, res) => {
   const createdAt = Date.now();
   const expiresAt = createdAt + Number(duration) * 1000;
 
-  db.prepare('UPDATE users SET balance = ?, inOrderBalance = ? WHERE id = ?').run(newBal, newInOrder, req.user.id);
-  db.prepare(`
-    INSERT INTO trades (id, userId, username, pair, direction, stake, payoutPercent, durationSeconds, entryPrice, status, createdAt, expiresAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'RUNNING', ?, ?)
-  `).run(id, req.user.id, req.user.username, pair, direction, amount, payoutPercent, Number(duration), marketPrices[pair], createdAt, expiresAt);
+  await turso.batch([
+    {
+      sql: 'UPDATE users SET balance = ?, inOrderBalance = ? WHERE id = ?',
+      args: [newBal, newInOrder, req.user.id]
+    },
+    {
+      sql: `INSERT INTO trades (id, userId, username, pair, direction, stake, payoutPercent, durationSeconds, entryPrice, status, createdAt, expiresAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'RUNNING', ?, ?)`,
+      args: [id, req.user.id, req.user.username, pair, direction, amount, payoutPercent, Number(duration), marketPrices[pair], createdAt, expiresAt]
+    }
+  ], 'write');
 
   broadcastEvent('NEW_TRADE', { id, username: req.user.username, pair });
   res.json({ message: 'Trade started', id });
 });
 
-app.post('/api/wallet/deposit', requireAuth(['TRADER']), upload.single('proof'), (req, res) => {
+app.post('/api/wallet/deposit', requireAuth(['TRADER']), upload.single('proof'), async (req, res) => {
   const { cryptoCurrency, amount, txHash } = req.body;
   const numAmount = Number(amount);
   if (!cryptoCurrency || isNaN(numAmount) || numAmount <= 0 || !req.file) {
     return res.status(400).json({ error: 'Currency, valid amount, and screenshot proof are required.' });
   }
 
-  const settings = getSettings();
+  const settings = await getSettings();
   const id = 'DEP-' + generateTrx();
-  db.prepare(`
-    INSERT INTO deposits (id, userId, username, cryptoCurrency, walletAddress, amount, txHash, proofUrl, status, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)
-  `).run(id, req.user.id, req.user.username, cryptoCurrency, settings.cryptoWallets[cryptoCurrency] || 'N/A', numAmount, txHash || 'N/A', `/uploads/${req.file.filename}`, new Date().toISOString());
+  await dbRun(
+    `INSERT INTO deposits (id, userId, username, cryptoCurrency, walletAddress, amount, txHash, proofUrl, status, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+    [id, req.user.id, req.user.username, cryptoCurrency, settings.cryptoWallets[cryptoCurrency] || 'N/A', numAmount, txHash || 'N/A', `/uploads/${req.file.filename}`, new Date().toISOString()]
+  );
 
   broadcastEvent('NEW_DEPOSIT', { id, username: req.user.username, amount: numAmount });
   res.json({ message: 'Deposit proof submitted for Admin verification.' });
 });
 
-app.post('/api/wallet/withdraw', requireAuth(['TRADER']), (req, res) => {
-  const settings = getSettings();
+app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
+  const settings = await getSettings();
   if (settings.globalWithdrawBan?.enabled) return res.status(403).json({ error: settings.globalWithdrawBan.message });
   if (req.user.withdrawBan?.enabled) return res.status(403).json({ error: req.user.withdrawBan.message });
 
@@ -644,25 +657,32 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), (req, res) => {
   const newBal = Number((req.user.balance - numAmount).toFixed(2));
   const id = 'WDR-' + generateTrx();
 
-  db.prepare('UPDATE users SET balance = ? WHERE id = ?').run(newBal, req.user.id);
-  db.prepare(`
-    INSERT INTO withdrawals (id, userId, username, amount, method, accountDetails, status, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
-  `).run(id, req.user.id, req.user.username, numAmount, method || 'USDT (TRC20)', accountDetails || '', new Date().toISOString());
+  await turso.batch([
+    {
+      sql: 'UPDATE users SET balance = ? WHERE id = ?',
+      args: [newBal, req.user.id]
+    },
+    {
+      sql: `INSERT INTO withdrawals (id, userId, username, amount, method, accountDetails, status, createdAt)
+            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+      args: [id, req.user.id, req.user.username, numAmount, method || 'USDT (TRC20)', accountDetails || '', new Date().toISOString()]
+    }
+  ], 'write');
 
   broadcastEvent('NEW_WITHDRAWAL', { id, username: req.user.username, amount: numAmount });
   res.json({ message: 'Withdrawal request submitted.' });
 });
 
-app.post('/api/help-center/send', requireAuth(['TRADER']), (req, res) => {
+app.post('/api/help-center/send', requireAuth(['TRADER']), async (req, res) => {
   const { subject, message } = req.body;
   if (!message) return res.status(400).json({ error: 'Message cannot be empty.' });
 
   const id = 'TKT-' + generateTrx();
-  db.prepare(`
-    INSERT INTO tickets (id, userId, username, subject, message, status, createdAt)
-    VALUES (?, ?, ?, ?, ?, 'OPEN', ?)
-  `).run(id, req.user.id, req.user.username, subject || 'General Inquiry', message, new Date().toISOString());
+  await dbRun(
+    `INSERT INTO tickets (id, userId, username, subject, message, status, createdAt)
+     VALUES (?, ?, ?, ?, ?, 'OPEN', ?)`,
+    [id, req.user.id, req.user.username, subject || 'General Inquiry', message, new Date().toISOString()]
+  );
 
   broadcastEvent('NEW_TICKET', { id, username: req.user.username });
   res.json({ message: 'Message sent to Help Center.' });
@@ -671,227 +691,240 @@ app.post('/api/help-center/send', requireAuth(['TRADER']), (req, res) => {
 // ==========================================================================
 // ADMIN & SUB-ADMIN GUARD ROUTES
 // ==========================================================================
-app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), (req, res) => {
-  settleExpiredTrades();
-  const traders = db.prepare("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC").all().map(formatUserRow);
+app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  await settleExpiredTrades();
+  const traders = (await dbAll("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC")).map(formatUserRow);
   const staff = req.user.role === 'MAIN_ADMIN'
-    ? db.prepare("SELECT * FROM users WHERE role != 'TRADER'").all().map(formatUserRow)
+    ? (await dbAll("SELECT * FROM users WHERE role != 'TRADER'")).map(formatUserRow)
     : [];
+
+  const totalTrades = Number((await dbGet('SELECT COUNT(*) as c FROM trades'))?.c || 0);
+  const runningTrades = Number((await dbGet("SELECT COUNT(*) as c FROM trades WHERE status = 'RUNNING'"))?.c || 0);
+  const pendingDeposits = Number((await dbGet("SELECT COUNT(*) as c FROM deposits WHERE status = 'PENDING'"))?.c || 0);
+  const pendingWithdrawals = Number((await dbGet("SELECT COUNT(*) as c FROM withdrawals WHERE status = 'PENDING'"))?.c || 0);
+  const openTickets = Number((await dbGet("SELECT COUNT(*) as c FROM tickets WHERE status = 'OPEN'"))?.c || 0);
 
   res.json({
     actor: req.user,
     stats: {
       totalUsers: traders.length,
       activeUsers: traders.filter(u => u.status === 'ACTIVE').length,
-      totalTrades: db.prepare('SELECT COUNT(*) as c FROM trades').get().c,
-      runningTrades: db.prepare("SELECT COUNT(*) as c FROM trades WHERE status = 'RUNNING'").get().c,
-      pendingDeposits: db.prepare("SELECT COUNT(*) as c FROM deposits WHERE status = 'PENDING'").get().c,
-      pendingWithdrawals: db.prepare("SELECT COUNT(*) as c FROM withdrawals WHERE status = 'PENDING'").get().c,
-      openTickets: db.prepare("SELECT COUNT(*) as c FROM tickets WHERE status = 'OPEN'").get().c
+      totalTrades,
+      runningTrades,
+      pendingDeposits,
+      pendingWithdrawals,
+      openTickets
     },
     traders,
     staff,
-    deposits: db.prepare('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60').all(),
-    withdrawals: db.prepare('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 60').all(),
-    trades: db.prepare('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 60').all(),
-    tickets: db.prepare('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 50').all(),
-    auditLogs: db.prepare('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60').all(),
-    settings: getSettings()
+    deposits: await dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60'),
+    withdrawals: await dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 60'),
+    trades: await dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 60'),
+    tickets: await dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 50'),
+    auditLogs: await dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60'),
+    settings: await getSettings()
   });
 });
 
-app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), (req, res) => {
+app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const { action } = req.body;
-  const deposit = db.prepare('SELECT * FROM deposits WHERE id = ?').get(req.params.id);
+  const deposit = await dbGet('SELECT * FROM deposits WHERE id = ?', [req.params.id]);
   if (!deposit || deposit.status !== 'PENDING') return res.status(400).json({ error: 'Invalid deposit.' });
 
   const status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
-  db.prepare('UPDATE deposits SET status = ?, reviewedBy = ? WHERE id = ?').run(status, req.user.username, deposit.id);
+  await dbRun('UPDATE deposits SET status = ?, reviewedBy = ? WHERE id = ?', [status, req.user.username, deposit.id]);
 
   if (status === 'APPROVED') {
-    const trader = db.prepare('SELECT * FROM users WHERE id = ?').get(deposit.userId);
+    const trader = await dbGet('SELECT * FROM users WHERE id = ?', [deposit.userId]);
     if (trader) {
-      const newBal = Number((trader.balance + deposit.amount).toFixed(2));
-      db.prepare('UPDATE users SET balance = ? WHERE id = ?').run(newBal, trader.id);
-      db.prepare('INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(generateTrx(), trader.id, trader.username, 'DEPOSIT', deposit.amount, newBal, `Deposit Approved (${deposit.cryptoCurrency})`, new Date().toISOString());
+      const newBal = Number((Number(trader.balance) + Number(deposit.amount)).toFixed(2));
+      await dbRun('UPDATE users SET balance = ? WHERE id = ?', [newBal, trader.id]);
+      await dbRun(
+        'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [generateTrx(), trader.id, trader.username, 'DEPOSIT', Number(deposit.amount), newBal, `Deposit Approved (${deposit.cryptoCurrency})`, new Date().toISOString()]
+      );
     }
   }
 
-  logAudit(req.user, `DEPOSIT_${status}`, deposit.username, `${deposit.id} (${deposit.amount})`);
+  await logAudit(req.user, `DEPOSIT_${status}`, deposit.username, `${deposit.id} (${deposit.amount})`);
   broadcastEvent('DEPOSIT_UPDATED');
   res.json({ message: `Deposit ${status}.` });
 });
 
-app.post('/api/admin/withdrawals/:id/edit-account', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), (req, res) => {
+app.post('/api/admin/withdrawals/:id/edit-account', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const { accountDetails } = req.body;
-  const withdrawal = db.prepare('SELECT * FROM withdrawals WHERE id = ?').get(req.params.id);
+  const withdrawal = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [req.params.id]);
   if (!withdrawal) return res.status(404).json({ error: 'Withdrawal not found.' });
 
-  db.prepare('UPDATE withdrawals SET accountDetails = ? WHERE id = ?').run(accountDetails, withdrawal.id);
-  logAudit(req.user, 'EDIT_WITHDRAW_ACCOUNT', withdrawal.username, `Updated ${withdrawal.id} to ${accountDetails}`);
+  await dbRun('UPDATE withdrawals SET accountDetails = ? WHERE id = ?', [accountDetails, withdrawal.id]);
+  await logAudit(req.user, 'EDIT_WITHDRAW_ACCOUNT', withdrawal.username, `Updated ${withdrawal.id} to ${accountDetails}`);
   broadcastEvent('WITHDRAWAL_UPDATED');
   res.json({ message: 'Withdrawal account updated.' });
 });
 
-app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), (req, res) => {
+app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   if (req.user.role === 'SUB_ADMIN' && !req.user.permissions?.canApproveWithdrawals) {
     return res.status(403).json({ error: 'Sub-Admin lacks withdrawal approval permission.' });
   }
   const { action } = req.body;
-  const withdrawal = db.prepare('SELECT * FROM withdrawals WHERE id = ?').get(req.params.id);
+  const withdrawal = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [req.params.id]);
   if (!withdrawal || withdrawal.status !== 'PENDING') return res.status(400).json({ error: 'Invalid withdrawal.' });
 
   const status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
-  db.prepare('UPDATE withdrawals SET status = ? WHERE id = ?').run(status, withdrawal.id);
+  await dbRun('UPDATE withdrawals SET status = ? WHERE id = ?', [status, withdrawal.id]);
 
-  const trader = db.prepare('SELECT * FROM users WHERE id = ?').get(withdrawal.userId);
+  const trader = await dbGet('SELECT * FROM users WHERE id = ?', [withdrawal.userId]);
   if (trader) {
     if (status === 'APPROVED') {
-      const newWithdrawn = Number((trader.totalWithdrawn + withdrawal.amount).toFixed(2));
-      db.prepare('UPDATE users SET totalWithdrawn = ? WHERE id = ?').run(newWithdrawn, trader.id);
-      db.prepare('INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(generateTrx(), trader.id, trader.username, 'WITHDRAW', -withdrawal.amount, trader.balance, `Withdrawal Approved (${withdrawal.method}: ${withdrawal.accountDetails})`, new Date().toISOString());
+      const newWithdrawn = Number((Number(trader.totalWithdrawn) + Number(withdrawal.amount)).toFixed(2));
+      await dbRun('UPDATE users SET totalWithdrawn = ? WHERE id = ?', [newWithdrawn, trader.id]);
+      await dbRun(
+        'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [generateTrx(), trader.id, trader.username, 'WITHDRAW', -Number(withdrawal.amount), Number(trader.balance), `Withdrawal Approved (${withdrawal.method}: ${withdrawal.accountDetails})`, new Date().toISOString()]
+      );
     } else {
-      const refundedBal = Number((trader.balance + withdrawal.amount).toFixed(2));
-      db.prepare('UPDATE users SET balance = ? WHERE id = ?').run(refundedBal, trader.id);
+      const refundedBal = Number((Number(trader.balance) + Number(withdrawal.amount)).toFixed(2));
+      await dbRun('UPDATE users SET balance = ? WHERE id = ?', [refundedBal, trader.id]);
     }
   }
 
-  logAudit(req.user, `WITHDRAWAL_${status}`, withdrawal.username, withdrawal.id);
+  await logAudit(req.user, `WITHDRAWAL_${status}`, withdrawal.username, withdrawal.id);
   broadcastEvent('WITHDRAWAL_UPDATED');
   res.json({ message: `Withdrawal ${status}.` });
 });
 
-app.post('/api/admin/users/:id/guard', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), (req, res) => {
+app.post('/api/admin/users/:id/guard', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const { status, tradeBan, withdrawBan } = req.body;
-  const trader = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'TRADER'").get(req.params.id);
+  const trader = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
   if (!trader) return res.status(404).json({ error: 'Trader not found.' });
 
-  if (status) db.prepare('UPDATE users SET status = ? WHERE id = ?').run(status, trader.id);
+  if (status) await dbRun('UPDATE users SET status = ? WHERE id = ?', [status, trader.id]);
   if (tradeBan) {
-    db.prepare('UPDATE users SET tradeBanEnabled = ?, tradeBanMessage = ? WHERE id = ?')
-      .run(tradeBan.enabled ? 1 : 0, tradeBan.message || '', trader.id);
+    await dbRun('UPDATE users SET tradeBanEnabled = ?, tradeBanMessage = ? WHERE id = ?', [tradeBan.enabled ? 1 : 0, tradeBan.message || '', trader.id]);
   }
   if (withdrawBan) {
-    db.prepare('UPDATE users SET withdrawBanEnabled = ?, withdrawBanMessage = ? WHERE id = ?')
-      .run(withdrawBan.enabled ? 1 : 0, withdrawBan.message || '', trader.id);
+    await dbRun('UPDATE users SET withdrawBanEnabled = ?, withdrawBanMessage = ? WHERE id = ?', [withdrawBan.enabled ? 1 : 0, withdrawBan.message || '', trader.id]);
   }
 
-  logAudit(req.user, 'GUARD_UPDATE_USER', trader.username, `Updated restrictions`);
+  await logAudit(req.user, 'GUARD_UPDATE_USER', trader.username, 'Updated restrictions');
   broadcastEvent('USER_UPDATED');
   res.json({ message: 'Trader updated.' });
 });
 
-app.post('/api/admin/trades/:id/void', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), (req, res) => {
-  const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id);
+app.post('/api/admin/trades/:id/void', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const trade = await dbGet('SELECT * FROM trades WHERE id = ?', [req.params.id]);
   if (!trade || trade.status !== 'RUNNING') return res.status(400).json({ error: 'Trade not running.' });
 
-  db.prepare("UPDATE trades SET status = 'VOIDED' WHERE id = ?").run(trade.id);
-  const trader = db.prepare('SELECT * FROM users WHERE id = ?').get(trade.userId);
+  await dbRun("UPDATE trades SET status = 'VOIDED' WHERE id = ?", [trade.id]);
+  const trader = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
   if (trader) {
-    const newInOrder = Math.max(0, Number((trader.inOrderBalance - trade.stake).toFixed(2)));
-    const newBal = Number((trader.balance + trade.stake).toFixed(2));
-    db.prepare('UPDATE users SET inOrderBalance = ?, balance = ? WHERE id = ?').run(newInOrder, newBal, trader.id);
+    const newInOrder = Math.max(0, Number((Number(trader.inOrderBalance) - Number(trade.stake)).toFixed(2)));
+    const newBal = Number((Number(trader.balance) + Number(trade.stake)).toFixed(2));
+    await dbRun('UPDATE users SET inOrderBalance = ?, balance = ? WHERE id = ?', [newInOrder, newBal, trader.id]);
   }
 
-  logAudit(req.user, 'VOID_TRADE', trade.username, `Voided ${trade.id}`);
+  await logAudit(req.user, 'VOID_TRADE', trade.username, `Voided ${trade.id}`);
   broadcastEvent('TRADE_SETTLED');
   res.json({ message: 'Trade voided.' });
 });
 
-app.post('/api/admin/tickets/:id/reply', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), (req, res) => {
-  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
+app.post('/api/admin/tickets/:id/reply', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const ticket = await dbGet('SELECT * FROM tickets WHERE id = ?', [req.params.id]);
   if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
 
-  db.prepare("UPDATE tickets SET reply = ?, repliedBy = ?, status = 'ANSWERED' WHERE id = ?")
-    .run(req.body.reply, req.user.username, ticket.id);
-  logAudit(req.user, 'REPLY_TICKET', ticket.username, `Replied to ${ticket.id}`);
+  await dbRun("UPDATE tickets SET reply = ?, repliedBy = ?, status = 'ANSWERED' WHERE id = ?", [req.body.reply, req.user.username, ticket.id]);
+  await logAudit(req.user, 'REPLY_TICKET', ticket.username, `Replied to ${ticket.id}`);
   broadcastEvent('TICKET_UPDATED');
   res.json({ message: 'Reply sent.' });
 });
 
-app.post('/api/admin/error-sender', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), (req, res) => {
+app.post('/api/admin/error-sender', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const { targetUserId, title, message } = req.body;
   const id = 'ERR-' + generateTrx();
-  db.prepare(`
-    INSERT INTO custom_errors (id, targetUserId, title, message, active, sentBy, createdAt)
-    VALUES (?, ?, ?, ?, 1, ?, ?)
-  `).run(id, targetUserId || 'ALL', title || 'System Notice', message, req.user.username, new Date().toISOString());
+  await dbRun(
+    `INSERT INTO custom_errors (id, targetUserId, title, message, active, sentBy, createdAt)
+     VALUES (?, ?, ?, ?, 1, ?, ?)`,
+    [id, targetUserId || 'ALL', title || 'System Notice', message, req.user.username, new Date().toISOString()]
+  );
 
-  logAudit(req.user, 'ERROR_SENDER', targetUserId || 'ALL', title);
+  await logAudit(req.user, 'ERROR_SENDER', targetUserId || 'ALL', title);
   broadcastEvent('ERROR_ALERT');
   res.json({ message: 'Alert sent.' });
 });
 
-app.post('/api/admin/users/:id/impersonate', requireAuth(['MAIN_ADMIN']), (req, res) => {
-  const row = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'TRADER'").get(req.params.id);
+app.post('/api/admin/users/:id/impersonate', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Trader not found.' });
   const trader = formatUserRow(row);
-  logAudit(req.user, 'LOGIN_AS_USER', trader.username, 'Impersonated trader');
-  res.json({ user: trader });
+  await logAudit(req.user, 'LOGIN_AS_USER', trader.username, 'Impersonated trader');
+  res.json({ user: trader, token: signSession(trader) });
 });
 
-app.post('/api/admin/users/:id/reset-password', requireAuth(['MAIN_ADMIN']), (req, res) => {
+app.post('/api/admin/users/:id/reset-password', requireAuth(['MAIN_ADMIN']), async (req, res) => {
   const { newPassword } = req.body;
-  const trader = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  const trader = await dbGet('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!trader || !newPassword) return res.status(400).json({ error: 'Valid user and password required.' });
 
-  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(newPassword, trader.id);
-  logAudit(req.user, 'RESET_PASSWORD', trader.username, 'Password changed by Main Admin');
+  await dbRun('UPDATE users SET password = ? WHERE id = ?', [newPassword, trader.id]);
+  await logAudit(req.user, 'RESET_PASSWORD', trader.username, 'Password changed by Main Admin');
   res.json({ message: `Password updated for ${trader.username}.` });
 });
 
-app.post('/api/admin/users/:id/adjust', requireAuth(['MAIN_ADMIN']), (req, res) => {
+app.post('/api/admin/users/:id/adjust', requireAuth(['MAIN_ADMIN']), async (req, res) => {
   const { balanceDelta, creditScore } = req.body;
-  const trader = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'TRADER'").get(req.params.id);
+  const trader = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
   if (!trader) return res.status(404).json({ error: 'Trader not found.' });
 
-  let newBal = trader.balance;
+  let newBal = Number(trader.balance);
   if (balanceDelta !== undefined && Number(balanceDelta) !== 0) {
     const delta = Number(balanceDelta);
-    newBal = Math.max(0, Number((trader.balance + delta).toFixed(2)));
-    db.prepare('INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(generateTrx(), trader.id, trader.username, delta > 0 ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT', delta, newBal, 'Admin Balance Adjustment', new Date().toISOString());
+    newBal = Math.max(0, Number((newBal + delta).toFixed(2)));
+    await dbRun(
+      'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [generateTrx(), trader.id, trader.username, delta > 0 ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT', delta, newBal, 'Admin Balance Adjustment', new Date().toISOString()]
+    );
   }
-  const newScore = creditScore !== undefined ? Math.max(0, Math.min(100, Number(creditScore))) : trader.creditScore;
+  const newScore = creditScore !== undefined ? Math.max(0, Math.min(100, Number(creditScore))) : Number(trader.creditScore);
 
-  db.prepare('UPDATE users SET balance = ?, creditScore = ? WHERE id = ?').run(newBal, newScore, trader.id);
-  logAudit(req.user, 'ADJUST_BALANCE_SCORE', trader.username, `Delta: ${balanceDelta || 0}, Score: ${newScore}`);
+  await dbRun('UPDATE users SET balance = ?, creditScore = ? WHERE id = ?', [newBal, newScore, trader.id]);
+  await logAudit(req.user, 'ADJUST_BALANCE_SCORE', trader.username, `Delta: ${balanceDelta || 0}, Score: ${newScore}`);
   broadcastEvent('USER_UPDATED');
   res.json({ message: 'Trader updated.' });
 });
 
-app.post('/api/admin/subadmins', requireAuth(['MAIN_ADMIN']), (req, res) => {
+app.post('/api/admin/subadmins', requireAuth(['MAIN_ADMIN']), async (req, res) => {
   const { username, email, password, canApproveWithdrawals } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username & password required.' });
-  if (db.prepare('SELECT id FROM users WHERE username = ?').get(username)) return res.status(400).json({ error: 'Username exists.' });
+  if (await dbGet('SELECT id FROM users WHERE username = ?', [username])) return res.status(400).json({ error: 'Username exists.' });
 
   const id = 'sub-' + Date.now();
-  db.prepare(`
-    INSERT INTO users (id, username, email, password, role, firstName, lastName, status, canApproveWithdrawals, createdAt)
-    VALUES (?, ?, ?, ?, 'SUB_ADMIN', ?, 'Guard', 'ACTIVE', ?, ?)
-  `).run(id, username, email || `${username}@daraztrade.online`, password, username, canApproveWithdrawals ? 1 : 0, new Date().toISOString());
+  await dbRun(
+    `INSERT INTO users (id, username, email, password, role, firstName, lastName, status, canApproveWithdrawals, createdAt)
+     VALUES (?, ?, ?, ?, 'SUB_ADMIN', ?, 'Guard', 'ACTIVE', ?, ?)`,
+    [id, username, email || `${username}@daraztrade.online`, password, username, canApproveWithdrawals ? 1 : 0, new Date().toISOString()]
+  );
 
-  logAudit(req.user, 'CREATE_SUB_ADMIN', username, `Withdrawals: ${Boolean(canApproveWithdrawals)}`);
+  await logAudit(req.user, 'CREATE_SUB_ADMIN', username, `Withdrawals: ${Boolean(canApproveWithdrawals)}`);
   res.json({ message: 'Sub-Admin Guard created.' });
 });
 
-app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN']), (req, res) => {
-  saveSettings(req.body);
-  logAudit(req.user, 'UPDATE_SETTINGS', 'SYSTEM', 'Updated platform settings');
+app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  await saveSettings(req.body);
+  await logAudit(req.user, 'UPDATE_SETTINGS', 'SYSTEM', 'Updated platform settings');
   broadcastEvent('SETTINGS_UPDATED');
-  res.json({ message: 'Settings saved.', settings: getSettings() });
+  res.json({ message: 'Settings saved.', settings: await getSettings() });
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`\n==================================================`);
-    console.log(`SQLite DB Active: backend/daraz_trade.db`);
-    console.log(`Trader Portal:    http://localhost:${PORT}/`);
-    console.log(`Admin Portal:     http://localhost:${PORT}/admin/login.html`);
-    console.log(`Main Admin ->     mainadmin / admin123`);
-    console.log(`==================================================\n`);
+  ensureDbInitialized().then(() => {
+    app.listen(PORT, () => {
+      console.log(`\n==================================================`);
+      console.log(`Turso Cloud DB Connected`);
+      console.log(`Trader Portal:    http://localhost:${PORT}/`);
+      console.log(`Admin Portal:     http://localhost:${PORT}/admin/login.html`);
+      console.log(`Main Admin ->     mainadmin / admin123`);
+      console.log(`==================================================\n`);
+    });
   });
 }
 
