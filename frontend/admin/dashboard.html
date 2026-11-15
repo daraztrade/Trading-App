@@ -396,7 +396,7 @@
   }
 
   async function loadAdminData() {
-    const res = await fetch('/api/admin/overview', { headers: { 'x-user-id': staff.id } });
+    const res = await fetch('/api/admin/overview', { headers: { 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '', 'x-session-token': localStorage.getItem('staffToken') || '' } });
     if (!res.ok) return logout();
     adminData = await res.json();
     renderAdmin();
@@ -570,7 +570,7 @@ document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets
   async function reviewDeposit(id, action) {
     await fetch(`/api/admin/deposits/${id}/review`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({ action })
     });
     loadAdminData();
@@ -581,7 +581,7 @@ document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets
     if (updated === null) return;
     await fetch(`/api/admin/withdrawals/${id}/edit-account`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({ accountDetails: updated })
     });
     loadAdminData();
@@ -590,7 +590,7 @@ document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets
   async function reviewWithdrawal(id, action) {
     const res = await fetch(`/api/admin/withdrawals/${id}/review`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({ action })
     });
     const d = await res.json();
@@ -601,7 +601,7 @@ document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets
   async function toggleGuardStatus(id, status) {
     await fetch(`/api/admin/users/${id}/guard`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({ status })
     });
     loadAdminData();
@@ -615,7 +615,7 @@ document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets
 
     await fetch(`/api/admin/users/${id}/guard`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({
         tradeBan: { enabled: tEnable, message: tMsg },
         withdrawBan: { enabled: wEnable, message: wMsg }
@@ -632,7 +632,7 @@ document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets
 
     await fetch(`/api/admin/users/${id}/adjust`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({ balanceDelta: Number(delta), creditScore: Number(score) })
     });
     loadAdminData();
@@ -641,7 +641,7 @@ document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets
   async function loginAsUser(id) {
     const res = await fetch(`/api/admin/users/${id}/impersonate`, {
       method: 'POST',
-      headers: { 'x-user-id': staff.id }
+      headers: { 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' }
     });
     const data = await res.json();
     if (res.ok) {
@@ -655,7 +655,7 @@ document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets
     if (!newPassword) return;
     const res = await fetch(`/api/admin/users/${id}/reset-password`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({ newPassword })
     });
     const data = await res.json();
@@ -665,7 +665,7 @@ document.getElementById('adminTicketsList').innerHTML = tickets.length ? tickets
   async function voidTrade(id) {
     await fetch(`/api/admin/trades/${id}/void`, {
       method: 'POST',
-      headers: { 'x-user-id': staff.id }
+      headers: { 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' }
     });
     loadAdminData();
   }
@@ -677,7 +677,7 @@ async function replyTicket(id) {
 
     const res = await fetch(`/api/admin/tickets/${id}/reply`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({ reply })
     });
     const data = await res.json();
@@ -691,7 +691,7 @@ async function replyTicket(id) {
     e.preventDefault();
     await fetch('/api/admin/error-sender', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({
         targetUserId: document.getElementById('errTargetUser').value,
         title: document.getElementById('errTitle').value,
@@ -706,7 +706,7 @@ async function replyTicket(id) {
     e.preventDefault();
     const res = await fetch('/api/admin/subadmins', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({
         username: document.getElementById('subUser').value.trim(),
         password: document.getElementById('subPass').value,
@@ -727,7 +727,7 @@ async function replyTicket(id) {
 
     await fetch('/api/admin/settings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({
         tradeOutcomeMode: document.getElementById('setTradeMode').value,
         payoutPercentages: {
@@ -760,7 +760,7 @@ async function replyTicket(id) {
     const updatedCurrencies = [...adminData.settings.currencies, { code, symbol, name: code, rateToBase }];
     await fetch('/api/admin/settings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': staff.id, 'x-session-token': localStorage.getItem('staffToken') || '' },
       body: JSON.stringify({ currencies: updatedCurrencies })
     });
     alert(`${code} added!`);
@@ -769,6 +769,7 @@ async function replyTicket(id) {
 
   function logout() {
     localStorage.removeItem('staffUser');
+    localStorage.removeItem('staffToken');
     window.location.href = './login.html';
   }
 

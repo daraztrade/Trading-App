@@ -359,16 +359,6 @@ html, body {
          </div>
          <button type="button" class="btn-primary" onclick="switchTab('trade')">Start Trading →</button>
        </div>
-       <canvas id="marketChart"></canvas>
-       <div class="telemetry-grid">
-         <div><div class="tele-label">OPEN</div><div class="tele-val" id="ovOpen">-</div></div>
-         <div><div class="tele-label">HIGH</div><div class="tele-val tele-green" id="ovHigh">-</div></div>
-         <div><div class="tele-label">LOW</div><div class="tele-val tele-red" id="ovLow">-</div></div>
-         <div><div class="tele-label">24H CHANGE</div><div class="tele-val tele-green" id="ovChangeStat">+3.62%</div></div>
-         <div><div class="tele-label">MARKET CAP</div><div class="tele-val" id="ovMcap">$594,267.72B</div></div>
-         <div><div class="tele-label">24H VOL</div><div class="tele-val" id="ovVol">48,920 BTC</div></div>
-       </div>
-          <canvas id="marketChart"></canvas>
         </div>
 
         <div class="card">
@@ -640,7 +630,7 @@ html, body {
   async function fetchDashboard() {
     try {
       const res = await fetch('/api/trader/dashboard', {
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' }
       });
       if (res.status === 401 || res.status === 403) {
         const err = await res.json();
@@ -939,7 +929,7 @@ function drawChart(canvasId) {
 
     const res = await fetch('/api/trades/execute', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
       body: JSON.stringify({ pair, direction, stake, durationSeconds: selectedDuration })
     });
     const data = await res.json();
@@ -952,7 +942,7 @@ document.getElementById('withdrawForm').addEventListener('submit', async (e) => 
     e.preventDefault();
     const res = await fetch('/api/wallet/withdraw', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
       body: JSON.stringify({
         amount: document.getElementById('wdrAmount').value,
         method: 'Direct Transfer',
@@ -970,7 +960,7 @@ document.getElementById('withdrawForm').addEventListener('submit', async (e) => 
     e.preventDefault();
     const res = await fetch('/api/auth/change-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
       body: JSON.stringify({
         oldPassword: document.getElementById('oldPass').value,
         newPassword: document.getElementById('newPass').value
@@ -985,7 +975,7 @@ document.getElementById('updateProfileForm').addEventListener('submit', async (e
     e.preventDefault();
     const res = await fetch('/api/auth/complete-profile', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
       body: JSON.stringify({
         firstName: document.getElementById('profFirstName').value.trim(),
         lastName: document.getElementById('profLastName').value.trim()
@@ -1001,7 +991,7 @@ document.getElementById('updateProfileForm').addEventListener('submit', async (e
     e.preventDefault();
     const res = await fetch('/api/help-center/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
       body: JSON.stringify({
         subject: document.getElementById('helpSubject').value,
         message: document.getElementById('helpMessage').value
@@ -1018,7 +1008,7 @@ document.getElementById('updateProfileForm').addEventListener('submit', async (e
     if (activeErrorId) {
       await fetch(`/api/trader/errors/${activeErrorId}/dismiss`, {
         method: 'POST',
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' }
       });
     }
   }
@@ -1034,6 +1024,7 @@ document.getElementById('updateProfileForm').addEventListener('submit', async (e
 
   function logout() {
     localStorage.removeItem('traderUser');
+    localStorage.removeItem('traderToken');
     window.location.href = '/index.html';
   }
 

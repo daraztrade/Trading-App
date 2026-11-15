@@ -375,10 +375,64 @@ function settleExpiredTrades() {
 // ==========================================================================
 // AUTH MIDDLEWARE
 // ==========================================================================
+const SESSION_SECRET = process.env.SESSION_SECRET || 'daraz-trade-hmac-secret-2026';
+
+function signSession(user) {
+  const payload = Buffer.from(JSON.stringify({
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+    country: user.country,
+    currency: user.currency,
+    balance: user.balance,
+    creditScore: user.creditScore
+  })).toString('base64url');
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  return `${payload}.${sig}`;
+}
+
+function verifySession(token) {
+  if (!token || !token.includes('.')) return null;
+  const [payload, sig] = token.split('.');
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  if (sig !== expected) return null;
+  try {
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
 function requireAuth(roles = []) {
   return (req, res, next) => {
     const userId = req.headers['x-user-id'];
-    const row = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    const token = req.headers['x-session-token'];
+    let row = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+
+    if (!row && token) {
+      const claims = verifySession(token);
+      if (claims && claims.id === userId) {
+        db.prepare(`
+          INSERT OR IGNORE INTO users (id, username, email, password, role, country, currency, status, balance, creditScore, canApproveWithdrawals, createdAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)
+        `).run(
+          claims.id,
+          claims.username,
+          claims.email || `${claims.username}@daraztrade.online`,
+          'restored',
+          claims.role || 'TRADER',
+          claims.country || 'Pakistan',
+          claims.currency || 'PKR',
+          claims.balance ?? 0,
+          claims.creditScore ?? 100,
+          claims.role === 'MAIN_ADMIN' ? 1 : 0,
+          new Date().toISOString()
+        );
+        row = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+      }
+    }
+
     if (!row) return res.status(401).json({ error: 'Unauthorized. Please log in.' });
 
     const user = formatUserRow(row);
@@ -438,7 +492,7 @@ app.post('/api/auth/register', (req, res) => {
 
   const user = formatUserRow(db.prepare('SELECT * FROM users WHERE id = ?').get(id));
   broadcastEvent('NEW_USER', { username });
-  res.json({ message: 'Account created', user });
+  res.json({ message: 'Account created', user, token: signSession(user) });
 });
 
 app.post('/api/auth/complete-profile', requireAuth(['TRADER']), (req, res) => {
@@ -459,7 +513,7 @@ app.post('/api/auth/login', (req, res) => {
   if (portal === 'ADMIN' && user.role === 'TRADER') return res.status(403).json({ error: 'Traders cannot access the Admin Portal.' });
   if (portal === 'TRADER' && user.role !== 'TRADER') return res.status(403).json({ error: 'Staff must log in via the Admin Portal.' });
 
-  res.json({ user });
+  res.json({ user, token: signSession(user) });
 });
 
 app.post('/api/auth/change-password', requireAuth(['TRADER', 'SUB_ADMIN', 'MAIN_ADMIN']), (req, res) => {

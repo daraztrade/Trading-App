@@ -98,6 +98,7 @@
         return;
       }
       localStorage.setItem('staffUser', JSON.stringify(data.user));
+      if (data.token) localStorage.setItem('staffToken', data.token);
       window.location.href = './dashboard.html';
     });
   </script>
