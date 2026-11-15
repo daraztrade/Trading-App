@@ -97,16 +97,15 @@ async function dbAll(sql, args = []) {
   return res.rows.map(r => ({ ...r }));
 }
 
-const defaultSettings = {
-  defaultCurrency: 'PKR',
+defaultCurrency: 'BTC',
   currencies: [
-    { code: 'INR', symbol: '₹', name: 'Indian Rupee', rateToBase: 0.30 },
     { code: 'BTC', symbol: '₿', name: 'Bitcoin', rateToBase: 0.000000033 },
+    { code: 'INR', symbol: '₹', name: 'Indian Rupee', rateToBase: 0.30 },
     { code: 'ETH', symbol: 'Ξ', name: 'Ethereum', rateToBase: 0.00000105 },
     { code: 'BNB', symbol: 'BNB', name: 'BNB', rateToBase: 0.0000055 },
     { code: 'SOL', symbol: 'SOL', name: 'Solana', rateToBase: 0.000018 },
-    { code: 'USDC', symbol: 'USDC', name: 'USD Coin', rateToBase: 0.0036 },
     { code: 'BTS', symbol: 'BTS', name: 'BitShares', rateToBase: 0.85 },
+    { code: 'USDC', symbol: 'USDC', name: 'USD Coin', rateToBase: 0.0036 },
     { code: 'DOGE', symbol: 'DOGE', name: 'Dogecoin', rateToBase: 0.015 },
     { code: 'TRX', symbol: 'TRX', name: 'TRON', rateToBase: 0.022 },
     { code: 'PKR', symbol: 'Rs', name: 'Pakistani Rupee', rateToBase: 1 },
@@ -149,7 +148,7 @@ function ensureDbInitialized() {
         lastName TEXT DEFAULT '',
         country TEXT DEFAULT 'Pakistan',
         mobile TEXT DEFAULT '',
-        currency TEXT DEFAULT 'PKR',
+        currency TEXT DEFAULT 'BTC',
         invitationCode TEXT DEFAULT '',
         profileCompleted INTEGER DEFAULT 0,
         status TEXT DEFAULT 'ACTIVE',
@@ -246,8 +245,13 @@ function ensureDbInitialized() {
     ], 'write');
 
     const countRow = await dbGet('SELECT COUNT(*) as c FROM settings');
-    if (!countRow || Number(countRow.c) === 0) {
+if (!countRow || Number(countRow.c) === 0) {
       await saveSettings(defaultSettings);
+    } else {
+      await saveSettings({
+        defaultCurrency: 'BTC',
+        currencies: defaultSettings.currencies
+      });
     }
 
     const existingAdmin = await dbGet('SELECT id FROM users WHERE username = ?', ['mainadmin']);
@@ -520,7 +524,7 @@ app.post('/api/auth/register', async (req, res) => {
   await dbRun(
     `INSERT INTO users (id, username, email, password, role, country, mobile, currency, invitationCode, createdAt)
      VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?)`,
-    [id, username, email, password, country || 'Pakistan', mobile || '', currency || 'PKR', invitationCode || '', new Date().toISOString()]
+    [id, username, email, password, country || 'Pakistan', mobile || '', currency || 'BTC', invitationCode || '', new Date().toISOString()]
   );
 
   const user = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [id]));
