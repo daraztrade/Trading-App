@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daraz Trade - Trader Dashboard</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Daraz Trade</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23ee4d07'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='%23ffffff' font-family='sans-serif' font-weight='bold'>D</text></svg>" />
   <link rel="stylesheet" href="/shared/theme.css" />
-  <script src="/shared/dialog.js"></script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
   <style>
+    html, body { max-width: 100%; overflow-x: hidden; }
     .app-shell { display: flex; min-height: 100vh; }
     .sidebar {
-      width: 250px;
+      width: 245px;
       padding: 20px 14px;
       display: flex;
       flex-direction: column;
@@ -51,8 +52,9 @@
     }
     .main-area {
       flex: 1;
-      margin-left: 250px;
+      margin-left: 245px;
       padding: 18px 24px 60px;
+      min-width: 0;
     }
     .topbar {
       display: flex;
@@ -61,28 +63,29 @@
       margin-bottom: 16px;
       gap: 12px;
     }
-.menu-btn {
-  display: none;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 1.2rem;
-  cursor: pointer;
-}
-.ticker-bar {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  display: flex;
-  gap: 20px;
-  overflow-x: auto;
-  font-size: 0.85rem;
-  margin-bottom: 20px;
-  color: var(--text-muted);
-}
+    .menu-btn {
+      display: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+    .ticker-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      gap: 20px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
     .ticker-item span {
       color: var(--color-orange);
       font-weight: 700;
@@ -90,91 +93,88 @@
     }
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 16px;
-      margin-bottom: 22px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
     }
     .stat-label {
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       text-transform: uppercase;
       letter-spacing: 0.6px;
       color: var(--text-muted);
     }
     .stat-val {
-      font-size: 1.55rem;
+      font-size: 1.5rem;
       font-weight: 800;
       margin: 6px 0 4px;
     }
-    .stat-sub { font-size: 0.8rem; }
+    .stat-sub { font-size: 0.78rem; }
     .trade-grid {
       display: grid;
       grid-template-columns: 1.6fr 1fr;
       gap: 18px;
     }
-canvas {
-  width: 100%;
-  height: 280px;
-  background: #0a0d12;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  display: block;
-}
-.pro-price-hero {
-  font-size: 1.9rem;
-  font-weight: 800;
-  color: #10b981;
-  letter-spacing: -0.5px;
-  line-height: 1.1;
-  margin: 4px 0 6px;
-}
-.pro-change-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
-.pro-change-up { color: #10b981; }
-.pro-change-down { color: #ef4444; }
-.live-pill {
-  background: rgba(16, 185, 129, 0.14);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  letter-spacing: 0.5px;
-}
-.telemetry-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-color);
-}
-.tele-label {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  color: var(--text-dim);
-  margin-bottom: 3px;
-}
-.tele-val {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--text-main);
-}
-.tele-green { color: #10b981; }
-.tele-red { color: #ef4444; }
+    .main-area, .card, .trade-grid > div, .stats-grid > div { min-width: 0; max-width: 100%; }
+    canvas {
+      width: 100%;
+      height: 280px;
+      background: #0a0d12;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      display: block;
+    }
+    .pro-price-hero {
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #10b981;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+      margin: 4px 0 6px;
+    }
+    .pro-change-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .pro-change-up { color: #10b981; }
+    .pro-change-down { color: #ef4444; }
+    .live-pill {
+      background: rgba(16, 185, 129, 0.14);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      letter-spacing: 0.5px;
+    }
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-color);
+    }
+    .tele-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+    }
+    .tele-val { font-size: 0.92rem; font-weight: 700; color: var(--text-main); }
+    .tele-green { color: #10b981; }
+    .tele-red { color: #ef4444; }
     .tier-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
       margin: 10px 0 16px;
     }
-.tier-btn {
+    .tier-btn {
       padding: 10px 6px !important;
       background: #141821 !important;
       color: #cbd5e1 !important;
@@ -186,21 +186,13 @@ canvas {
       font-weight: 600;
       transition: all 0.15s ease;
     }
-    .tier-btn:hover {
-      border-color: var(--color-orange) !important;
-      background: #1b202c !important;
-    }
+    .tier-btn:hover { border-color: var(--color-orange) !important; background: #1b202c !important; }
     .tier-btn.active {
       background: rgba(238, 77, 7, 0.18) !important;
       border-color: var(--color-orange) !important;
       color: #ffffff !important;
     }
-    .tier-btn strong {
-      display: block;
-      color: var(--color-orange) !important;
-      font-size: 0.95rem;
-      margin-top: 2px;
-    }
+    .tier-btn strong { display: block; color: var(--color-orange) !important; font-size: 0.95rem; margin-top: 2px; }
     .field { margin-bottom: 14px; }
     .field label { display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; }
     .field input, .field select, .field textarea {
@@ -212,7 +204,7 @@ canvas {
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.65);
+      background: rgba(15, 23, 42, 0.72);
       display: none;
       align-items: center;
       justify-content: center;
@@ -243,24 +235,60 @@ canvas {
       padding: 12px 0;
       border-bottom: 1px solid var(--border-color);
       font-size: 0.88rem;
+      gap: 10px;
     }
+    .obsidian-toast {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      background: #111827;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-left: 4px solid #10b981;
+      color: #f8fafc;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      z-index: 1100;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+      display: none;
+      max-width: 340px;
+    }
+    .obsidian-toast.err { border-left-color: #ef4444; }
+    .mobile-bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 64px;
+      background: #0d1322;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 250;
+      justify-content: space-around;
+      align-items: center;
+      padding: 4px 2px;
+    }
+    .mob-nav-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+    .mob-nav-btn span.ico { font-size: 1.15rem; line-height: 1; }
+    .mob-nav-btn.active { color: var(--color-orange); }
     .hidden { display: none !important; }
-html, body {
-      max-width: 100%;
-      overflow-x: hidden;
-    }
-    .main-area, .card, .trade-grid > div, .stats-grid > div {
-      min-width: 0;
-      max-width: 100%;
-    }
     @media (max-width: 860px) {
       .sidebar { transform: translateX(-100%); }
       .sidebar.open { transform: translateX(0); }
-      .main-area {
-        margin-left: 0;
-        width: 100%;
-        padding: 12px 12px 70px;
-      }
+      .main-area { margin-left: 0; width: 100%; padding: 12px 12px 88px; }
       .menu-btn { display: inline-block; }
       .trade-grid { grid-template-columns: 1fr; }
       .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -269,11 +297,17 @@ html, body {
       .topbar-right { width: 100%; justify-content: space-between; }
       .pro-price-hero { font-size: 1.45rem; word-break: break-word; }
       .telemetry-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .field input, .field select, .field textarea { font-size: 16px; }
+      .live-social-toast { bottom: 76px !important; left: 10px !important; right: 10px !important; max-width: calc(100vw - 20px) !important; }
+      .obsidian-toast { top: 12px; left: 12px; right: 12px; max-width: none; }
+      .mobile-bottom-nav { display: flex !important; }
       canvas { height: 230px; }
     }
   </style>
 </head>
 <body>
+
+<div id="obsidianToast" class="obsidian-toast"></div>
 
 <div class="app-shell">
   <!-- SIDEBAR NAVIGATION -->
@@ -284,14 +318,14 @@ html, body {
     </div>
 
     <div class="nav-section">Main</div>
-    <div class="nav-item active" onclick="switchTab('overview', this)">📊 Dashboard</div>
-    <div class="nav-item" onclick="switchTab('trade', this)">⚡ Trade</div>
+    <div class="nav-item active" data-tab="overview" onclick="switchTab('overview', this)">📊 Dashboard</div>
+    <div class="nav-item" data-tab="trade" onclick="switchTab('trade', this)">⚡ Trade</div>
 
-    <div class="nav-section">Account</div>  
-    <div class="nav-item" onclick="switchTab('withdraw', this)">⬆️ Withdraw</div>
-    <div class="nav-item" onclick="switchTab('history', this)">🕒 History</div>
-    <div class="nav-item" onclick="switchTab('profile', this)">👤 Profile</div>
-    <div class="nav-item" onclick="switchTab('help', this)">🎧 Help Center</div>
+    <div class="nav-section">Account</div>
+    <div class="nav-item" data-tab="withdraw" onclick="switchTab('withdraw', this)">⬆️ Withdraw</div>
+    <div class="nav-item" data-tab="history" onclick="switchTab('history', this)">🕒 History</div>
+    <div class="nav-item" data-tab="profile" onclick="switchTab('profile', this)">👤 Profile</div>
+    <div class="nav-item" data-tab="help" onclick="switchTab('help', this)">🎧 Help Center</div>
 
     <div class="sidebar-footer">
       <div class="nav-item" onclick="installPWA()">📲 Download App</div>
@@ -305,14 +339,14 @@ html, body {
       <div class="topbar-left">
         <button type="button" class="menu-btn" onclick="toggleSidebar()">☰</button>
         <div>
-          <h2 class="page-title">Dashboard Overview</h2>
+          <h2 class="page-title" id="pageHeading">Dashboard Overview</h2>
           <span class="welcome-sub">Welcome back, <strong id="topUsername">Trader</strong></span>
         </div>
       </div>
       <div class="topbar-right">
-<select id="currencySwitcher" title="Select Display Currency" aria-label="Select Display Currency" class="currency-select" onchange="changeDisplayCurrency()">
-  <option value="BTC" selected>BTC (₿)</option>
-</select>
+        <select id="currencySwitcher" title="Select Display Currency" aria-label="Select Display Currency" class="currency-select" onchange="changeDisplayCurrency()">
+          <option value="BTC" selected>BTC (₿)</option>
+        </select>
         <button type="button" class="btn-secondary" onclick="switchTab('trade')">+ New Trade</button>
       </div>
     </div>
@@ -337,39 +371,40 @@ html, body {
     <section id="tab-overview">
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-label">Total Balance (<span class="currCode">PKR</span>)</div>
-          <div class="stat-val val-orange" id="statBalance">Rs 0.00</div>
-          <div class="stat-sub sub-muted" id="statInOrder">In Order: Rs 0.00</div>
+          <div class="stat-label">Available Balance (<span class="currCode">BTC</span>)</div>
+          <div class="stat-val val-orange" id="statBalance">₿0.00</div>
+          <div class="stat-sub sub-link" onclick="switchTab('trade')">Trade now →</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Total Withdraw (<span class="currCode">PKR</span>)</div>
-          <div class="stat-val val-dark" id="statWithdraw">Rs 0.00</div>
+          <div class="stat-label">In Order (<span class="currCode">BTC</span>)</div>
+          <div class="stat-val val-dark" id="statInOrder">₿0.00</div>
+          <div class="stat-sub sub-muted">Active trade stake</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Withdraw (<span class="currCode">BTC</span>)</div>
+          <div class="stat-val val-dark" id="statWithdraw">₿0.00</div>
           <div class="stat-sub sub-link" onclick="switchTab('history')">View history →</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Tax Rate</div>
-          <div class="stat-val val-orange" id="statTax">0%</div>
-          <div class="stat-sub sub-muted">Applied on all trades</div>
-        </div>
-        <div class="stat-card">
           <div class="stat-label">Credit Score</div>
-          <div class="stat-val val-dark" id="statScore">100</div>
+          <div class="stat-val val-orange" id="statScore">100</div>
+          <div class="stat-sub sub-muted">Account standing</div>
         </div>
       </div>
 
       <div class="trade-grid">
         <div class="card">
-<div class="chart-header">
-         <div>
-           <strong id="chartPairTitle" style="color:var(--text-muted); font-size:0.85rem;">BTC/PKR</strong>
-           <div class="pro-price-hero" id="chartLivePrice">Rs 0.00</div>
-           <div class="pro-change-row">
-             <span id="ovChangePct" class="pro-change-up">▲ +3.62% <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
-             <span class="live-pill">● LIVE</span>
-           </div>
-         </div>
-         <button type="button" class="btn-primary" onclick="switchTab('trade')">Start Trading →</button>
-       </div>
+          <div class="chart-header">
+            <div>
+              <strong id="chartPairTitle" style="color:var(--text-muted); font-size:0.85rem;">BTC/PKR</strong>
+              <div class="pro-price-hero" id="chartLivePrice">₿0.00</div>
+              <div class="pro-change-row">
+                <span id="ovChangePct" class="pro-change-up">▲ +3.62% <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
+                <span class="live-pill">● LIVE</span>
+              </div>
+            </div>
+            <button type="button" class="btn-primary" onclick="switchTab('trade')">Start Trading →</button>
+          </div>
         </div>
 
         <div class="card">
@@ -383,51 +418,51 @@ html, body {
     <section id="tab-trade" class="hidden">
       <div class="trade-grid">
         <div class="card">
-<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-         <div>
-           <div class="pro-price-hero" id="tradeLiveHero">Rs 0.00</div>
-           <div class="pro-change-row">
-             <span id="trChangePct" class="pro-change-up">▲ +3.62% <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
-             <span class="live-pill">● LIVE</span>
-           </div>
-         </div>
-         <div class="field" style="min-width: 190px; margin-bottom:0;">
-           <label for="tradePair">Select Trading Asset</label>
-           <select id="tradePair" onchange="updateChartPair()">
-             <option value="BTC/PKR">BTC/PKR (Bitcoin)</option>
-             <option value="ETH/PKR">ETH/PKR (Ethereum)</option>
-             <option value="BNB/PKR">BNB/PKR (Binance Coin)</option>
-             <option value="SOL/PKR">SOL/PKR (Solana)</option>
-           </select>
-         </div>
-       </div>
-       <canvas id="tradeChartCanvas"></canvas>
-       <div class="telemetry-grid">
-         <div><div class="tele-label">OPEN</div><div class="tele-val" id="trOpen">-</div></div>
-         <div><div class="tele-label">HIGH</div><div class="tele-val tele-green" id="trHigh">-</div></div>
-         <div><div class="tele-label">LOW</div><div class="tele-val tele-red" id="trLow">-</div></div>
-         <div><div class="tele-label">24H CHANGE</div><div class="tele-val tele-green" id="trChangeStat">+3.62%</div></div>
-         <div><div class="tele-label">MARKET CAP</div><div class="tele-val" id="trMcap">$594,267.72B</div></div>
-         <div><div class="tele-label">24H VOL</div><div class="tele-val" id="trVol">48,920 BTC</div></div>
-       </div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+            <div>
+              <div class="pro-price-hero" id="tradeLiveHero">₿0.00</div>
+              <div class="pro-change-row">
+                <span id="trChangePct" class="pro-change-up">▲ +3.62% <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
+                <span class="live-pill">● LIVE</span>
+              </div>
+            </div>
+            <div class="field" style="min-width: 190px; margin-bottom:0;">
+              <label for="tradePair">Select Trading Asset</label>
+              <select id="tradePair" onchange="updateChartPair()">
+                <option value="BTC/PKR">BTC/PKR (Bitcoin)</option>
+                <option value="ETH/PKR">ETH/PKR (Ethereum)</option>
+                <option value="BNB/PKR">BNB/PKR (Binance Coin)</option>
+                <option value="SOL/PKR">SOL/PKR (Solana)</option>
+              </select>
+            </div>
+          </div>
+          <canvas id="tradeChartCanvas"></canvas>
+          <div class="telemetry-grid">
+            <div><div class="tele-label">OPEN</div><div class="tele-val" id="trOpen">-</div></div>
+            <div><div class="tele-label">HIGH</div><div class="tele-val tele-green" id="trHigh">-</div></div>
+            <div><div class="tele-label">LOW</div><div class="tele-val tele-red" id="trLow">-</div></div>
+            <div><div class="tele-label">24H CHANGE</div><div class="tele-val tele-green" id="trChangeStat">+3.62%</div></div>
+            <div><div class="tele-label">MARKET CAP</div><div class="tele-val" id="trMcap">$594,267.72B</div></div>
+            <div><div class="tele-label">24H VOL</div><div class="tele-val" id="trVol">48,920 BTC</div></div>
+          </div>
         </div>
 
         <div class="card">
           <h3 class="section-heading">Place Timed Trade</h3>
           <span class="tier-label">Select Duration & Profit %</span>
           <div class="tier-grid" id="durationTiers">
-            <div class="tier-btn active" data-sec="60" onclick="selectDuration(this)">60 Seconds<strong id="pct-60"></strong></div>
-            <div class="tier-btn" data-sec="80" onclick="selectDuration(this)">80 Seconds<strong id="pct-80"></strong></div>
-            <div class="tier-btn" data-sec="120" onclick="selectDuration(this)">120 Seconds<strong id="pct-120"></strong></div>
+            <div class="tier-btn active" data-sec="60" onclick="selectDuration(this)">60 Seconds<strong id="pct-60">+25%</strong></div>
+            <div class="tier-btn" data-sec="80" onclick="selectDuration(this)">80 Seconds<strong id="pct-80">+30%</strong></div>
+            <div class="tier-btn" data-sec="120" onclick="selectDuration(this)">120 Seconds<strong id="pct-120">+50%</strong></div>
           </div>
 
           <div class="field">
-            <label for="tradeAmount">Investment Amount (Available: <span id="tradeAvailBal">Rs 0.00</span>)</label>
+            <label for="tradeAmount">Investment Amount (Available: <span id="tradeAvailBal">₿0.00</span>)</label>
             <input type="number" id="tradeAmount" placeholder="Enter amount (e.g. 500)" min="1" />
           </div>
 
           <div class="trade-actions">
-            <button type="button" class="btn-primary w-full" onclick="executeTrade('UP')">Submit Trade</button>            
+            <button type="button" class="btn-primary w-full" onclick="executeTrade('UP')">Submit Trade</button>
           </div>
 
           <div id="activeTradeBox" class="active-trade-box hidden">
@@ -439,28 +474,21 @@ html, body {
       </div>
     </section>
 
-    <!-- TAB 3: CRYPTO DEPOSIT + PROOF UPLOAD -->
-    
-
     <!-- TAB 4: WITHDRAWAL -->
     <section id="tab-withdraw" class="hidden">
       <div class="card card-narrow">
         <h3 class="section-heading">Withdraw Funds</h3>
-        <div id="creditScoreGateNotice" class="score-notice">
-          Credit Score Requirement: <strong>90 / 100</strong> — Your Score: <strong id="wdrCurrentScore">100</strong>
-        </div>
-
         <form id="withdrawForm">
-       <div class="field">
-         <label for="wdrAmount">Withdraw Amount (<span class="currCode">PKR</span>)</label>
-        <input type="number" id="wdrAmount" placeholder="Enter amount" required />
-      </div>
-      <div class="field">
-      <label for="wdrAccount">Account Number / Wallet Address</label>
-      <input type="text" id="wdrAccount" placeholder="e.g. EasyPaisa / JazzCash / IBAN" required />
-        </div>
-        <button type="submit" class="btn-primary w-full">Submit Withdrawal</button>
-</form>
+          <div class="field">
+            <label for="wdrAmount">Withdraw Amount (<span class="currCode">BTC</span>)</label>
+            <input type="number" id="wdrAmount" placeholder="Enter amount" required />
+          </div>
+          <div class="field">
+            <label for="wdrAccount">Account Number / Wallet Address</label>
+            <input type="text" id="wdrAccount" placeholder="e.g. EasyPaisa / JazzCash / IBAN / Wallet" required />
+          </div>
+          <button type="submit" class="btn-primary w-full">Submit Withdrawal</button>
+        </form>
       </div>
     </section>
 
@@ -472,12 +500,12 @@ html, body {
       </div>
     </section>
 
-<!-- TAB 6: PROFILE & SECURITY -->
+    <!-- TAB 6: PROFILE & SECURITY -->
     <section id="tab-profile" class="hidden">
       <div class="field">
-  <label for="profInviteLink">Your Invitation Link (Click to Copy)</label>
-  <input type="text" id="profInviteLink" readonly class="wallet-copy-input" onclick="copyInviteLink()" />
-</div>
+        <label for="profInviteLink">Your Invitation Link (Tap to Copy)</label>
+        <input type="text" id="profInviteLink" readonly class="wallet-copy-input" onclick="copyInviteLink()" />
+      </div>
       <div class="trade-grid">
         <div class="card">
           <h3 class="section-heading">Account & Personal Details</h3>
@@ -490,7 +518,7 @@ html, body {
             <div class="stat-card">
               <div class="stat-label">Credit Standing</div>
               <div class="stat-val val-dark" id="profScore">100</div>
-              <div class="stat-sub sub-muted" id="profWithdrawStatus">Withdrawals Unlocked</div>
+              <div class="stat-sub sub-muted">Verified Member</div>
             </div>
           </div>
 
@@ -550,11 +578,11 @@ html, body {
       <div class="trade-grid">
         <div class="card">
           <h3 class="section-heading">Contact Help Center</h3>
-          <p class="section-sub">Need help with deposits, trades, or account verification? Send a direct message to our Admin & Guard team.</p>
+          <p class="section-sub">Need help with trades or account verification? Send a direct message to our support team.</p>
           <form id="helpForm">
             <div class="field">
               <label for="helpSubject">Subject</label>
-              <input type="text" id="helpSubject" placeholder="e.g. Deposit Verification" required />
+              <input type="text" id="helpSubject" placeholder="e.g. Account Verification" required />
             </div>
             <div class="field">
               <label for="helpMessage">Message</label>
@@ -572,6 +600,15 @@ html, body {
     </section>
   </main>
 </div>
+
+<!-- MOBILE BOTTOM NAVIGATION BAR -->
+<nav class="mobile-bottom-nav" id="mobileBottomNav">
+  <button type="button" class="mob-nav-btn active" data-tab="overview" onclick="switchTab('overview', null, this)"><span class="ico">📊</span><span>Home</span></button>
+  <button type="button" class="mob-nav-btn" data-tab="trade" onclick="switchTab('trade', null, this)"><span class="ico">⚡</span><span>Trade</span></button>
+  <button type="button" class="mob-nav-btn" data-tab="withdraw" onclick="switchTab('withdraw', null, this)"><span class="ico">⬆️</span><span>Withdraw</span></button>
+  <button type="button" class="mob-nav-btn" data-tab="history" onclick="switchTab('history', null, this)"><span class="ico">🕒</span><span>History</span></button>
+  <button type="button" class="mob-nav-btn" data-tab="profile" onclick="switchTab('profile', null, this)"><span class="ico">👤</span><span>Profile</span></button>
+</nav>
 
 <!-- "CONGRATULATIONS! YOU WON" MODAL -->
 <div class="modal-backdrop" id="winModal">
@@ -605,26 +642,48 @@ html, body {
   let activeErrorId = null;
   let seenSettledTrades = new Set();
 
+  function notify(msg, isError = false) {
+    const el = document.getElementById('obsidianToast');
+    el.textContent = msg;
+    el.className = `obsidian-toast ${isError ? 'err' : ''}`;
+    el.style.display = 'block';
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+  }
+
   function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
   }
 
-function switchTab(tabName, el) {
+  function switchTab(tabName, el, mobEl) {
     document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-    if (el) {
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      el.classList.add('active');
-    }
+
+    document.querySelectorAll('.nav-item[data-tab]').forEach(n => {
+      n.classList.toggle('active', n.dataset.tab === tabName || n === el);
+    });
+    document.querySelectorAll('.mob-nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tabName || b === mobEl);
+    });
+
+    const titles = {
+      overview: 'Dashboard Overview',
+      trade: 'Live Market Trade',
+      withdraw: 'Withdraw Funds',
+      history: 'Transaction History',
+      profile: 'Account Profile',
+      help: 'Help Center'
+    };
+    document.getElementById('pageHeading').textContent = titles[tabName] || 'Dashboard';
+
     if (window.innerWidth <= 860) document.getElementById('sidebar').classList.remove('open');
-    drawChart('marketChart');
     drawChart('tradeChartCanvas');
   }
 
   function formatMoney(baseAmount) {
-    if (!appState) return `Rs ${Number(baseAmount).toFixed(2)}`;
+    if (!appState) return `₿${(Number(baseAmount) * 0.000000033).toFixed(2)}`;
     const code = document.getElementById('currencySwitcher').value || 'BTC';
-    const curr = appState.settings.currencies.find(c => c.code === code) || { symbol: 'Rs', rateToBase: 1 };
+    const curr = appState.settings.currencies.find(c => c.code === code) || { symbol: '₿', rateToBase: 0.000000033 };
     const converted = Number(baseAmount) * curr.rateToBase;
     return `${curr.symbol}${converted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
@@ -647,7 +706,7 @@ function switchTab(tabName, el) {
       });
       if (res.status === 401 || res.status === 403) {
         const err = await res.json();
-        alert(err.error || 'Session expired');
+        notify(err.error || 'Session expired', true);
         return logout();
       }
       appState = await res.json();
@@ -656,12 +715,11 @@ function switchTab(tabName, el) {
     } catch (e) {}
   }
 
-  function copyInviteLink()
-  {
-  const inp = document.getElementById('profInviteLink');
-  inp.select();
-  navigator.clipboard?.writeText(inp.value);
-  alert('Invitation link copied to clipboard!');
+  function copyInviteLink() {
+    const inp = document.getElementById('profInviteLink');
+    inp.select();
+    navigator.clipboard?.writeText(inp.value);
+    notify('Invitation link copied!');
   }
 
   function renderDashboard() {
@@ -672,27 +730,23 @@ function switchTab(tabName, el) {
 
     const currSel = document.getElementById('currencySwitcher');
     if (currSel.options.length !== settings.currencies.length) {
-    const prev = currSel.dataset.initialized ? currSel.value : 'BTC';
-    currSel.innerHTML = settings.currencies.map(c => `<option value="${c.code}">${c.code} (${c.symbol})</option>`).join('');
-    currSel.value = prev;
-    currSel.dataset.initialized = 'true';
-    document.querySelectorAll('.currCode').forEach(el => el.textContent = currSel.value);
+      const prev = currSel.dataset.initialized ? currSel.value : 'BTC';
+      currSel.innerHTML = settings.currencies.map(c => `<option value="${c.code}">${c.code} (${c.symbol})</option>`).join('');
+      currSel.value = prev;
+      currSel.dataset.initialized = 'true';
+      document.querySelectorAll('.currCode').forEach(el => el.textContent = currSel.value);
     }
 
     document.getElementById('topUsername').textContent = user.firstName || user.username;
     document.getElementById('statBalance').textContent = formatMoney(user.balance);
-    document.getElementById('statInOrder').textContent = `In Order: ${formatMoney(user.inOrderBalance)}`;
+    document.getElementById('statInOrder').textContent = formatMoney(user.inOrderBalance);
     document.getElementById('statWithdraw').textContent = formatMoney(user.totalWithdrawn);
-    document.getElementById('statTax').textContent = `${settings.taxRate}%`;
     document.getElementById('statScore').textContent = user.creditScore;
     document.getElementById('tradeAvailBal').textContent = formatMoney(user.balance);
-    document.getElementById('wdrCurrentScore').textContent = `${user.creditScore} / ${settings.minCreditScoreForWithdraw}`;
-    
+
     document.getElementById('profStatus').textContent = user.status || 'ACTIVE';
     document.getElementById('profJoined').textContent = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Today';
     document.getElementById('profScore').textContent = `${user.creditScore} / 100`;
-    document.getElementById('profWithdrawStatus').textContent =
-      user.creditScore >= settings.minCreditScoreForWithdraw ? '✓ Withdrawals Unlocked' : `▲ Need ${settings.minCreditScoreForWithdraw} to withdraw`;
 
     document.getElementById('profUserField').value = user.username;
     document.getElementById('profEmailField').value = user.email;
@@ -709,73 +763,58 @@ function switchTab(tabName, el) {
     document.getElementById('chartPairTitle').textContent = activePair;
     document.getElementById('chartLivePrice').textContent = formatMoney(prices[activePair]);
 
-const liveVal = Number(prices[activePair]);
- if (priceHistory.length === 0) {
-   // Seed realistic 45-point intraday wave leading up to live price
-   let sim = liveVal * 0.968;
-   const now = Date.now();
-   for (let i = 45; i >= 1; i--) {
-     sim = sim * (1 + (Math.random() - 0.485) * 0.0045);
-     priceHistory.push({
-       price: sim,
-       vol: Math.floor(Math.random() * 65 + 15),
-       ts: now - i * 3000
-     });
-   }
- }
- priceHistory.push({
-   price: liveVal,
-   vol: Math.floor(Math.random() * 75 + 20),
-   ts: Date.now()
- });
- if (priceHistory.length > 55) priceHistory.shift();
+    const liveVal = Number(prices[activePair]);
+    if (priceHistory.length === 0) {
+      let sim = liveVal * 0.968;
+      const now = Date.now();
+      for (let i = 45; i >= 1; i--) {
+        sim = sim * (1 + (Math.random() - 0.485) * 0.0045);
+        priceHistory.push({ price: sim, vol: Math.floor(Math.random() * 65 + 15), ts: now - i * 3000 });
+      }
+    }
+    priceHistory.push({ price: liveVal, vol: Math.floor(Math.random() * 75 + 20), ts: Date.now() });
+    if (priceHistory.length > 55) priceHistory.shift();
 
- // Update Open / High / Low / 24h Change telemetry
- const openVal = priceHistory[0].price;
- const highVal = Math.max(...priceHistory.map(p => p.price)) * 1.004;
- const lowVal = Math.min(...priceHistory.map(p => p.price)) * 0.996;
- const pct = (((liveVal - openVal) / openVal) * 100 + 3.45).toFixed(2);
- const isUp = Number(pct) >= 0;
- const pctText = `${isUp ? '▲ +' : '▼ '}${pct}%`;
- const mcapMap = {
-   'BTC/PKR': '$594,267.72B',
-   'ETH/PKR': '$218,410.50B',
-   'BNB/PKR': '$84,920.15B',
-   'SOL/PKR': '$62,185.40B'
- };
+    const openVal = priceHistory[0].price;
+    const highVal = Math.max(...priceHistory.map(p => p.price)) * 1.004;
+    const lowVal = Math.min(...priceHistory.map(p => p.price)) * 0.996;
+    const pct = (((liveVal - openVal) / openVal) * 100 + 3.45).toFixed(2);
+    const isUp = Number(pct) >= 0;
+    const pctText = `${isUp ? '▲ +' : '▼ '}${pct}%`;
+    const mcapMap = {
+      'BTC/PKR': '$594,267.72B',
+      'ETH/PKR': '$218,410.50B',
+      'BNB/PKR': '$84,920.15B',
+      'SOL/PKR': '$62,185.40B'
+    };
 
-if (settings && settings.payoutPercentages) {
-   ['60', '80', '120'].forEach(sec => {
-     const el = document.getElementById(`pct-${sec}`);
-     if (el && settings.payoutPercentages[sec] !== undefined) {
-       el.textContent = `+${settings.payoutPercentages[sec]}%`;
-     }
-   });
- }
+    if (settings && settings.payoutPercentages) {
+      ['60', '80', '120'].forEach(sec => {
+        const el = document.getElementById(`pct-${sec}`);
+        if (el && settings.payoutPercentages[sec] !== undefined) {
+          el.textContent = `+${settings.payoutPercentages[sec]}%`;
+        }
+      });
+    }
 
- const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
- setTxt('tradeLiveHero', formatMoney(liveVal));
- ['ovOpen', 'trOpen'].forEach(id => setTxt(id, formatMoney(openVal)));
- ['ovHigh', 'trHigh'].forEach(id => setTxt(id, formatMoney(highVal)));
- ['ovLow', 'trLow'].forEach(id => setTxt(id, formatMoney(lowVal)));
- ['ovMcap', 'trMcap'].forEach(id => setTxt(id, mcapMap[activePair] || '$120.5B'));
- ['ovChangeStat', 'trChangeStat'].forEach(id => {
-   const el = document.getElementById(id);
-   if (el) {
-     el.textContent = `${isUp ? '+' : ''}${pct}%`;
-     el.className = `tele-val ${isUp ? 'tele-green' : 'tele-red'}`;
-   }
- });
- ['ovChangePct', 'trChangePct'].forEach(id => {
-   const el = document.getElementById(id);
-   if (el) {
-     el.innerHTML = `${pctText} <small style="color:var(--text-dim);font-weight:500;">24h</small>`;
-     el.className = isUp ? 'pro-change-up' : 'pro-change-down';
-   }
- });
-
- drawChart('marketChart');
- drawChart('tradeChartCanvas');
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setTxt('tradeLiveHero', formatMoney(liveVal));
+    setTxt('trOpen', formatMoney(openVal));
+    setTxt('trHigh', formatMoney(highVal));
+    setTxt('trLow', formatMoney(lowVal));
+    setTxt('trMcap', mcapMap[activePair] || '$120.5B');
+    const trStat = document.getElementById('trChangeStat');
+    if (trStat) {
+      trStat.textContent = `${isUp ? '+' : ''}${pct}%`;
+      trStat.className = `tele-val ${isUp ? 'tele-green' : 'tele-red'}`;
+    }
+    ['ovChangePct', 'trChangePct'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.innerHTML = `${pctText} <small style="color:var(--text-dim);font-weight:500;">24h</small>`;
+        el.className = isUp ? 'pro-change-up' : 'pro-change-down';
+      }
+    });
 
     if (customErrors && customErrors.length > 0) {
       const latestErr = customErrors[0];
@@ -785,15 +824,17 @@ if (settings && settings.payoutPercentages) {
       document.getElementById('customErrorBanner').classList.remove('hidden');
     }
 
-const running = trades.find(t => t.status === 'RUNNING');
-  if (running) {
-    const rem = Math.max(0, Math.ceil((running.expiresAt - Date.now()) / 1000));
-    document.getElementById('activeTradeBox').classList.remove('hidden');
-    document.getElementById('tradeCountdown').textContent = `${rem}s`;
-    document.getElementById('tradeLiveSummary').textContent = `${running.pair} | Stake: ${formatMoney(running.stake)} | Duration: ${running.durationSeconds}s`;
-  } else {
-    document.getElementById('activeTradeBox').classList.add('hidden');
-  }
+    const running = trades.find(t => t.status === 'RUNNING');
+    if (running) {
+      const rem = Math.max(0, Math.ceil((running.expiresAt - Date.now()) / 1000));
+      document.getElementById('activeTradeBox').classList.remove('hidden');
+      document.getElementById('tradeCountdown').textContent = `${rem}s`;
+      document.getElementById('tradeLiveSummary').textContent = `${running.pair} | Stake: ${formatMoney(running.stake)} | Duration: ${running.durationSeconds}s`;
+    } else {
+      document.getElementById('activeTradeBox').classList.add('hidden');
+    }
+
+    drawChart('tradeChartCanvas', running && running.pair === activePair ? Number(running.entryPrice) : null);
 
     trades.forEach(t => {
       if (t.status === 'WON' && !seenSettledTrades.has(t.id)) {
@@ -809,8 +850,8 @@ const running = trades.find(t => t.status === 'RUNNING');
     document.getElementById('overviewTradesList').innerHTML = trades.length
       ? trades.slice(0, 6).map(t => `
           <div class="tx-row">
-            <div><strong>${t.pair}</strong> (${t.direction})<br><small>${t.durationSeconds}s • </small></div>
-            <div>
+            <div><strong>${t.pair}</strong><br><small>${t.durationSeconds}s • ${new Date(t.createdAt).toLocaleTimeString()}</small></div>
+            <div style="text-align:right;">
               <strong>${t.status}</strong><br>
               <small>${formatMoney(t.stake)}</small>
             </div>
@@ -824,7 +865,7 @@ const running = trades.find(t => t.status === 'RUNNING');
               <strong>${tx.note}</strong><br>
               <small>Trx: ${tx.trx} • ${new Date(tx.timestamp).toLocaleString()}</small>
             </div>
-            <div>
+            <div style="text-align:right;">
               <strong>${tx.amount >= 0 ? '+' : ''}${formatMoney(tx.amount)}</strong><br>
               <small>Post: ${formatMoney(tx.postBalance)}</small>
             </div>
@@ -843,12 +884,19 @@ const running = trades.find(t => t.status === 'RUNNING');
       : 'No messages sent yet.';
   }
 
-function drawChart(canvasId) {
+  function drawChart(canvasId, entryPrice = null) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || priceHistory.length < 2) return;
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.offsetWidth || 640;
+    const cssH = canvas.offsetHeight || 280;
+    canvas.width = cssW * dpr;
+    canvas.height = cssH * dpr;
+
     const ctx = canvas.getContext('2d');
-    const w = canvas.width = canvas.offsetWidth || 640;
-    const h = canvas.height = 280;
+    ctx.scale(dpr, dpr);
+    const w = cssW;
+    const h = cssH;
     ctx.clearRect(0, 0, w, h);
 
     const rightPad = 92;
@@ -858,11 +906,11 @@ function drawChart(canvasId) {
     const chartH = h - bottomPad - topPad;
 
     const vals = priceHistory.map(d => d.price);
+    if (entryPrice) vals.push(entryPrice);
     const min = Math.min(...vals) * 0.9985;
     const max = Math.max(...vals) * 1.0015;
     const range = max - min || 1;
 
-    // Horizontal grid lines & right-side Y-axis price labels
     ctx.font = '10px monospace';
     ctx.textAlign = 'left';
     for (let i = 0; i <= 5; i++) {
@@ -887,7 +935,6 @@ function drawChart(canvasId) {
       ts: d.ts
     }));
 
-    // Emerald green gradient fill
     const grad = ctx.createLinearGradient(0, topPad, 0, topPad + chartH);
     grad.addColorStop(0, 'rgba(16, 185, 129, 0.34)');
     grad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
@@ -899,24 +946,36 @@ function drawChart(canvasId) {
     ctx.closePath();
     ctx.fill();
 
-    // Glowing emerald price curve
     ctx.strokeStyle = '#10b981';
     ctx.lineWidth = 2.4;
     ctx.beginPath();
     coords.forEach((c, idx) => idx === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
     ctx.stroke();
 
-    // Bottom timestamps (HH:MM:SS)
+    // Dashed Entry Price Line when a trade is active
+    if (entryPrice) {
+      const ey = topPad + chartH - ((entryPrice - min) / range) * chartH;
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = '#f97316';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(8, ey);
+      ctx.lineTo(w - rightPad, ey);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = '#f97316';
+      ctx.fillText('ENTRY', w - rightPad + 6, ey - 3);
+    }
+
     ctx.fillStyle = '#64748b';
     ctx.textAlign = 'center';
     const step = Math.max(1, Math.floor(coords.length / 4));
     for (let i = 0; i < coords.length; i += step) {
       const t = new Date(coords[i].ts);
-      const label = t.toTimeString().slice(0, 8);
-      ctx.fillText(label, coords[i].x, topPad + chartH + 14);
+      ctx.fillText(t.toTimeString().slice(0, 8), coords[i].x, topPad + chartH + 14);
     }
 
-    // Bottom volume histogram bars
     const volTop = topPad + chartH + 24;
     const volH = 34;
     const barW = Math.max(2, (chartW / coords.length) * 0.55);
@@ -932,7 +991,6 @@ function drawChart(canvasId) {
     ctx.fillText('80K', w - rightPad + 6, volTop + 8);
     ctx.fillText('0K', w - rightPad + 6, volTop + volH);
 
-    // Live pulsing head dot
     const last = coords[coords.length - 1];
     ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
     ctx.beginPath();
@@ -954,7 +1012,7 @@ function drawChart(canvasId) {
   async function executeTrade(direction) {
     const stake = Number(document.getElementById('tradeAmount').value);
     const pair = document.getElementById('tradePair').value;
-    if (!stake || stake <= 0) return alert('Enter a valid trade amount.');
+    if (!stake || stake <= 0) return notify('Enter a valid trade amount.', true);
 
     const res = await fetch('/api/trades/execute', {
       method: 'POST',
@@ -962,12 +1020,13 @@ function drawChart(canvasId) {
       body: JSON.stringify({ pair, direction, stake, durationSeconds: selectedDuration })
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error);
+    if (!res.ok) return notify(data.error, true);
     document.getElementById('tradeAmount').value = '';
+    notify('Trade placed!');
     fetchDashboard();
   }
 
-document.getElementById('withdrawForm').addEventListener('submit', async (e) => {
+  document.getElementById('withdrawForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const res = await fetch('/api/wallet/withdraw', {
       method: 'POST',
@@ -979,8 +1038,8 @@ document.getElementById('withdrawForm').addEventListener('submit', async (e) => 
       })
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error);
-    alert(data.message);
+    if (!res.ok) return notify(data.error, true);
+    notify(data.message);
     e.target.reset();
     fetchDashboard();
   });
@@ -996,11 +1055,11 @@ document.getElementById('withdrawForm').addEventListener('submit', async (e) => 
       })
     });
     const data = await res.json();
-    alert(data.error || data.message);
+    notify(data.error || data.message, !res.ok);
     if (res.ok) e.target.reset();
   });
 
-document.getElementById('updateProfileForm').addEventListener('submit', async (e) => {
+  document.getElementById('updateProfileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const res = await fetch('/api/auth/complete-profile', {
       method: 'POST',
@@ -1011,8 +1070,8 @@ document.getElementById('updateProfileForm').addEventListener('submit', async (e
       })
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || 'Could not update profile.');
-    alert('Profile details updated successfully!');
+    if (!res.ok) return notify(data.error || 'Could not update profile.', true);
+    notify('Profile updated!');
     fetchDashboard();
   });
 
@@ -1027,7 +1086,8 @@ document.getElementById('updateProfileForm').addEventListener('submit', async (e
       })
     });
     const data = await res.json();
-    if (!res.ok) return alert(data.error);
+    if (!res.ok) return notify(data.error, true);
+    notify('Message sent to Help Center!');
     e.target.reset();
     fetchDashboard();
   });
@@ -1048,7 +1108,7 @@ document.getElementById('updateProfileForm').addEventListener('submit', async (e
   }
 
   function installPWA() {
-    alert('To install Daraz Trade App:\n• Chrome / Edge Desktop: Click the Install icon in the right side of the address bar.\n• Mobile Browser: Tap Menu (⋮) -> "Add to Home Screen".');
+    notify('Tap browser Menu (⋮) → "Add to Home Screen" to install Daraz Trade.');
   }
 
   function logout() {
@@ -1057,7 +1117,6 @@ document.getElementById('updateProfileForm').addEventListener('submit', async (e
     window.location.href = '/index.html';
   }
 
-  // Live Social-Proof Pakistani Activity Toast
   async function showRandomActivity() {
     try {
       const res = await fetch('/api/public/live-activity');
@@ -1078,9 +1137,8 @@ document.getElementById('updateProfileForm').addEventListener('submit', async (e
   setInterval(showRandomActivity, 9000);
 
   fetchDashboard();
-  // Instant Real-Time Sync with SQLite Backend
-const traderStream = new EventSource('/api/stream');
-traderStream.onmessage = () => fetchDashboard();
+  const traderStream = new EventSource('/api/stream');
+  traderStream.onmessage = () => fetchDashboard();
   setInterval(fetchDashboard, 1500);
 </script>
 </body>
