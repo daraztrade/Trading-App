@@ -252,6 +252,9 @@
   </div>
 
   <script>
+    if (localStorage.getItem('traderUser') && localStorage.getItem('traderToken')) {
+  window.location.href = '/dashboard.html';
+}
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
     }
@@ -320,6 +323,7 @@
 
       localStorage.setItem('traderUser', JSON.stringify(data.user));
       if (data.token) localStorage.setItem('traderToken', data.token);
+      localStorage.setItem('darazSavedAccount', JSON.stringify(data.user));
       // Show Profile Completion Step
       document.getElementById('registerForm').classList.add('hidden');
       document.getElementById('profileForm').classList.remove('hidden');
@@ -345,24 +349,26 @@
       window.location.href = '/dashboard.html';
     });
 
-    // Login Handler
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          login: document.getElementById('loginUser').value.trim(),
-          password: document.getElementById('loginPass').value,
-          portal: 'TRADER'
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) return showError(data.error);
-      localStorage.setItem('traderUser', JSON.stringify(data.user));
-      if (data.token) localStorage.setItem('traderToken', data.token);
-      window.location.href = '/dashboard.html';
-    });
+// Login Handler
+ document.getElementById('loginForm').addEventListener('submit', async (e) => {
+   e.preventDefault();
+   const res = await fetch('/api/auth/login', {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+       login: document.getElementById('loginUser').value.trim(),
+       password: document.getElementById('loginPass').value,
+       portal: 'TRADER',
+       savedProfile: JSON.parse(localStorage.getItem('darazSavedAccount') || 'null')
+     })
+   });
+   const data = await res.json();
+   if (!res.ok) return showError(data.error);
+   localStorage.setItem('traderUser', JSON.stringify(data.user));
+   if (data.token) localStorage.setItem('traderToken', data.token);
+   localStorage.setItem('darazSavedAccount', JSON.stringify(data.user));
+   window.location.href = '/dashboard.html';
+ });
 
     // PWA Install Prompt
     let deferredPrompt;

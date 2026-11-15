@@ -79,6 +79,9 @@
   </div>
 
   <script>
+    if (localStorage.getItem('staffUser') && localStorage.getItem('staffToken')) {
+  window.location.href = './dashboard.html';
+}
     document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const res = await fetch('/api/auth/login', {

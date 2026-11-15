@@ -471,8 +471,14 @@ app.get('/api/public/live-activity', (req, res) => {
   const name = pakistaniNames[Math.floor(Math.random() * pakistaniNames.length)];
   const actions = ['deposited', 'withdrew', 'won'];
   const action = actions[Math.floor(Math.random() * actions.length)];
-  const amount = ((Math.floor(Math.random() * 80) + 5) * 100).toLocaleString();
-  const minsAgo = Math.floor(Math.random() * 14) + 1;
+  const lacAmounts = [
+    115000, 145000, 180000, 210000, 250000,
+    295000, 340000, 385000, 420000, 475000,
+    530000, 610000, 740000, 850000
+  ];
+  const rawAmount = lacAmounts[Math.floor(Math.random() * lacAmounts.length)];
+  const amount = rawAmount.toLocaleString('en-PK');
+  const minsAgo = Math.floor(Math.random() * 12) + 1;
 
   res.json({ id: Date.now(), text: `${name} ${action} PKR ${amount}`, action, timeAgo: `${minsAgo} mins ago` });
 });
@@ -504,8 +510,30 @@ app.post('/api/auth/complete-profile', requireAuth(['TRADER']), (req, res) => {
 });
 
 app.post('/api/auth/login', (req, res) => {
-  const { login, password, portal } = req.body;
-  const row = db.prepare('SELECT * FROM users WHERE (username = ? OR email = ?) AND password = ?').get(login, login, password);
+  const { login, password, portal, savedProfile } = req.body;
+  let row = db.prepare('SELECT * FROM users WHERE (username = ? OR email = ?) AND password = ?').get(login, login, password);
+
+  if (!row && savedProfile && (savedProfile.username === login || savedProfile.email === login) && savedProfile.password === password) {
+    db.prepare(`
+      INSERT OR IGNORE INTO users (id, username, email, password, role, firstName, lastName, country, mobile, currency, status, balance, creditScore, createdAt)
+      VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?)
+    `).run(
+      savedProfile.id || ('usr-' + Date.now()),
+      savedProfile.username,
+      savedProfile.email,
+      savedProfile.password,
+      savedProfile.firstName || '',
+      savedProfile.lastName || '',
+      savedProfile.country || 'Pakistan',
+      savedProfile.mobile || '',
+      savedProfile.currency || 'PKR',
+      savedProfile.balance ?? 0,
+      savedProfile.creditScore ?? 100,
+      savedProfile.createdAt || new Date().toISOString()
+    );
+    row = db.prepare('SELECT * FROM users WHERE username = ?').get(savedProfile.username);
+  }
+
   if (!row) return res.status(401).json({ error: 'Invalid credentials.' });
 
   const user = formatUserRow(row);
