@@ -267,7 +267,7 @@
         if (data.currencies) {
           const sel = document.getElementById('regCurrency');
           sel.innerHTML = data.currencies.map(c =>
-            `<option value="${c.code}" ${c.code === 'PKR' ? 'selected' : ''}>${c.code} (${c.symbol})</option>`
+            `<option value="${c.code}" ${c.code === 'BTC' ? 'selected' : ''}>${c.code} (${c.symbol})</option>`
           ).join('');
         }
       } catch (e) {}
