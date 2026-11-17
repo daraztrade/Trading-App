@@ -704,6 +704,20 @@
         <div class="field"><label>Alert Title</label><input type="text" id="errTitle" placeholder="System Verification Required" /></div>
         <div class="field"><label>Message</label><input type="text" id="errMessage" placeholder="Enter message shown on trader dashboard" /></div>
         <button class="pill-btn pill-indigo" style="width:100%;" onclick="sendCustomError()">Send Alert</button>
+        <div class="card hidden" id="manageAdminsCard" style="max-width:640px;">
+  <h3 style="margin-top:0;">🛡️ Manage Admin Accounts</h3>
+  <p style="font-size:0.84rem;color:#94a3b8;margin-top:-6px;">Create Admin accounts for moderators. They will see the standard Admin panel and will not see your Main Admin account.</p>
+  <div class="form-grid-2">
+    <div class="field"><label>Username</label><input type="text" id="newModUser" placeholder="e.g. mod_ali" /></div>
+    <div class="field"><label>Email</label><input type="email" id="newModEmail" placeholder="ali@daraztrade.online" /></div>
+  </div>
+  <div class="form-grid-2">
+    <div class="field"><label>Display Name</label><input type="text" id="newModName" placeholder="Ali" /></div>
+    <div class="field"><label>Password</label><input type="password" id="newModPass" placeholder="••••••••" /></div>
+  </div>
+  <button class="pill-btn pill-green" style="width:100%;margin-bottom:16px;" onclick="createModeratorAdmin()">+ Create Admin Account</button>
+  <div class="table-wrap" id="staffListWrap"></div>
+</div>
       </div>
     </section>
 
@@ -829,7 +843,17 @@
     const { actor, stats, traders, trades, deposits, withdrawals, tickets, settings } = adminData;
 
     document.getElementById('actorName').textContent = actor.username;
-    document.getElementById('actorRoleBadge').textContent = actor.role;
+    document.getElementById('actorRoleBadge').textContent = actor.role === 'MAIN_ADMIN' ? 'MAIN_ADMIN' : 'ADMIN';
+const modCard = document.getElementById('manageAdminsCard');
+if (modCard) {
+  modCard.classList.toggle('hidden', actor.role !== 'MAIN_ADMIN');
+  if (actor.role === 'MAIN_ADMIN' && adminData.staff) {
+    document.getElementById('staffListWrap').innerHTML = adminData.staff.length ? `
+      <table><thead><tr><th>USERNAME</th><th>EMAIL</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>
+      ${adminData.staff.map(s => `<tr><td><strong>${s.username}</strong></td><td>${s.email}</td><td>${new Date(s.createdAt).toLocaleDateString()}</td><td><button class="btn-sm btn-loss" onclick="deleteModeratorAdmin('${s.id}')">Remove</button></td></tr>`).join('')}
+      </tbody></table>` : '<p style="color:#94a3b8;">No moderator admins created yet.</p>';
+  }
+}
 
     document.getElementById('stTotalUsers').textContent = stats.totalUsers;
     document.getElementById('stActiveUsers').textContent = stats.activeUsers;
@@ -1237,6 +1261,34 @@ async function openUserDetail(userId) {
     showToast('Global settings saved!');
     fetchAdminOverview();
   }
+
+  async function createModeratorAdmin() {
+  const payload = {
+    username: document.getElementById('newModUser').value.trim(),
+    email: document.getElementById('newModEmail').value.trim(),
+    firstName: document.getElementById('newModName').value.trim(),
+    password: document.getElementById('newModPass').value
+  };
+  const res = await fetch('/api/admin/staff', {
+    method: 'POST', headers: adminHeaders(), body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) return showToast(data.error || 'Failed to create admin', true);
+  document.getElementById('newModUser').value = '';
+  document.getElementById('newModEmail').value = '';
+  document.getElementById('newModName').value = '';
+  document.getElementById('newModPass').value = '';
+  showToast('Admin account created!');
+  fetchAdminOverview();
+}
+
+async function deleteModeratorAdmin(id) {
+  const res = await fetch(`/api/admin/staff/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  if (res.ok) {
+    showToast('Admin removed');
+    fetchAdminOverview();
+  }
+}
 
   function adminLogout() {
     localStorage.removeItem('staffUser');

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
   <title>Daraz Trade</title>
-  <meta name="robots" content="noindex, nofollow" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23ee4d07'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='%23ffffff' font-family='sans-serif' font-weight='bold'>D</text></svg>" />
   <link rel="stylesheet" href="/shared/theme.css" />
@@ -205,20 +204,39 @@
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.72);
+      background: rgba(8, 12, 22, 0.88);
+      backdrop-filter: blur(6px);
       display: none;
       align-items: center;
       justify-content: center;
       padding: 20px;
-      z-index: 999;
+      z-index: 2000;
     }
     .modal-backdrop.open { display: flex; }
     .win-modal {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: var(--radius-lg);
       padding: 32px 24px;
-      max-width: 400px;
+      max-width: 410px;
       width: 100%;
       text-align: center;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+    }
+    .countdown-ring {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: 4px solid #f97316;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 18px;
+      font-size: 2rem;
+      font-weight: 800;
+      color: #ffffff;
+      background: rgba(249, 115, 22, 0.12);
+      box-shadow: 0 0 28px rgba(249, 115, 22, 0.25);
     }
     .trophy { font-size: 3.6rem; margin-bottom: 8px; }
     .win-badge {
@@ -230,14 +248,28 @@
       letter-spacing: 1px;
       margin-bottom: 10px;
     }
+    .badge-won { background: rgba(16, 185, 129, 0.18); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-lost { background: rgba(239, 68, 68, 0.18); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
     .tx-row {
       display: flex;
       justify-content: space-between;
-      padding: 12px 0;
+      align-items: center;
+      padding: 13px 0;
       border-bottom: 1px solid var(--border-color);
       font-size: 0.88rem;
       gap: 10px;
     }
+    .status-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+    }
+    .st-won { background: rgba(16, 185, 129, 0.18); color: #10b981; }
+    .st-lost { background: rgba(239, 68, 68, 0.18); color: #ef4444; }
+    .st-run { background: rgba(245, 158, 11, 0.18); color: #f59e0b; }
     .obsidian-toast {
       position: fixed;
       top: 18px;
@@ -295,7 +327,7 @@
       .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
       .stat-val { font-size: 1.2rem; }
       .topbar { flex-wrap: wrap; gap: 8px; }
-      .topbar-right { width: 100%; justify-content: space-between; }
+      .topbar-right { width: 100%; justify-content: flex-end; }
       .pro-price-hero { font-size: 1.45rem; word-break: break-word; }
       .telemetry-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
       .field input, .field select, .field textarea { font-size: 16px; }
@@ -324,7 +356,7 @@
 
     <div class="nav-section">Account</div>
     <div class="nav-item" data-tab="withdraw" onclick="switchTab('withdraw', this)">⬆️ Withdraw</div>
-    <div class="nav-item" data-tab="history" onclick="switchTab('history', this)">🕒 History</div>
+    <div class="nav-item" data-tab="history" onclick="switchTab('history', this)">🕒 Trade History</div>
     <div class="nav-item" data-tab="profile" onclick="switchTab('profile', this)">👤 Profile</div>
     <div class="nav-item" data-tab="help" onclick="switchTab('help', this)">🎧 Help Center</div>
 
@@ -345,16 +377,16 @@
         </div>
       </div>
       <div class="topbar-right">
-        <select id="currencySwitcher" title="Select Display Currency" aria-label="Select Display Currency" class="currency-select" onchange="changeDisplayCurrency()">
-          <option value="BTC" selected>BTC (₿)</option>
-        </select>
         <button type="button" class="btn-secondary" onclick="switchTab('trade')">+ New Trade</button>
       </div>
     </div>
 
     <!-- LIVE CRYPTO TICKER -->
     <div class="ticker-bar" id="tickerBar">
-      <div class="ticker-item">BTC/PKR <span>Loading...</span></div>
+      <div class="ticker-item">BTC_USDT <span>$89,450.25</span></div>
+      <div class="ticker-item">ETH_USDT <span>$3,120.80</span></div>
+      <div class="ticker-item">BNB_USDT <span>$612.40</span></div>
+      <div class="ticker-item">SOL_USDT <span>$184.65</span></div>
     </div>
 
     <!-- CUSTOM ERROR SENDER BANNER -->
@@ -372,19 +404,19 @@
     <section id="tab-overview">
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-label">Available Balance (<span class="currCode">BTC</span>)</div>
-          <div class="stat-val val-orange" id="statBalance">₿0.00</div>
+          <div class="stat-label">Available Balance (USDT)</div>
+          <div class="stat-val val-orange" id="statBalance">$0.00</div>
           <div class="stat-sub sub-link" onclick="switchTab('trade')">Trade now →</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">In Order (<span class="currCode">BTC</span>)</div>
-          <div class="stat-val val-dark" id="statInOrder">₿0.00</div>
+          <div class="stat-label">In Order (USDT)</div>
+          <div class="stat-val val-dark" id="statInOrder">$0.00</div>
           <div class="stat-sub sub-muted">Active trade stake</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Total Withdraw (<span class="currCode">BTC</span>)</div>
-          <div class="stat-val val-dark" id="statWithdraw">₿0.00</div>
-          <div class="stat-sub sub-link" onclick="switchTab('history')">View history →</div>
+          <div class="stat-label">Total Withdraw (USDT)</div>
+          <div class="stat-val val-dark" id="statWithdraw">$0.00</div>
+          <div class="stat-sub sub-link" onclick="switchTab('history')">View trade history →</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Credit Score</div>
@@ -397,8 +429,8 @@
         <div class="card">
           <div class="chart-header">
             <div>
-              <strong id="chartPairTitle" style="color:var(--text-muted); font-size:0.85rem;">BTC/PKR</strong>
-              <div class="pro-price-hero" id="chartLivePrice">₿0.00</div>
+              <strong id="chartPairTitle" style="color:var(--text-muted); font-size:0.85rem;">BTC_USDT</strong>
+              <div class="pro-price-hero" id="chartLivePrice">$89,450.25</div>
               <div class="pro-change-row">
                 <span id="ovChangePct" class="pro-change-up">▲ +3.62% <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
                 <span class="live-pill">● LIVE</span>
@@ -421,19 +453,65 @@
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
             <div>
-              <div class="pro-price-hero" id="tradeLiveHero">₿0.00</div>
+              <div class="pro-price-hero" id="tradeLiveHero">$89,450.25</div>
               <div class="pro-change-row">
                 <span id="trChangePct" class="pro-change-up">▲ +3.62% <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
                 <span class="live-pill">● LIVE</span>
               </div>
             </div>
             <div class="field" style="min-width: 190px; margin-bottom:0;">
-              <label for="tradePair">Select Trading Asset</label>
+              <label for="tradePair">Select Trading Pair</label>
               <select id="tradePair" onchange="updateChartPair()">
-                <option value="BTC/PKR">BTC/PKR (Bitcoin)</option>
-                <option value="ETH/PKR">ETH/PKR (Ethereum)</option>
-                <option value="BNB/PKR">BNB/PKR (Binance Coin)</option>
-                <option value="SOL/PKR">SOL/PKR (Solana)</option>
+                <option value="BTC_USDT" selected>BTC_USDT</option>
+                <option value="ETH_USDT">ETH_USDT</option>
+                <option value="BNB_USDT">BNB_USDT</option>
+                <option value="SOL_USDT">SOL_USDT</option>
+                <option value="BTS_USDT">BTS_USDT</option>
+                <option value="USDC_USDT">USDC_USDT</option>
+                <option value="DOGE_USDT">DOGE_USDT</option>
+                <option value="TRX_USDT">TRX_USDT</option>
+                <option value="XRP_USDT">XRP_USDT</option>
+                <option value="ADA_USDT">ADA_USDT</option>
+                <option value="PI_USDT">PI_USDT</option>
+                <option value="TON_USDT">TON_USDT</option>
+                <option value="AVAX_USDT">AVAX_USDT</option>
+                <option value="DOT_USDT">DOT_USDT</option>
+                <option value="LINK_USDT">LINK_USDT</option>
+                <option value="MATIC_USDT">MATIC_USDT</option>
+                <option value="LTC_USDT">LTC_USDT</option>
+                <option value="BCH_USDT">BCH_USDT</option>
+                <option value="SHIB_USDT">SHIB_USDT</option>
+                <option value="PEPE_USDT">PEPE_USDT</option>
+                <option value="UNI_USDT">UNI_USDT</option>
+                <option value="ATOM_USDT">ATOM_USDT</option>
+                <option value="XLM_USDT">XLM_USDT</option>
+                <option value="NEAR_USDT">NEAR_USDT</option>
+                <option value="APT_USDT">APT_USDT</option>
+                <option value="SUI_USDT">SUI_USDT</option>
+                <option value="FIL_USDT">FIL_USDT</option>
+                <option value="ETC_USDT">ETC_USDT</option>
+                <option value="ALGO_USDT">ALGO_USDT</option>
+                <option value="ARB_USDT">ARB_USDT</option>
+                <option value="OP_USDT">OP_USDT</option>
+                <option value="INJ_USDT">INJ_USDT</option>
+                <option value="TIA_USDT">TIA_USDT</option>
+                <option value="SEI_USDT">SEI_USDT</option>
+                <option value="RENDER_USDT">RENDER_USDT</option>
+                <option value="FET_USDT">FET_USDT</option>
+                <option value="AAVE_USDT">AAVE_USDT</option>
+                <option value="MKR_USDT">MKR_USDT</option>
+                <option value="VET_USDT">VET_USDT</option>
+                <option value="HBAR_USDT">HBAR_USDT</option>
+                <option value="ICP_USDT">ICP_USDT</option>
+                <option value="GRT_USDT">GRT_USDT</option>
+                <option value="SAND_USDT">SAND_USDT</option>
+                <option value="MANA_USDT">MANA_USDT</option>
+                <option value="AXS_USDT">AXS_USDT</option>
+                <option value="THETA_USDT">THETA_USDT</option>
+                <option value="EGLD_USDT">EGLD_USDT</option>
+                <option value="XTZ_USDT">XTZ_USDT</option>
+                <option value="EOS_USDT">EOS_USDT</option>
+                <option value="KAVA_USDT">KAVA_USDT</option>
               </select>
             </div>
           </div>
@@ -458,18 +536,12 @@
           </div>
 
           <div class="field">
-            <label for="tradeAmount">Investment Amount (Available: <span id="tradeAvailBal">₿0.00</span>)</label>
+            <label for="tradeAmount">Investment Amount (Available: <span id="tradeAvailBal">$0.00</span>)</label>
             <input type="number" id="tradeAmount" placeholder="Enter amount (e.g. 500)" min="1" />
           </div>
 
           <div class="trade-actions">
             <button type="button" class="btn-primary w-full" onclick="executeTrade('UP')">Submit Trade</button>
-          </div>
-
-          <div id="activeTradeBox" class="active-trade-box hidden">
-            <div class="active-trade-label">TRADE IN PROGRESS</div>
-            <div id="tradeCountdown" class="active-trade-timer">60s</div>
-            <div id="tradeLiveSummary" class="active-trade-summary"></div>
           </div>
         </div>
       </div>
@@ -481,23 +553,23 @@
         <h3 class="section-heading">Withdraw Funds</h3>
         <form id="withdrawForm">
           <div class="field">
-            <label for="wdrAmount">Withdraw Amount (<span class="currCode">BTC</span>)</label>
+            <label for="wdrAmount">Withdraw Amount (USDT)</label>
             <input type="number" id="wdrAmount" placeholder="Enter amount" required />
           </div>
           <div class="field">
             <label for="wdrAccount">Account Number / Wallet Address</label>
-            <input type="text" id="wdrAccount" placeholder="e.g. EasyPaisa / JazzCash / IBAN / Wallet" required />
+            <input type="text" id="wdrAccount" placeholder="e.g. TRC20 / ERC20 / IBAN / Account" required />
           </div>
           <button type="submit" class="btn-primary w-full">Submit Withdrawal</button>
         </form>
       </div>
     </section>
 
-    <!-- TAB 5: TRANSACTION HISTORY -->
+    <!-- TAB 5: TRADE HISTORY -->
     <section id="tab-history" class="hidden">
       <div class="card">
-        <h3 class="section-heading">Transaction History</h3>
-        <div id="txHistoryList" class="muted-list">No transactions yet.</div>
+        <h3 class="section-heading">Trade History</h3>
+        <div id="tradeHistoryList" class="muted-list">No trades placed yet.</div>
       </div>
     </section>
 
@@ -607,20 +679,30 @@
   <button type="button" class="mob-nav-btn active" data-tab="overview" onclick="switchTab('overview', null, this)"><span class="ico">📊</span><span>Home</span></button>
   <button type="button" class="mob-nav-btn" data-tab="trade" onclick="switchTab('trade', null, this)"><span class="ico">⚡</span><span>Trade</span></button>
   <button type="button" class="mob-nav-btn" data-tab="withdraw" onclick="switchTab('withdraw', null, this)"><span class="ico">⬆️</span><span>Withdraw</span></button>
-  <button type="button" class="mob-nav-btn" data-tab="history" onclick="switchTab('history', null, this)"><span class="ico">🕒</span><span>History</span></button>
+  <button type="button" class="mob-nav-btn" data-tab="history" onclick="switchTab('history', null, this)"><span class="ico">🕒</span><span>Trades</span></button>
   <button type="button" class="mob-nav-btn" data-tab="profile" onclick="switchTab('profile', null, this)"><span class="ico">👤</span><span>Profile</span></button>
 </nav>
 
-<!-- "CONGRATULATIONS! YOU WON" MODAL -->
-<div class="modal-backdrop" id="winModal">
+<!-- UNCLOSABLE TRADE COUNTDOWN & RESULT MODAL -->
+<div class="modal-backdrop" id="tradeLockModal">
   <div class="win-modal">
-    <div class="trophy">🏆</div>
-    <div class="win-badge">TRADE WON</div>
-    <h2 class="win-title">Congratulations! You Won</h2>
-    <p id="winModalText" class="win-desc">
-      Excellent trade! Your winnings have been credited to your balance.
-    </p>
-    <button type="button" class="btn-primary win-btn" onclick="closeWinModal()">🏠 Go to Dashboard</button>
+    <!-- Phase 1: Unclosable Countdown -->
+    <div id="tradeLockCountdownPhase">
+      <div class="win-badge" style="background:rgba(249,115,22,0.18);color:#f97316;border:1px solid rgba(249,115,22,0.4);">ACTIVE TRADE</div>
+      <div class="countdown-ring" id="lockTimerDisplay">60s</div>
+      <h2 style="margin:0 0 8px;font-size:1.3rem;">Executing Market Order</h2>
+      <p id="lockTradeSummary" style="color:var(--text-muted);font-size:0.88rem;margin-bottom:10px;">BTC_USDT • Stake: $0.00</p>
+      <p style="color:#94a3b8;font-size:0.78rem;margin:0;">Please wait until the countdown completes. Do not close this window.</p>
+    </div>
+
+    <!-- Phase 2: Settled Outcome (Win or Loss) -->
+    <div id="tradeLockResultPhase" class="hidden">
+      <div class="trophy" id="resultIcon">🏆</div>
+      <div class="win-badge badge-won" id="resultBadge">TRADE WON</div>
+      <h2 id="resultTitle" style="margin:0 0 8px;font-size:1.35rem;">Congratulations! You've won the trade</h2>
+      <p id="resultDesc" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;"></p>
+      <button type="button" class="btn-primary w-full" onclick="closeTradeLockModal()">Continue</button>
+    </div>
   </div>
 </div>
 
@@ -628,43 +710,41 @@
 <div id="liveSocialToast" class="live-social-toast">
   <div id="toastIcon" class="toast-icon">💰</div>
   <div>
-    <div id="toastText" class="toast-text">Shamir K. deposited PKR 10,000</div>
+    <div id="toastText" class="toast-text">Shamir K. deposited $1,250 USDT</div>
     <div id="toastTime" class="toast-time">● 2 mins ago</div>
   </div>
 </div>
 
 <script>
   const currentUser = JSON.parse(localStorage.getItem('traderUser'));
-  document.getElementById('topUsername').textContent = currentUser.firstName || currentUser.username || 'Trader';
-document.getElementById('statBalance').textContent = `₿${(Number(currentUser.balance || 0) * 0.000000033).toFixed(2)}`;
-document.getElementById('statInOrder').textContent = `₿${(Number(currentUser.inOrderBalance || 0) * 0.000000033).toFixed(2)}`;
-document.getElementById('statWithdraw').textContent = `₿${(Number(currentUser.totalWithdrawn || 0) * 0.000000033).toFixed(2)}`;
-document.getElementById('statScore').textContent = currentUser.creditScore ?? 100;
-document.getElementById('tickerBar').innerHTML =
-  `<div class="ticker-item">BTC/PKR<span>₿0.99</span></div>` +
-  `<div class="ticker-item">ETH/PKR<span>₿0.03</span></div>` +
-  `<div class="ticker-item">BNB/PKR<span>₿0.01</span></div>` +
-  `<div class="ticker-item">SOL/PKR<span>₿0.00</span></div>`;
   if (!currentUser) window.location.href = '/index.html';
+
+  document.getElementById('topUsername').textContent = currentUser.firstName || currentUser.username || 'Trader';
+  document.getElementById('statBalance').textContent = `$${Number(currentUser.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  document.getElementById('statInOrder').textContent = `$${Number(currentUser.inOrderBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  document.getElementById('statWithdraw').textContent = `$${Number(currentUser.totalWithdrawn || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  document.getElementById('statScore').textContent = currentUser.creditScore ?? 100;
 
   let appState = null;
   let selectedDuration = 60;
   let priceHistory = [];
   let activeErrorId = null;
+  let lockedTradeId = null;
   let seenSettledTrades = new Set();
-  let hoverPoint = null;
-const chartEl = document.getElementById('tradeChartCanvas');
-if (chartEl) {
-  const setHover = (clientX) => {
-    const rect = chartEl.getBoundingClientRect();
-    hoverPoint = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    if (appState) renderDashboard();
-  };
-  chartEl.addEventListener('mousemove', e => setHover(e.clientX));
-  chartEl.addEventListener('touchmove', e => { if (e.touches[0]) setHover(e.touches[0].clientX); }, { passive: true });
-  chartEl.addEventListener('mouseleave', () => { hoverPoint = null; if (appState) renderDashboard(); });
-  chartEl.addEventListener('touchend', () => { hoverPoint = null; if (appState) renderDashboard(); });
-}
+  let hoverX = null;
+
+  const chartEl = document.getElementById('tradeChartCanvas');
+  if (chartEl) {
+    const setHover = (clientX) => {
+      const rect = chartEl.getBoundingClientRect();
+      hoverX = clientX - rect.left;
+      if (appState) drawChart('tradeChartCanvas');
+    };
+    chartEl.addEventListener('mousemove', e => setHover(e.clientX));
+    chartEl.addEventListener('touchmove', e => { if (e.touches[0]) setHover(e.touches[0].clientX); }, { passive: true });
+    chartEl.addEventListener('mouseleave', () => { hoverX = null; if (appState) drawChart('tradeChartCanvas'); });
+    chartEl.addEventListener('touchend', () => { hoverX = null; if (appState) drawChart('tradeChartCanvas'); });
+  }
 
   function notify(msg, isError = false) {
     const el = document.getElementById('obsidianToast');
@@ -694,7 +774,7 @@ if (chartEl) {
       overview: 'Dashboard Overview',
       trade: 'Live Market Trade',
       withdraw: 'Withdraw Funds',
-      history: 'Transaction History',
+      history: 'Trade History',
       profile: 'Account Profile',
       help: 'Help Center'
     };
@@ -704,18 +784,10 @@ if (chartEl) {
     drawChart('tradeChartCanvas');
   }
 
-  function formatMoney(baseAmount) {
-    if (!appState) return `₿${(Number(baseAmount) * 0.000000033).toFixed(2)}`;
-    const code = document.getElementById('currencySwitcher').value || 'BTC';
-    const curr = appState.settings.currencies.find(c => c.code === code) || { symbol: '₿', rateToBase: 0.000000033 };
-    const converted = Number(baseAmount) * curr.rateToBase;
-    return `${curr.symbol}${converted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  }
-
-  function changeDisplayCurrency() {
-    const code = document.getElementById('currencySwitcher').value;
-    document.querySelectorAll('.currCode').forEach(el => el.textContent = code);
-    if (appState) renderDashboard();
+  function formatMoney(amount) {
+    const num = Number(amount || 0);
+    const decimals = num > 0 && num < 0.01 ? 6 : num > 0 && num < 1 ? 4 : 2;
+    return `$${num.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
   }
 
   function updateChartPair() {
@@ -746,19 +818,53 @@ if (chartEl) {
     notify('Invitation link copied!');
   }
 
+  function openTradeCountdownModal(trade) {
+    lockedTradeId = trade.id;
+    const rem = Math.max(0, Math.ceil((Number(trade.expiresAt) - Date.now()) / 1000));
+    document.getElementById('tradeLockCountdownPhase').classList.remove('hidden');
+    document.getElementById('tradeLockResultPhase').classList.add('hidden');
+    document.getElementById('lockTimerDisplay').textContent = `${rem}s`;
+    document.getElementById('lockTradeSummary').textContent = `${trade.pair} • Stake: ${formatMoney(trade.stake)} (+${trade.payoutPercent}%)`;
+    document.getElementById('tradeLockModal').classList.add('open');
+  }
+
+  function showTradeOutcomeModal(trade) {
+    const won = trade.status === 'WON';
+    document.getElementById('tradeLockCountdownPhase').classList.add('hidden');
+    document.getElementById('tradeLockResultPhase').classList.remove('hidden');
+    document.getElementById('resultIcon').textContent = won ? '🏆' : '❌';
+    const badge = document.getElementById('resultBadge');
+    badge.textContent = won ? 'TRADE WON' : 'TRADE LOST';
+    badge.className = `win-badge ${won ? 'badge-won' : 'badge-lost'}`;
+    document.getElementById('resultTitle').textContent = won
+      ? "Congratulations! You've won the trade"
+      : "You've lost the trade, Try again";
+    document.getElementById('resultDesc').textContent = won
+      ? `${trade.pair} settled in profit (+${formatMoney(trade.profit)}). Your winnings have been added to your balance.`
+      : `${trade.pair} closed at ${formatMoney(trade.exitPrice)}. Better luck on your next trade.`;
+    document.getElementById('tradeLockModal').classList.add('open');
+  }
+
+  function closeTradeLockModal() {
+    lockedTradeId = null;
+    document.getElementById('tradeLockModal').classList.remove('open');
+  }
+
   function renderDashboard() {
-    const { user, settings, prices, trades, transactions, tickets, customErrors } = appState;
+    const { user, settings, prices, trades, tickets, customErrors } = appState;
 
     const refCode = user.invitationCode || user.username.toUpperCase();
     document.getElementById('profInviteLink').value = `${window.location.origin}/?ref=${encodeURIComponent(refCode)}`;
 
-    const currSel = document.getElementById('currencySwitcher');
-    if (currSel.options.length !== settings.currencies.length) {
-      const prev = currSel.dataset.initialized ? currSel.value : 'BTC';
-      currSel.innerHTML = settings.currencies.map(c => `<option value="${c.code}">${c.code} (${c.symbol})</option>`).join('');
-      currSel.value = prev;
-      currSel.dataset.initialized = 'true';
-      document.querySelectorAll('.currCode').forEach(el => el.textContent = currSel.value);
+    // Populate all 50 *_USDT pairs dynamically if settings has additional pairs
+    const pairSel = document.getElementById('tradePair');
+    if (settings && Array.isArray(settings.currencies) && pairSel.options.length !== settings.currencies.length) {
+      const currentPair = pairSel.value || 'BTC_USDT';
+      pairSel.innerHTML = settings.currencies.map(c => {
+        const pairCode = `${c.code}_USDT`;
+        return `<option value="${pairCode}">${pairCode}</option>`;
+      }).join('');
+      pairSel.value = Array.from(pairSel.options).some(o => o.value === currentPair) ? currentPair : 'BTC_USDT';
     }
 
     document.getElementById('topUsername').textContent = user.firstName || user.username;
@@ -779,15 +885,17 @@ if (chartEl) {
     if (document.activeElement.id !== 'profLastName') document.getElementById('profLastName').value = user.lastName || '';
     if (document.activeElement.id !== 'profMobileField') document.getElementById('profMobileField').value = user.mobile || '';
 
-    document.getElementById('tickerBar').innerHTML = Object.entries(prices).map(([pair, val]) =>
-      `<div class="ticker-item">${pair}<span>${formatMoney(val)}</span></div>`
-    ).join('');
+    const tickerPairs = ['BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'BTS_USDT', 'XRP_USDT', 'DOGE_USDT', 'TON_USDT'];
+    document.getElementById('tickerBar').innerHTML = tickerPairs
+      .filter(p => prices[p] !== undefined)
+      .map(pair => `<div class="ticker-item">${pair}<span>${formatMoney(prices[pair])}</span></div>`)
+      .join('');
 
-    const activePair = document.getElementById('tradePair').value;
+    const activePair = document.getElementById('tradePair').value || 'BTC_USDT';
+    const liveVal = Number(prices[activePair] || 89450.25);
     document.getElementById('chartPairTitle').textContent = activePair;
-    document.getElementById('chartLivePrice').textContent = formatMoney(prices[activePair]);
+    document.getElementById('chartLivePrice').textContent = formatMoney(liveVal);
 
-    const liveVal = Number(prices[activePair]);
     if (priceHistory.length === 0) {
       let sim = liveVal * 0.968;
       const now = Date.now();
@@ -805,12 +913,6 @@ if (chartEl) {
     const pct = (((liveVal - openVal) / openVal) * 100 + 3.45).toFixed(2);
     const isUp = Number(pct) >= 0;
     const pctText = `${isUp ? '▲ +' : '▼ '}${pct}%`;
-    const mcapMap = {
-      'BTC/PKR': '$594,267.72B',
-      'ETH/PKR': '$218,410.50B',
-      'BNB/PKR': '$84,920.15B',
-      'SOL/PKR': '$62,185.40B'
-    };
 
     if (settings && settings.payoutPercentages) {
       ['60', '80', '120'].forEach(sec => {
@@ -826,7 +928,6 @@ if (chartEl) {
     setTxt('trOpen', formatMoney(openVal));
     setTxt('trHigh', formatMoney(highVal));
     setTxt('trLow', formatMoney(lowVal));
-    setTxt('trMcap', mcapMap[activePair] || '$120.5B');
     const trStat = document.getElementById('trChangeStat');
     if (trStat) {
       trStat.textContent = `${isUp ? '+' : ''}${pct}%`;
@@ -848,53 +949,57 @@ if (chartEl) {
       document.getElementById('customErrorBanner').classList.remove('hidden');
     }
 
+    // Handle active unclosable countdown modal
     const running = trades.find(t => t.status === 'RUNNING');
     if (running) {
-      const rem = Math.max(0, Math.ceil((running.expiresAt - Date.now()) / 1000));
-      document.getElementById('activeTradeBox').classList.remove('hidden');
-      document.getElementById('tradeCountdown').textContent = `${rem}s`;
-      document.getElementById('tradeLiveSummary').textContent = `${running.pair} | Stake: ${formatMoney(running.stake)} | Duration: ${running.durationSeconds}s`;
-    } else {
-      document.getElementById('activeTradeBox').classList.add('hidden');
+      openTradeCountdownModal(running);
+    } else if (lockedTradeId) {
+      const finishedTrade = trades.find(t => t.id === lockedTradeId && t.status !== 'RUNNING');
+      if (finishedTrade) {
+        seenSettledTrades.add(finishedTrade.id);
+        showTradeOutcomeModal(finishedTrade);
+      }
     }
 
-    drawChart('tradeChartCanvas', running && running.pair === activePair ? Number(running.entryPrice) : null);
-
+    // Fallback check for recently settled trades
     trades.forEach(t => {
-      if (t.status === 'WON' && !seenSettledTrades.has(t.id)) {
+      if ((t.status === 'WON' || t.status === 'LOST') && !seenSettledTrades.has(t.id)) {
         seenSettledTrades.add(t.id);
-        if (Date.now() - new Date(t.settledAt).getTime() < 15000) {
-          document.getElementById('winModalText').textContent =
-            `Excellent trade on ${t.pair}! You won +${formatMoney(t.profit)} profit.`;
-          document.getElementById('winModal').classList.add('open');
+        if (t.settledAt && Date.now() - new Date(t.settledAt).getTime() < 12000) {
+          showTradeOutcomeModal(t);
         }
       }
     });
 
+    drawChart('tradeChartCanvas', running && running.pair === activePair ? Number(running.entryPrice) : null);
+
+    const renderTradeRow = (t) => {
+      const stCls = t.status === 'WON' ? 'st-won' : t.status === 'LOST' ? 'st-lost' : 'st-run';
+      const profitTxt = t.status === 'WON'
+        ? `<span style="color:#10b981;font-weight:700;">+${formatMoney(t.profit)}</span>`
+        : t.status === 'LOST'
+          ? `<span style="color:#ef4444;font-weight:700;">-${formatMoney(t.stake)}</span>`
+          : `<span style="color:#f59e0b;font-weight:700;">In Progress</span>`;
+      return `
+        <div class="tx-row">
+          <div>
+            <strong>${t.pair}</strong> <span class="status-pill ${stCls}">${t.status}</span><br>
+            <small style="color:var(--text-muted);">${t.durationSeconds}s • Stake: ${formatMoney(t.stake)} • ${new Date(t.createdAt).toLocaleString()}</small>
+          </div>
+          <div style="text-align:right;">
+            ${profitTxt}<br>
+            <small style="color:var(--text-dim);">Entry: ${formatMoney(t.entryPrice)}</small>
+          </div>
+        </div>`;
+    };
+
     document.getElementById('overviewTradesList').innerHTML = trades.length
-      ? trades.slice(0, 6).map(t => `
-          <div class="tx-row">
-            <div><strong>${t.pair}</strong><br><small>${t.durationSeconds}s • ${new Date(t.createdAt).toLocaleTimeString()}</small></div>
-            <div style="text-align:right;">
-              <strong>${t.status}</strong><br>
-              <small>${formatMoney(t.stake)}</small>
-            </div>
-          </div>`).join('')
+      ? trades.slice(0, 6).map(renderTradeRow).join('')
       : 'No trades placed yet.';
 
-    document.getElementById('txHistoryList').innerHTML = transactions.length
-      ? transactions.map(tx => `
-          <div class="tx-row">
-            <div>
-              <strong>${tx.note}</strong><br>
-              <small>Trx: ${tx.trx} • ${new Date(tx.timestamp).toLocaleString()}</small>
-            </div>
-            <div style="text-align:right;">
-              <strong>${tx.amount >= 0 ? '+' : ''}${formatMoney(tx.amount)}</strong><br>
-              <small>Post: ${formatMoney(tx.postBalance)}</small>
-            </div>
-          </div>`).join('')
-      : 'No transactions yet.';
+    document.getElementById('tradeHistoryList').innerHTML = trades.length
+      ? trades.map(renderTradeRow).join('')
+      : 'No trades placed yet.';
 
     document.getElementById('ticketsList').innerHTML = tickets.length
       ? tickets.map(tk => `
@@ -976,7 +1081,6 @@ if (chartEl) {
     coords.forEach((c, idx) => idx === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
     ctx.stroke();
 
-    // Dashed Entry Price Line when a trade is active
     if (entryPrice) {
       const ey = topPad + chartH - ((entryPrice - min) / range) * chartH;
       ctx.save();
@@ -1015,43 +1119,43 @@ if (chartEl) {
     ctx.fillText('80K', w - rightPad + 6, volTop + 8);
     ctx.fillText('0K', w - rightPad + 6, volTop + volH);
 
-if (hoverX !== null && coords.length > 1) {
-   const plotStart = 8;
-   const plotWidth = chartW - 8;
-   const ratio = Math.max(0, Math.min(1, (hoverX - plotStart) / plotWidth));
-   const idx = Math.min(coords.length - 1, Math.max(0, Math.round(ratio * (coords.length - 1))));
-   const pt = coords[idx];
-   const raw = priceHistory[idx];
+    if (hoverX !== null && coords.length > 1) {
+      const plotStart = 8;
+      const plotWidth = chartW - 8;
+      const ratio = Math.max(0, Math.min(1, (hoverX - plotStart) / plotWidth));
+      const idx = Math.min(coords.length - 1, Math.max(0, Math.round(ratio * (coords.length - 1))));
+      const pt = coords[idx];
+      const raw = priceHistory[idx];
 
-   ctx.save();
-   ctx.setLineDash([4, 4]);
-   ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-   ctx.lineWidth = 1;
-   ctx.beginPath();
-   ctx.moveTo(pt.x, topPad);
-   ctx.lineTo(pt.x, topPad + chartH);
-   ctx.moveTo(8, pt.y);
-   ctx.lineTo(w - rightPad, pt.y);
-   ctx.stroke();
-   ctx.restore();
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pt.x, topPad);
+      ctx.lineTo(pt.x, topPad + chartH);
+      ctx.moveTo(8, pt.y);
+      ctx.lineTo(w - rightPad, pt.y);
+      ctx.stroke();
+      ctx.restore();
 
-   ctx.fillStyle = '#ffffff';
-   ctx.beginPath();
-   ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
-   ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+      ctx.fill();
 
-   const tipText = `${formatMoney(raw.price)} • ${new Date(raw.ts).toTimeString().slice(0, 8)}`;
-   ctx.font = 'bold 11px sans-serif';
-   const boxW = ctx.measureText(tipText).width + 16;
-   const boxX = Math.min(w - rightPad - boxW, Math.max(10, pt.x - boxW / 2));
-   ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-   ctx.fillRect(boxX, topPad + 4, boxW, 22);
-   ctx.strokeStyle = '#10b981';
-   ctx.strokeRect(boxX, topPad + 4, boxW, 22);
-   ctx.fillStyle = '#f8fafc';
-   ctx.textAlign = 'left';
-   ctx.fillText(tipText, boxX + 8, topPad + 19);
- }
+      const tipText = `${formatMoney(raw.price)} • ${new Date(raw.ts).toTimeString().slice(0, 8)}`;
+      ctx.font = 'bold 11px sans-serif';
+      const boxW = ctx.measureText(tipText).width + 16;
+      const boxX = Math.min(w - rightPad - boxW, Math.max(10, pt.x - boxW / 2));
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.fillRect(boxX, topPad + 4, boxW, 22);
+      ctx.strokeStyle = '#10b981';
+      ctx.strokeRect(boxX, topPad + 4, boxW, 22);
+      ctx.fillStyle = '#f8fafc';
+      ctx.textAlign = 'left';
+      ctx.fillText(tipText, boxX + 8, topPad + 19);
+    }
 
     const last = coords[coords.length - 1];
     ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
@@ -1083,10 +1187,21 @@ if (hoverX !== null && coords.length > 1) {
     });
     const data = await res.json();
     if (!res.ok) return notify(data.error, true);
+
     document.getElementById('tradeAmount').value = '';
-    notify('Trade placed!');
+    if (data.trade) openTradeCountdownModal(data.trade);
     fetchDashboard();
   }
+
+  // Smooth 1-second local ticker for the unclosable modal
+  setInterval(() => {
+    if (!appState || !lockedTradeId) return;
+    const running = appState.trades?.find(t => t.id === lockedTradeId && t.status === 'RUNNING');
+    if (running) {
+      const rem = Math.max(0, Math.ceil((Number(running.expiresAt) - Date.now()) / 1000));
+      document.getElementById('lockTimerDisplay').textContent = `${rem}s`;
+    }
+  }, 500);
 
   document.getElementById('withdrawForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1164,11 +1279,6 @@ if (hoverX !== null && coords.length > 1) {
     }
   }
 
-  function closeWinModal() {
-    document.getElementById('winModal').classList.remove('open');
-    switchTab('overview');
-  }
-
   function installPWA() {
     notify('Tap browser Menu (⋮) → "Add to Home Screen" to install Daraz Trade.');
   }
@@ -1201,7 +1311,7 @@ if (hoverX !== null && coords.length > 1) {
   fetchDashboard();
   const traderStream = new EventSource('/api/stream');
   traderStream.onmessage = () => fetchDashboard();
-  setInterval(fetchDashboard, 1500);
+  setInterval(fetchDashboard, 1000);
 </script>
 </body>
 </html>
