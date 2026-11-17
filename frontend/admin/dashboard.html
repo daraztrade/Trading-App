@@ -424,6 +424,20 @@
 
     <!-- SECTION 1: DASHBOARD -->
     <section id="sec-dashboard">
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-left:4px solid #6366f1;">
+  <div style="flex:1;min-width:240px;">
+    <div style="font-size:0.74rem;text-transform:uppercase;letter-spacing:0.6px;color:#818cf8;font-weight:700;">🔗 Your Admin Invitation Link</div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+      <input type="text" id="adminInviteUrlInput" class="input-dark" style="flex:1;min-width:220px;" readonly />
+      <button type="button" class="pill-btn pill-indigo" onclick="copyAdminInviteLink()">📋 Copy Link</button>
+      <button type="button" class="btn-details" onclick="openEditInviteCodeModal()">✏️ Customize Code</button>
+    </div>
+  </div>
+  <div style="text-align:right;background:#131b2e;padding:12px 18px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);">
+    <div style="font-size:1.5rem;font-weight:800;color:#10b981;" id="adminInvitedCount">0</div>
+    <div style="font-size:0.72rem;color:#94a3b8;text-transform:uppercase;font-weight:700;">Users Joined via Link</div>
+  </div>
+</div>
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-left">
@@ -722,21 +736,37 @@
     </section>
 
     <!-- SECTION 11: SETTINGS -->
-    <section id="sec-settings" class="hidden">
-      <div class="card" style="max-width:520px;">
-        <h3 style="margin-top:0;">⚙️ Global Platform Settings</h3>
-        <div class="field">
-          <label>Global Default Trade Outcome</label>
-          <select id="setTradeMode">
-            <option value="WIN_DEFAULT">Win by Default</option>
-            <option value="LOSS_DEFAULT">Loss by Default</option>
-            <option value="MARKET">Real Market Price</option>
-          </select>
-        </div>
-        <div class="field"><label>Min Credit Score for Withdraw</label><input type="number" id="setMinScore" /></div>
-        <button class="pill-btn pill-indigo" style="width:100%;" onclick="saveGlobalSettings()">Save Settings</button>
-      </div>
-    </section>
+<section id="sec-settings" class="hidden">
+  <div class="card" style="max-width:560px;">
+    <h3 style="margin-top:0;">⚙️ Global Platform Settings</h3>
+    <div class="field">
+      <label>Global Default Trade Outcome</label>
+      <select id="setTradeMode">
+        <option value="WIN_DEFAULT">Win by Default</option>
+        <option value="LOSS_DEFAULT">Loss by Default</option>
+        <option value="MARKET">Real Market Price</option>
+      </select>
+    </div>
+    <div class="field"><label>Min Credit Score for Withdraw</label><input type="number" id="setMinScore" /></div>
+    <button class="pill-btn pill-indigo" style="width:100%;" onclick="saveGlobalSettings()">Save Settings</button>
+  </div>
+
+  <!-- VISIBLE ONLY TO MAIN_ADMIN (COMPLETELY HIDDEN FROM ADMINS) -->
+  <div class="card hidden" id="manageAdminsCard" style="max-width:680px;">
+    <h3 style="margin-top:0;">🛡️ Manage Admin Accounts (Observer Control)</h3>
+    <p style="font-size:0.84rem;color:#94a3b8;margin-top:-6px;">Create Admin accounts for your operators. They see the full Admin panel as <strong>ADMIN</strong> with their own invitation link and cannot see your Main Admin account.</p>
+    <div class="form-grid-2">
+      <div class="field"><label>Admin Username *</label><input type="text" id="newModUser" placeholder="e.g. admin_ahmed" /></div>
+      <div class="field"><label>Admin Email *</label><input type="email" id="newModEmail" placeholder="ahmed@daraztrade.online" /></div>
+    </div>
+    <div class="form-grid-2">
+      <div class="field"><label>Invite Code (Optional)</label><input type="text" id="newModCode" placeholder="e.g. AHMEDVIP" /></div>
+      <div class="field"><label>Password *</label><input type="password" id="newModPass" placeholder="••••••••" /></div>
+    </div>
+    <button class="pill-btn pill-green" style="width:100%;margin-bottom:16px;" onclick="createModeratorAdmin()">+ Create Admin Account</button>
+    <div class="table-wrap" id="staffListWrap"></div>
+  </div>
+</section>
   </main>
 </div>
 
@@ -844,17 +874,34 @@
 
     document.getElementById('actorName').textContent = actor.username;
     document.getElementById('actorRoleBadge').textContent = actor.role === 'MAIN_ADMIN' ? 'MAIN_ADMIN' : 'ADMIN';
+
+const myCode = (actor.invitationCode || actor.username).toUpperCase();
+const traderBase = settings.traderPortalUrl || 'https://trading-app-o5l9.vercel.app';
+document.getElementById('adminInviteUrlInput').value = `${traderBase}/?ref=${encodeURIComponent(myCode)}`;
+const myInvitedUsers = traders.filter(u => (u.invitationCode || '').toUpperCase() === myCode);
+document.getElementById('adminInvitedCount').textContent = myInvitedUsers.length;
+
 const modCard = document.getElementById('manageAdminsCard');
 if (modCard) {
   modCard.classList.toggle('hidden', actor.role !== 'MAIN_ADMIN');
-  if (actor.role === 'MAIN_ADMIN' && adminData.staff) {
+  if (actor.role === 'MAIN_ADMIN' && Array.isArray(adminData.staff)) {
     document.getElementById('staffListWrap').innerHTML = adminData.staff.length ? `
-      <table><thead><tr><th>USERNAME</th><th>EMAIL</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>
-      ${adminData.staff.map(s => `<tr><td><strong>${s.username}</strong></td><td>${s.email}</td><td>${new Date(s.createdAt).toLocaleDateString()}</td><td><button class="btn-sm btn-loss" onclick="deleteModeratorAdmin('${s.id}')">Remove</button></td></tr>`).join('')}
-      </tbody></table>` : '<p style="color:#94a3b8;">No moderator admins created yet.</p>';
+      <table><thead><tr><th>ADMIN</th><th>EMAIL</th><th>INVITE CODE</th><th>INVITED USERS</th><th>ACTION</th></tr></thead><tbody>
+      ${adminData.staff.map(s => {
+        const code = (s.invitationCode || s.username).toUpperCase();
+        const count = traders.filter(u => (u.invitationCode || '').toUpperCase() === code).length;
+        return `<tr>
+          <td><strong>${s.username}</strong></td>
+          <td>${s.email}</td>
+          <td><span class="tag tag-run">${code}</span></td>
+          <td><strong>${count}</strong></td>
+          <td><button class="btn-sm btn-loss" onclick="deleteModeratorAdmin('${s.id}')">Remove</button></td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>` : '<p style="color:#94a3b8;">No admin accounts created yet.</p>';
   }
 }
-
+    document.getElementById('actorRoleBadge').textContent = actor.role === 'MAIN_ADMIN' ? 'MAIN_ADMIN' : 'ADMIN';
     document.getElementById('stTotalUsers').textContent = stats.totalUsers;
     document.getElementById('stActiveUsers').textContent = stats.activeUsers;
     document.getElementById('stRunningTrades').textContent = stats.runningTrades;
@@ -986,6 +1033,7 @@ if (modCard) {
         <td>
           <strong>${fullName}</strong>
           <span class="user-handle">@${u.username}</span>
+          ${inviteBadge}
         </td>
         <td>
           <div>${u.email}</div>
@@ -1290,6 +1338,60 @@ async function deleteModeratorAdmin(id) {
   }
 }
 
+function copyAdminInviteLink() {
+  const inp = document.getElementById('adminInviteUrlInput');
+  inp.select();
+  navigator.clipboard?.writeText(inp.value);
+  showToast('Invitation link copied to clipboard!');
+}
+
+function openEditInviteCodeModal() {
+  const currentCode = (adminData?.actor?.invitationCode || adminData?.actor?.username || '').toUpperCase();
+  openCustomModal(
+    '✏️ Customize Your Invitation Code',
+    `<div class="field"><label>Invitation Code</label><input type="text" id="modalInviteCode" value="${currentCode}" placeholder="e.g. VIP2026" /></div>`,
+    async () => {
+      const invitationCode = document.getElementById('modalInviteCode').value.trim();
+      if (!invitationCode) return;
+      const res = await fetch('/api/admin/my-invite-code', {
+        method: 'POST', headers: adminHeaders(), body: JSON.stringify({ invitationCode })
+      });
+      closeCustomModal();
+      if (res.ok) {
+        showToast('Invitation link updated!');
+        fetchAdminOverview();
+      }
+    }
+  );
+}
+
+async function createModeratorAdmin() {
+  const payload = {
+    username: document.getElementById('newModUser').value.trim(),
+    email: document.getElementById('newModEmail').value.trim(),
+    invitationCode: document.getElementById('newModCode').value.trim(),
+    password: document.getElementById('newModPass').value
+  };
+  const res = await fetch('/api/admin/staff', {
+    method: 'POST', headers: adminHeaders(), body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) return showToast(data.error || 'Failed to create admin', true);
+  document.getElementById('newModUser').value = '';
+  document.getElementById('newModEmail').value = '';
+  document.getElementById('newModCode').value = '';
+  document.getElementById('newModPass').value = '';
+  showToast('Admin account created!');
+  fetchAdminOverview();
+}
+
+async function deleteModeratorAdmin(id) {
+  const res = await fetch(`/api/admin/staff/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  if (res.ok) {
+    showToast('Admin removed');
+    fetchAdminOverview();
+  }
+}
   function adminLogout() {
     localStorage.removeItem('staffUser');
     localStorage.removeItem('staffToken');
