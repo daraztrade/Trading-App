@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daraz Trade - Sign In & Create Account</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Daraz Trade</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="stylesheet" href="/shared/theme.css" />
-  <script src="/shared/dialog.js"></script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
   <style>
     body {
@@ -414,7 +414,7 @@
       if (deferredPrompt) {
         deferredPrompt.prompt();
       } else {
-        alert('To install Daraz Trade App:\n• On Android Chrome: Tap the 3 dots (⋮) -> "Install app" or "Add to Home Screen"\n• On iPhone Safari: Tap Share -> "Add to Home Screen"');
+        showError('Tap browser Menu (⋮) → "Add to Home Screen" to install Daraz Trade.');
       }
     }
 

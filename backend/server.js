@@ -28,7 +28,6 @@ app.use('/shared', express.static(SHARED_DIR));
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 const PORTAL_MODE = process.env.PORTAL_MODE || 'ALL';
-
 const staticOpts = { extensions: ['html'] };
 
 if (PORTAL_MODE === 'ADMIN') {
@@ -53,7 +52,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ==========================================================================
-// PASSWORD HASHING (BACKWARD-COMPATIBLE WITH EXISTING TEST ACCOUNTS)
+// PASSWORD HASHING (BACKWARD-COMPATIBLE)
 // ==========================================================================
 function hashPassword(plain) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -119,58 +118,58 @@ async function dbAll(sql, args = []) {
 }
 
 const defaultSettings = {
-  defaultCurrency: 'BTC',
+  defaultCurrency: 'USDT',
   currencies: [
-    { code: 'BTC', symbol: '₿', name: 'Bitcoin', rateToBase: 0.000000033 },
-    { code: 'INR', symbol: '₹', name: 'Indian Rupee', rateToBase: 0.30 },
-    { code: 'ETH', symbol: 'Ξ', name: 'Ethereum', rateToBase: 0.00000105 },
-    { code: 'BNB', symbol: 'BNB', name: 'BNB', rateToBase: 0.0000055 },
-    { code: 'SOL', symbol: 'SOL', name: 'Solana', rateToBase: 0.000018 },
-    { code: 'BTS', symbol: 'BTS', name: 'BitShares', rateToBase: 0.85 },
-    { code: 'USDC', symbol: 'USDC', name: 'USD Coin', rateToBase: 0.0036 },
-    { code: 'DOGE', symbol: 'DOGE', name: 'Dogecoin', rateToBase: 0.015 },
-    { code: 'TRX', symbol: 'TRX', name: 'TRON', rateToBase: 0.022 },
-    { code: 'PKR', symbol: 'Rs', name: 'Pakistani Rupee', rateToBase: 1 },
-    { code: 'XRP', symbol: 'XRP', name: 'Ripple', rateToBase: 0.0065 },
-    { code: 'ADA', symbol: 'ADA', name: 'Cardano', rateToBase: 0.0095 },
-    { code: 'PI', symbol: 'π', name: 'Pi Network', rateToBase: 0.000085 },
-    { code: 'USDT', symbol: '$', name: 'Tether USD', rateToBase: 0.0036 },
-    { code: 'BDT', symbol: '৳', name: 'Bangladeshi Taka', rateToBase: 0.43 },
-    { code: 'USD', symbol: '$', name: 'US Dollar', rateToBase: 0.0036 },
-    { code: 'EUR', symbol: '€', name: 'Euro', rateToBase: 0.0033 },
-    { code: 'GBP', symbol: '£', name: 'British Pound', rateToBase: 0.0028 },
-    { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham', rateToBase: 0.0132 },
-    { code: 'SAR', symbol: '﷼', name: 'Saudi Riyal', rateToBase: 0.0135 },
-    { code: 'QAR', symbol: 'QR', name: 'Qatari Riyal', rateToBase: 0.0131 },
-    { code: 'KWD', symbol: 'KD', name: 'Kuwaiti Dinar', rateToBase: 0.0011 },
-    { code: 'OMR', symbol: 'OMR', name: 'Omani Rial', rateToBase: 0.0014 },
-    { code: 'BHD', symbol: 'BD', name: 'Bahraini Dinar', rateToBase: 0.00135 },
-    { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar', rateToBase: 0.0049 },
-    { code: 'AUD', symbol: 'A$', name: 'Australian Dollar', rateToBase: 0.0055 },
-    { code: 'JPY', symbol: '¥', name: 'Japanese Yen', rateToBase: 0.54 },
-    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan', rateToBase: 0.026 },
-    { code: 'TRY', symbol: '₺', name: 'Turkish Lira', rateToBase: 0.12 },
-    { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit', rateToBase: 0.016 },
-    { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar', rateToBase: 0.0048 },
-    { code: 'CHF', symbol: 'CHF', name: 'Swiss Franc', rateToBase: 0.0032 },
-    { code: 'TON', symbol: 'TON', name: 'Toncoin', rateToBase: 0.00068 },
-    { code: 'AVAX', symbol: 'AVAX', name: 'Avalanche', rateToBase: 0.00013 },
-    { code: 'DOT', symbol: 'DOT', name: 'Polkadot', rateToBase: 0.00075 },
-    { code: 'LINK', symbol: 'LINK', name: 'Chainlink', rateToBase: 0.00028 },
-    { code: 'MATIC', symbol: 'POL', name: 'Polygon', rateToBase: 0.0085 },
-    { code: 'LTC', symbol: 'Ł', name: 'Litecoin', rateToBase: 0.000048 },
-    { code: 'BCH', symbol: 'BCH', name: 'Bitcoin Cash', rateToBase: 0.0000095 },
-    { code: 'SHIB', symbol: 'SHIB', name: 'Shiba Inu', rateToBase: 195 },
-    { code: 'PEPE', symbol: 'PEPE', name: 'Pepe', rateToBase: 360 },
-    { code: 'UNI', symbol: 'UNI', name: 'Uniswap', rateToBase: 0.00042 },
-    { code: 'ATOM', symbol: 'ATOM', name: 'Cosmos', rateToBase: 0.00072 },
-    { code: 'XLM', symbol: 'XLM', name: 'Stellar', rateToBase: 0.032 },
-    { code: 'NEAR', symbol: 'NEAR', name: 'NEAR Protocol', rateToBase: 0.00082 },
-    { code: 'APT', symbol: 'APT', name: 'Aptos', rateToBase: 0.00041 },
-    { code: 'SUI', symbol: 'SUI', name: 'Sui', rateToBase: 0.0018 },
-    { code: 'FIL', symbol: 'FIL', name: 'Filecoin', rateToBase: 0.00092 },
-    { code: 'ETC', symbol: 'ETC', name: 'Ethereum Classic', rateToBase: 0.00018 },
-    { code: 'ALGO', symbol: 'ALGO', name: 'Algorand', rateToBase: 0.025 }
+    { code: 'BTC', symbol: '₿', name: 'Bitcoin', rateToBase: 1 },
+    { code: 'ETH', symbol: 'Ξ', name: 'Ethereum', rateToBase: 1 },
+    { code: 'BNB', symbol: 'BNB', name: 'BNB', rateToBase: 1 },
+    { code: 'SOL', symbol: 'SOL', name: 'Solana', rateToBase: 1 },
+    { code: 'BTS', symbol: 'BTS', name: 'BitShares', rateToBase: 1 },
+    { code: 'USDC', symbol: 'USDC', name: 'USD Coin', rateToBase: 1 },
+    { code: 'DOGE', symbol: 'DOGE', name: 'Dogecoin', rateToBase: 1 },
+    { code: 'TRX', symbol: 'TRX', name: 'TRON', rateToBase: 1 },
+    { code: 'XRP', symbol: 'XRP', name: 'Ripple', rateToBase: 1 },
+    { code: 'ADA', symbol: 'ADA', name: 'Cardano', rateToBase: 1 },
+    { code: 'PI', symbol: 'π', name: 'Pi Network', rateToBase: 1 },
+    { code: 'TON', symbol: 'TON', name: 'Toncoin', rateToBase: 1 },
+    { code: 'AVAX', symbol: 'AVAX', name: 'Avalanche', rateToBase: 1 },
+    { code: 'DOT', symbol: 'DOT', name: 'Polkadot', rateToBase: 1 },
+    { code: 'LINK', symbol: 'LINK', name: 'Chainlink', rateToBase: 1 },
+    { code: 'MATIC', symbol: 'POL', name: 'Polygon', rateToBase: 1 },
+    { code: 'LTC', symbol: 'Ł', name: 'Litecoin', rateToBase: 1 },
+    { code: 'BCH', symbol: 'BCH', name: 'Bitcoin Cash', rateToBase: 1 },
+    { code: 'SHIB', symbol: 'SHIB', name: 'Shiba Inu', rateToBase: 1 },
+    { code: 'PEPE', symbol: 'PEPE', name: 'Pepe', rateToBase: 1 },
+    { code: 'UNI', symbol: 'UNI', name: 'Uniswap', rateToBase: 1 },
+    { code: 'ATOM', symbol: 'ATOM', name: 'Cosmos', rateToBase: 1 },
+    { code: 'XLM', symbol: 'XLM', name: 'Stellar', rateToBase: 1 },
+    { code: 'NEAR', symbol: 'NEAR', name: 'NEAR Protocol', rateToBase: 1 },
+    { code: 'APT', symbol: 'APT', name: 'Aptos', rateToBase: 1 },
+    { code: 'SUI', symbol: 'SUI', name: 'Sui', rateToBase: 1 },
+    { code: 'FIL', symbol: 'FIL', name: 'Filecoin', rateToBase: 1 },
+    { code: 'ETC', symbol: 'ETC', name: 'Ethereum Classic', rateToBase: 1 },
+    { code: 'ALGO', symbol: 'ALGO', name: 'Algorand', rateToBase: 1 },
+    { code: 'ARB', symbol: 'ARB', name: 'Arbitrum', rateToBase: 1 },
+    { code: 'OP', symbol: 'OP', name: 'Optimism', rateToBase: 1 },
+    { code: 'INJ', symbol: 'INJ', name: 'Injective', rateToBase: 1 },
+    { code: 'TIA', symbol: 'TIA', name: 'Celestia', rateToBase: 1 },
+    { code: 'SEI', symbol: 'SEI', name: 'Sei', rateToBase: 1 },
+    { code: 'RENDER', symbol: 'RNDR', name: 'Render', rateToBase: 1 },
+    { code: 'FET', symbol: 'FET', name: 'Fetch.ai', rateToBase: 1 },
+    { code: 'AAVE', symbol: 'AAVE', name: 'Aave', rateToBase: 1 },
+    { code: 'MKR', symbol: 'MKR', name: 'Maker', rateToBase: 1 },
+    { code: 'VET', symbol: 'VET', name: 'VeChain', rateToBase: 1 },
+    { code: 'HBAR', symbol: 'HBAR', name: 'Hedera', rateToBase: 1 },
+    { code: 'ICP', symbol: 'ICP', name: 'Internet Computer', rateToBase: 1 },
+    { code: 'GRT', symbol: 'GRT', name: 'The Graph', rateToBase: 1 },
+    { code: 'SAND', symbol: 'SAND', name: 'The Sandbox', rateToBase: 1 },
+    { code: 'MANA', symbol: 'MANA', name: 'Decentraland', rateToBase: 1 },
+    { code: 'AXS', symbol: 'AXS', name: 'Axie Infinity', rateToBase: 1 },
+    { code: 'THETA', symbol: 'THETA', name: 'Theta Network', rateToBase: 1 },
+    { code: 'EGLD', symbol: 'EGLD', name: 'MultiversX', rateToBase: 1 },
+    { code: 'XTZ', symbol: 'XTZ', name: 'Tezos', rateToBase: 1 },
+    { code: 'EOS', symbol: 'EOS', name: 'EOS', rateToBase: 1 },
+    { code: 'KAVA', symbol: 'KAVA', name: 'Kava', rateToBase: 1 }
   ],
   taxRate: 0,
   minCreditScoreForWithdraw: 90,
@@ -205,7 +204,7 @@ function ensureDbInitialized() {
         lastName TEXT DEFAULT '',
         country TEXT DEFAULT 'Pakistan',
         mobile TEXT DEFAULT '',
-        currency TEXT DEFAULT 'BTC',
+        currency TEXT DEFAULT 'USDT',
         invitationCode TEXT DEFAULT '',
         profileCompleted INTEGER DEFAULT 0,
         status TEXT DEFAULT 'ACTIVE',
@@ -217,7 +216,7 @@ function ensureDbInitialized() {
         tradeBanMessage TEXT DEFAULT 'Trading is restricted on your account.',
         withdrawBanEnabled INTEGER DEFAULT 0,
         withdrawBanMessage TEXT DEFAULT 'Withdrawals are restricted on your account.',
-        canApproveWithdrawals INTEGER DEFAULT 0,
+        canApproveWithdrawals INTEGER DEFAULT 1,
         tradeOutcome TEXT DEFAULT 'WIN_DEFAULT',
         address TEXT DEFAULT '',
         city TEXT DEFAULT '',
@@ -351,7 +350,7 @@ function ensureDbInitialized() {
       await saveSettings(defaultSettings);
     } else {
       await saveSettings({
-        defaultCurrency: 'BTC',
+        defaultCurrency: 'USDT',
         currencies: defaultSettings.currencies
       });
     }
@@ -401,7 +400,7 @@ function ensureDbInitialized() {
           const ts = new Date(Date.now() - (i + 1) * 3600 * 1000 * 3).toISOString();
           await dbRun(
             `INSERT INTO users (id, username, email, password, role, firstName, lastName, country, mobile, currency, profileCompleted, status, balance, totalWithdrawn, creditScore, tradeOutcome, address, city, state, createdAt)
-             VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, 'BTC', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, 'USDT', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [d.id, d.username, d.email, hashPassword('123456'), d.firstName, d.lastName, d.country, d.mobile, d.status, d.balance, d.totalWithdrawn, d.creditScore, d.tradeOutcome, d.address, d.city, d.state, ts]
           );
           await dbRun(
@@ -411,7 +410,7 @@ function ensureDbInitialized() {
           );
           await dbRun(
             `INSERT OR IGNORE INTO trades (id, userId, username, pair, direction, stake, payoutPercent, durationSeconds, entryPrice, exitPrice, profit, status, createdAt, expiresAt, settledAt)
-             VALUES (?, ?, ?, 'BTC/PKR', 'UP', 10000, 25, 60, 29850000, 29894775, 2500, 'WON', ?, ?, ?)`,
+             VALUES (?, ?, ?, 'BTC_USDT', 'UP', 1000, 25, 60, 89450.00, 89584.18, 250, 'WON', ?, ?, ?)`,
             [`TRD-DEMO-${i + 1}`, d.id, d.username, Date.now() - 7200000, Date.now() - 7140000, ts]
           );
         }
@@ -431,7 +430,7 @@ app.use('/api', async (req, res, next) => {
     next();
   } catch (err) {
     console.error('Turso DB Init Error:', err);
-    res.status(500).json({ error: 'Database connection error. Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.' });
+    res.status(500).json({ error: 'Database connection error.' });
   }
 });
 
@@ -490,19 +489,75 @@ async function logAudit(actor, action, target, details) {
 }
 
 // ==========================================================================
-// LIVE MARKET TICK ENGINE & TRADE SETTLEMENT
+// LIVE MARKET TICK ENGINE (ALL *_USDT PAIRS) & TRADE SETTLEMENT
 // ==========================================================================
 const marketPrices = {
-  'BTC/PKR': 29888495.45,
-  'ETH/PKR': 945200.00,
-  'BNB/PKR': 182450.00,
-  'SOL/PKR': 54320.00
+  'BTC_USDT': 89450.25,
+  'ETH_USDT': 3120.80,
+  'BNB_USDT': 612.40,
+  'SOL_USDT': 184.65,
+  'BTS_USDT': 0.0042,
+  'USDC_USDT': 1.00,
+  'DOGE_USDT': 0.3840,
+  'TRX_USDT': 0.2415,
+  'XRP_USDT': 2.48,
+  'ADA_USDT': 0.9420,
+  'PI_USDT': 48.50,
+  'TON_USDT': 5.62,
+  'AVAX_USDT': 38.90,
+  'DOT_USDT': 7.45,
+  'LINK_USDT': 19.80,
+  'MATIC_USDT': 0.5420,
+  'LTC_USDT': 104.30,
+  'BCH_USDT': 468.50,
+  'SHIB_USDT': 0.000024,
+  'PEPE_USDT': 0.000018,
+  'UNI_USDT': 12.60,
+  'ATOM_USDT': 6.85,
+  'XLM_USDT': 0.4120,
+  'NEAR_USDT': 5.34,
+  'APT_USDT': 11.20,
+  'SUI_USDT': 3.78,
+  'FIL_USDT': 5.15,
+  'ETC_USDT': 27.40,
+  'ALGO_USDT': 0.3480,
+  'ARB_USDT': 0.8920,
+  'OP_USDT': 1.94,
+  'INJ_USDT': 24.60,
+  'TIA_USDT': 5.88,
+  'SEI_USDT': 0.4850,
+  'RENDER_USDT': 7.92,
+  'FET_USDT': 1.48,
+  'AAVE_USDT': 285.40,
+  'MKR_USDT': 1640.00,
+  'VET_USDT': 0.0465,
+  'HBAR_USDT': 0.2890,
+  'ICP_USDT': 10.75,
+  'GRT_USDT': 0.2340,
+  'SAND_USDT': 0.5820,
+  'MANA_USDT': 0.5410,
+  'AXS_USDT': 6.95,
+  'THETA_USDT': 2.18,
+  'EGLD_USDT': 36.40,
+  'XTZ_USDT': 1.24,
+  'EOS_USDT': 0.8450,
+  'KAVA_USDT': 0.5120
 };
+
+function getPairPrice(pair) {
+  if (marketPrices[pair] !== undefined) return marketPrices[pair];
+  if (pair && pair.endsWith('_USDT')) {
+    marketPrices[pair] = 12.50;
+    return marketPrices[pair];
+  }
+  return null;
+}
 
 function tickMarketPrices() {
   for (const pair in marketPrices) {
     const changePercent = (Math.random() - 0.5) * 0.0024;
-    marketPrices[pair] = Number((marketPrices[pair] * (1 + changePercent)).toFixed(2));
+    const decimals = marketPrices[pair] < 0.01 ? 6 : marketPrices[pair] < 1 ? 4 : 2;
+    marketPrices[pair] = Number((marketPrices[pair] * (1 + changePercent)).toFixed(decimals));
   }
 }
 
@@ -522,7 +577,7 @@ async function settleExpiredTrades() {
     const user = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
     if (!user) continue;
 
-    let exitPrice = marketPrices[trade.pair];
+    let exitPrice = getPairPrice(trade.pair) || Number(trade.entryPrice);
     let mode = settings.tradeOutcomeMode || 'WIN_DEFAULT';
     if (user.tradeOutcome === 'FORCE_WIN' || user.tradeOutcome === 'FORCE_LOSS') {
       mode = user.tradeOutcome === 'FORCE_WIN' ? 'WIN_DEFAULT' : 'LOSS_DEFAULT';
@@ -531,16 +586,17 @@ async function settleExpiredTrades() {
     if (trade.outcomeOverride === 'LOSS') mode = 'LOSS_DEFAULT';
 
     let won = false;
+    const decimals = Number(trade.entryPrice) < 0.01 ? 6 : Number(trade.entryPrice) < 1 ? 4 : 2;
     if (mode === 'WIN_DEFAULT') {
       won = true;
       exitPrice = trade.direction === 'UP'
-        ? Number((Number(trade.entryPrice) * 1.0015).toFixed(2))
-        : Number((Number(trade.entryPrice) * 0.9985).toFixed(2));
+        ? Number((Number(trade.entryPrice) * 1.0015).toFixed(decimals))
+        : Number((Number(trade.entryPrice) * 0.9985).toFixed(decimals));
     } else if (mode === 'LOSS_DEFAULT') {
       won = false;
       exitPrice = trade.direction === 'UP'
-        ? Number((Number(trade.entryPrice) * 0.9985).toFixed(2))
-        : Number((Number(trade.entryPrice) * 1.0015).toFixed(2));
+        ? Number((Number(trade.entryPrice) * 0.9985).toFixed(decimals))
+        : Number((Number(trade.entryPrice) * 1.0015).toFixed(decimals));
     } else {
       won = (trade.direction === 'UP' && exitPrice > Number(trade.entryPrice)) ||
             (trade.direction === 'DOWN' && exitPrice < Number(trade.entryPrice));
@@ -676,16 +732,10 @@ app.get('/api/public/live-activity', (req, res) => {
   const name = pakistaniNames[Math.floor(Math.random() * pakistaniNames.length)];
   const actions = ['deposited', 'withdrew', 'won'];
   const action = actions[Math.floor(Math.random() * actions.length)];
-  const lacAmounts = [
-    115000, 145000, 180000, 210000, 250000,
-    295000, 340000, 385000, 420000, 475000,
-    530000, 610000, 740000, 850000
-  ];
-  const rawAmount = lacAmounts[Math.floor(Math.random() * lacAmounts.length)];
-  const amount = rawAmount.toLocaleString('en-PK');
+  const rawAmount = [1250, 2400, 3800, 5200, 7500, 9400, 12000][Math.floor(Math.random() * 7)];
   const minsAgo = Math.floor(Math.random() * 12) + 1;
 
-  res.json({ id: Date.now(), text: `${name} ${action} PKR ${amount}`, action, timeAgo: `${minsAgo} mins ago` });
+  res.json({ id: Date.now(), text: `${name} ${action} $${rawAmount.toLocaleString()} USDT`, action, timeAgo: `${minsAgo} mins ago` });
 });
 
 app.post('/api/auth/register', async (req, res) => {
@@ -759,7 +809,7 @@ app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
   const [userRow, settings, trades, transactions, tickets, customErrors, withdrawals] = await Promise.all([
     dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]),
     getSettings(),
-    dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.user.id]),
+    dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.user.id]),
     dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.user.id]),
     dbAll('SELECT * FROM tickets WHERE userId = ? ORDER BY createdAt DESC', [req.user.id]),
     dbAll("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC", [req.user.id]),
@@ -793,11 +843,11 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
   const { pair, direction, stake, durationSeconds } = req.body;
   const amount = Number(stake);
   const duration = String(durationSeconds || '60');
-  const payoutPercent = settings.payoutPercentages[duration];
+  const payoutPercent = settings.payoutPercentages[duration] || 25;
+  const entryPrice = getPairPrice(pair);
 
-  if (!marketPrices[pair]) return res.status(400).json({ error: 'Invalid trading pair.' });
+  if (!entryPrice) return res.status(400).json({ error: 'Invalid trading pair.' });
   if (!['UP', 'DOWN'].includes(direction)) return res.status(400).json({ error: 'Invalid direction.' });
-  if (!payoutPercent) return res.status(400).json({ error: 'Invalid duration tier.' });
   if (isNaN(amount) || amount <= 0 || req.user.balance < amount) return res.status(400).json({ error: 'Insufficient balance.' });
 
   const newBal = Number((req.user.balance - amount).toFixed(2));
@@ -814,12 +864,26 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
     {
       sql: `INSERT INTO trades (id, userId, username, pair, direction, stake, payoutPercent, durationSeconds, entryPrice, status, createdAt, expiresAt)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'RUNNING', ?, ?)`,
-      args: [id, req.user.id, req.user.username, pair, direction, amount, payoutPercent, Number(duration), marketPrices[pair], createdAt, expiresAt]
+      args: [id, req.user.id, req.user.username, pair, direction, amount, payoutPercent, Number(duration), entryPrice, createdAt, expiresAt]
     }
   ], 'write');
 
   broadcastEvent('NEW_TRADE', { id, username: req.user.username, pair });
-  res.json({ message: 'Trade started', id });
+  res.json({
+    message: 'Trade started',
+    trade: {
+      id,
+      pair,
+      direction,
+      stake: amount,
+      payoutPercent,
+      durationSeconds: Number(duration),
+      entryPrice,
+      status: 'RUNNING',
+      createdAt,
+      expiresAt
+    }
+  });
 });
 
 app.post('/api/wallet/deposit', requireAuth(['TRADER']), upload.single('proof'), async (req, res) => {
@@ -969,6 +1033,34 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
     auditLogs,
     settings: await getSettings()
   });
+});
+
+// MAIN_ADMIN ONLY: Create / Delete Moderator Admin Accounts (Stealth from SUB_ADMINs)
+app.post('/api/admin/staff', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const { username, email, password, firstName, lastName } = req.body;
+  if (!username || !email || !password) {
+    return res.status(400).json({ error: 'Username, email, and password are required.' });
+  }
+  const exists = await dbGet('SELECT id FROM users WHERE username = ? OR email = ?', [username, email]);
+  if (exists) return res.status(400).json({ error: 'Username or email already exists.' });
+
+  const id = 'mod-' + Date.now();
+  await dbRun(
+    `INSERT INTO users (id, username, email, password, role, firstName, lastName, status, canApproveWithdrawals, createdAt)
+     VALUES (?, ?, ?, ?, 'SUB_ADMIN', ?, ?, 'ACTIVE', 1, ?)`,
+    [id, username, email, hashPassword(password), firstName || username, lastName || 'Admin', new Date().toISOString()]
+  );
+
+  await logAudit(req.user, 'CREATE_ADMIN', username, 'Created Admin account');
+  res.json({ message: 'Admin account created.' });
+});
+
+app.delete('/api/admin/staff/:id', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const mod = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'SUB_ADMIN'", [req.params.id]);
+  if (!mod) return res.status(404).json({ error: 'Admin not found.' });
+  await dbRun('DELETE FROM users WHERE id = ?', [mod.id]);
+  await logAudit(req.user, 'DELETE_ADMIN', mod.username, 'Removed Admin account');
+  res.json({ message: 'Admin account removed.' });
 });
 
 app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
@@ -1192,7 +1284,7 @@ app.post('/api/admin/error-sender', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), as
   res.json({ message: 'Alert sent.' });
 });
 
-app.post('/api/admin/users/:id/impersonate', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+app.post('/api/admin/users/:id/impersonate', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Trader not found.' });
   const trader = formatUserRow(row);
@@ -1200,13 +1292,13 @@ app.post('/api/admin/users/:id/impersonate', requireAuth(['MAIN_ADMIN']), async 
   res.json({ user: trader, token: signSession(trader) });
 });
 
-app.post('/api/admin/users/:id/reset-password', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+app.post('/api/admin/users/:id/reset-password', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const { newPassword } = req.body;
-  const trader = await dbGet('SELECT * FROM users WHERE id = ?', [req.params.id]);
+  const trader = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
   if (!trader || !newPassword) return res.status(400).json({ error: 'Valid user and password required.' });
 
   await dbRun('UPDATE users SET password = ? WHERE id = ?', [hashPassword(newPassword), trader.id]);
-  await logAudit(req.user, 'RESET_PASSWORD', trader.username, 'Password changed by Main Admin');
+  await logAudit(req.user, 'RESET_PASSWORD', trader.username, 'Password changed by Admin');
   res.json({ message: `Password updated for ${trader.username}.` });
 });
 
@@ -1234,7 +1326,7 @@ app.post('/api/admin/users/:id/adjust', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN'])
   res.json({ message: 'Trader updated.' });
 });
 
-app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   await saveSettings(req.body);
   await logAudit(req.user, 'UPDATE_SETTINGS', 'SYSTEM', 'Updated platform settings');
   broadcastEvent('SETTINGS_UPDATED');
