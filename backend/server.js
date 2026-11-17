@@ -1,10 +1,11 @@
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
-const { createClient } = require('@libsql/client');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -96,25 +97,124 @@ function broadcastEvent(type, payload = {}) {
 }
 
 // ==========================================================================
-// TURSO (LIBSQL) CLOUD DATABASE CLIENT & QUERY HELPERS
+// SUPABASE (POSTGRES) DATABASE CLIENT & QUERY HELPERS
 // ==========================================================================
-const turso = createClient({
-  url: process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, 'daraz_trade_local.db')}`,
-  authToken: process.env.TURSO_AUTH_TOKEN
+const DATABASE_URL =
+  process.env.DATABASE_URL ||
+  process.env.SUPABASE_DB_URL ||
+  process.env.SUPABASE_DATABASE_URL ||
+  '';
+
+if (!DATABASE_URL) {
+  console.error(
+    'Missing DATABASE_URL. Set it in Trading-App/.env to your Supabase Postgres connection string.\n' +
+    'Dashboard → Project Settings → Database → Connection string (URI), use Session mode or Direct.'
+  );
+}
+
+const pool = new Pool({
+  connectionString: DATABASE_URL || undefined,
+  ssl: DATABASE_URL && !/localhost|127\.0\.0\.1/.test(DATABASE_URL)
+    ? { rejectUnauthorized: false }
+    : undefined,
+  max: 10
 });
 
+/** Convert SQLite-style ? placeholders to Postgres $1, $2, ... */
+function toPg(sql, args = []) {
+  let i = 0;
+  const text = String(sql).replace(/\?/g, () => `$${++i}`);
+  return { text, values: args };
+}
+
+const CAMEL_COLS = {
+  firstname: 'firstName',
+  lastname: 'lastName',
+  invitationcode: 'invitationCode',
+  profilecompleted: 'profileCompleted',
+  inorderbalance: 'inOrderBalance',
+  totalwithdrawn: 'totalWithdrawn',
+  creditscore: 'creditScore',
+  tradebanenabled: 'tradeBanEnabled',
+  tradebanmessage: 'tradeBanMessage',
+  withdrawbanenabled: 'withdrawBanEnabled',
+  withdrawbanmessage: 'withdrawBanMessage',
+  canapprovewithdrawals: 'canApproveWithdrawals',
+  tradeoutcome: 'tradeOutcome',
+  emailverified: 'emailVerified',
+  mobileverified: 'mobileVerified',
+  kycverified: 'kycVerified',
+  createdat: 'createdAt',
+  userid: 'userId',
+  cryptocurrency: 'cryptoCurrency',
+  walletaddress: 'walletAddress',
+  txhash: 'txHash',
+  proofurl: 'proofUrl',
+  reviewedby: 'reviewedBy',
+  accountdetails: 'accountDetails',
+  rejectreason: 'rejectReason',
+  postbalance: 'postBalance',
+  targetuserid: 'targetUserId',
+  sentby: 'sentBy',
+  actorusername: 'actorUsername',
+  actorrole: 'actorRole',
+  useragent: 'userAgent',
+  payoutpercent: 'payoutPercent',
+  durationseconds: 'durationSeconds',
+  entryprice: 'entryPrice',
+  exitprice: 'exitPrice',
+  outcomeoverride: 'outcomeOverride',
+  expiresat: 'expiresAt',
+  settledat: 'settledAt',
+  subadminid: 'subAdminId',
+  balancefrozen: 'balanceFrozen',
+  balancefreezemessage: 'balanceFreezeMessage',
+  repliedby: 'repliedBy'
+};
+
+function mapRow(row) {
+  if (!row) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(row)) {
+    out[CAMEL_COLS[k] || k] = v;
+  }
+  return out;
+}
+
 async function dbRun(sql, args = []) {
-  return await turso.execute({ sql, args });
+  const q = toPg(sql, args);
+  return pool.query(q.text, q.values);
 }
 
 async function dbGet(sql, args = []) {
-  const res = await turso.execute({ sql, args });
-  return res.rows[0] ? { ...res.rows[0] } : null;
+  const q = toPg(sql, args);
+  const res = await pool.query(q.text, q.values);
+  return res.rows[0] ? mapRow(res.rows[0]) : null;
 }
 
 async function dbAll(sql, args = []) {
-  const res = await turso.execute({ sql, args });
-  return res.rows.map(r => ({ ...r }));
+  const q = toPg(sql, args);
+  const res = await pool.query(q.text, q.values);
+  return res.rows.map(mapRow);
+}
+
+async function dbBatch(stmts) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const stmt of stmts) {
+      const sql = typeof stmt === 'string' ? stmt : stmt.sql;
+      const args = typeof stmt === 'string' ? [] : (stmt.args || []);
+      const q = toPg(sql, args);
+      await client.query(q.text, q.values);
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 const defaultSettings = {
@@ -189,7 +289,10 @@ let dbInitPromise = null;
 function ensureDbInitialized() {
   if (dbInitPromise) return dbInitPromise;
   dbInitPromise = (async () => {
-    await turso.batch([
+    if (!DATABASE_URL) {
+      throw new Error('DATABASE_URL is not set. Add your Supabase Postgres URI to Trading-App/.env');
+    }
+    await dbBatch([
       `CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -241,8 +344,8 @@ function ensureDbInitialized() {
         profit REAL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'RUNNING',
         outcomeOverride TEXT DEFAULT '',
-        createdAt INTEGER NOT NULL,
-        expiresAt INTEGER NOT NULL,
+        createdAt BIGINT NOT NULL,
+        expiresAt BIGINT NOT NULL,
         settledAt TEXT
       )`,
       `CREATE TABLE IF NOT EXISTS deposits (
@@ -315,25 +418,36 @@ function ensureDbInitialized() {
         userAgent TEXT NOT NULL,
         timestamp TEXT NOT NULL
       )`
-    ], 'write');
+    ]);
 
     const safeAlter = [
-      "ALTER TABLE users ADD COLUMN tradeOutcome TEXT DEFAULT 'WIN_DEFAULT'",
-      "ALTER TABLE users ADD COLUMN address TEXT DEFAULT ''",
-      "ALTER TABLE users ADD COLUMN city TEXT DEFAULT ''",
-      "ALTER TABLE users ADD COLUMN state TEXT DEFAULT ''",
-      "ALTER TABLE users ADD COLUMN zip TEXT DEFAULT ''",
-      "ALTER TABLE users ADD COLUMN emailVerified INTEGER DEFAULT 1",
-      "ALTER TABLE users ADD COLUMN mobileVerified INTEGER DEFAULT 1",
-      "ALTER TABLE users ADD COLUMN kycVerified INTEGER DEFAULT 1",
-      "ALTER TABLE trades ADD COLUMN outcomeOverride TEXT DEFAULT ''",
-      "ALTER TABLE users ADD COLUMN subAdminId TEXT DEFAULT ''",
-      "ALTER TABLE withdrawals ADD COLUMN rejectReason TEXT DEFAULT ''",
-      "ALTER TABLE users ADD COLUMN balanceFrozen INTEGER DEFAULT 0",
-      "ALTER TABLE users ADD COLUMN balanceFreezeMessage TEXT DEFAULT 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'"
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS tradeOutcome TEXT DEFAULT 'WIN_DEFAULT'",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS city TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS zip TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS emailVerified INTEGER DEFAULT 1",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS mobileVerified INTEGER DEFAULT 1",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS kycVerified INTEGER DEFAULT 1",
+      "ALTER TABLE trades ADD COLUMN IF NOT EXISTS outcomeOverride TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS subAdminId TEXT DEFAULT ''",
+      "ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejectReason TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS balanceFrozen INTEGER DEFAULT 0",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS balanceFreezeMessage TEXT DEFAULT 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'"
     ];
     for (const sql of safeAlter) {
       try { await dbRun(sql); } catch (_) {}
+    }
+
+    // JS Date.now() does not fit in Postgres INTEGER (32-bit).
+    try {
+      await dbRun('ALTER TABLE trades ALTER COLUMN createdAt TYPE BIGINT USING "createdat"::bigint');
+      await dbRun('ALTER TABLE trades ALTER COLUMN expiresAt TYPE BIGINT USING "expiresat"::bigint');
+    } catch (_) {
+      try {
+        await dbRun('ALTER TABLE trades ALTER COLUMN createdat TYPE BIGINT USING createdat::bigint');
+        await dbRun('ALTER TABLE trades ALTER COLUMN expiresat TYPE BIGINT USING expiresat::bigint');
+      } catch (__) {}
     }
 
     // Older "FROZEN account" status becomes balance freeze; account stays open.
@@ -360,62 +474,8 @@ function ensureDbInitialized() {
       await dbRun(
         `INSERT INTO users (id, username, email, password, role, firstName, lastName, status, canApproveWithdrawals, createdAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['admin-1', 'mainadmin', 'admin@daraztrade.online', hashPassword('admin123'), 'MAIN_ADMIN', 'Main', 'Admin', 'ACTIVE', 1, new Date().toISOString()]
+        ['admin-1', 'mainadmin', 'admin@daraztrade.online', hashPassword('admin@123'), 'MAIN_ADMIN', 'Main', 'Admin', 'ACTIVE', 1, new Date().toISOString()]
       );
-    }
-
-    const dummySeeded = await dbGet("SELECT value FROM settings WHERE key = 'dummyUsersSeeded'");
-    if (!dummySeeded) {
-      const dummyTraders = [
-        {
-          id: 'usr-demo-1', username: 'hasnainshah', email: 'hasnain.shah@daraztrade.online',
-          firstName: 'Hasnain', lastName: 'Shah', country: 'Pakistan', mobile: '+923001122334',
-          balance: 125000, totalWithdrawn: 25000, creditScore: 100, status: 'ACTIVE',
-          tradeOutcome: 'WIN_DEFAULT', city: 'Islamabad', state: 'ICT', address: 'F-7 Markaz, Islamabad'
-        },
-        {
-          id: 'usr-demo-2', username: 'sanabatool', email: 'sana.batool@daraztrade.online',
-          firstName: 'Sana', lastName: 'Batool', country: 'Pakistan', mobile: '+923214455667',
-          balance: 340000, totalWithdrawn: 50000, creditScore: 95, status: 'ACTIVE',
-          tradeOutcome: 'WIN_DEFAULT', city: 'Lahore', state: 'Punjab', address: 'Gulberg III, Lahore'
-        },
-        {
-          id: 'usr-demo-3', username: 'anasadaf', email: 'ana.sadaf@daraztrade.online',
-          firstName: 'Ana', lastName: 'Sadaf', country: 'Pakistan', mobile: '+923337788990',
-          balance: 78500, totalWithdrawn: 0, creditScore: 85, status: 'ACTIVE',
-          tradeOutcome: 'FORCE_LOSS', city: 'Karachi', state: 'Sindh', address: 'Clifton Block 4, Karachi'
-        },
-        {
-          id: 'usr-demo-4', username: 'usmanahmed', email: 'usman.ahmed@daraztrade.online',
-          firstName: 'Usman', lastName: 'Ahmed', country: 'UAE', mobile: '+971501234567',
-          balance: 520000, totalWithdrawn: 110000, creditScore: 100, status: 'ACTIVE',
-          tradeOutcome: 'FORCE_WIN', city: 'Dubai', state: 'Dubai', address: 'Business Bay, Dubai'
-        }
-      ];
-
-      for (let i = 0; i < dummyTraders.length; i++) {
-        const d = dummyTraders[i];
-        const exists = await dbGet('SELECT id FROM users WHERE username = ?', [d.username]);
-        if (!exists) {
-          const ts = new Date(Date.now() - (i + 1) * 3600 * 1000 * 3).toISOString();
-          await dbRun(
-            `INSERT INTO users (id, username, email, password, role, firstName, lastName, country, mobile, currency, profileCompleted, status, balance, totalWithdrawn, creditScore, tradeOutcome, address, city, state, createdAt)
-             VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, 'USDT', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [d.id, d.username, d.email, hashPassword('123456'), d.firstName, d.lastName, d.country, d.mobile, d.status, d.balance, d.totalWithdrawn, d.creditScore, d.tradeOutcome, d.address, d.city, d.state, ts]
-          );
-          await dbRun(
-            `INSERT OR IGNORE INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp)
-             VALUES (?, ?, ?, 'DEPOSIT', ?, ?, 'Initial Account Deposit', ?)`,
-            [`DEMO${i + 1}TRX01`, d.id, d.username, d.balance, d.balance, ts]
-          );
-          await dbRun(
-            `INSERT OR IGNORE INTO trades (id, userId, username, pair, direction, stake, payoutPercent, durationSeconds, entryPrice, exitPrice, profit, status, createdAt, expiresAt, settledAt)
-             VALUES (?, ?, ?, 'BTC_USDT', 'UP', 1000, 25, 60, 89450.00, 89584.18, 250, 'WON', ?, ?, ?)`,
-            [`TRD-DEMO-${i + 1}`, d.id, d.username, Date.now() - 7200000, Date.now() - 7140000, ts]
-          );
-        }
-      }
-      await saveSettings({ dummyUsersSeeded: true });
     }
   })().catch(err => {
     dbInitPromise = null;
@@ -429,7 +489,7 @@ app.use('/api', async (req, res, next) => {
     await ensureDbInitialized();
     next();
   } catch (err) {
-    console.error('Turso DB Init Error:', err);
+    console.error('Supabase DB Init Error:', err);
     res.status(500).json({ error: 'Database connection error.' });
   }
 });
@@ -445,10 +505,10 @@ async function getSettings() {
 
 async function saveSettings(obj) {
   const stmts = Object.entries(obj).map(([k, v]) => ({
-    sql: 'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    sql: 'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
     args: [k, JSON.stringify(v)]
   }));
-  if (stmts.length) await turso.batch(stmts, 'write');
+  if (stmts.length) await dbBatch(stmts);
 }
 
 function generateTrx() {
@@ -613,7 +673,7 @@ async function settleExpiredTrades() {
       const newBalance = Number((Number(user.balance) + totalReturn).toFixed(2));
       const newScore = Math.min(100, Number(user.creditScore) + 5);
 
-      await turso.batch([
+      await dbBatch([
         {
           sql: 'UPDATE users SET balance = ?, inOrderBalance = ?, creditScore = ? WHERE id = ?',
           args: [newBalance, newInOrder, newScore, user.id]
@@ -626,10 +686,10 @@ async function settleExpiredTrades() {
           sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           args: [generateTrx(), user.id, user.username, 'TRADE_WIN', totalReturn, newBalance, `Trade Win (${trade.pair} +${payoutPercent}%)`, settledAt]
         }
-      ], 'write');
+      ]);
     } else {
       const newScore = Math.max(0, Number(user.creditScore) - 15);
-      await turso.batch([
+      await dbBatch([
         {
           sql: 'UPDATE users SET inOrderBalance = ?, creditScore = ? WHERE id = ?',
           args: [newInOrder, newScore, user.id]
@@ -642,7 +702,7 @@ async function settleExpiredTrades() {
           sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           args: [generateTrx(), user.id, user.username, 'TRADE_LOSS', -stake, Number(user.balance), `Trade Loss (${trade.pair})`, settledAt]
         }
-      ], 'write');
+      ]);
     }
   }
 
@@ -652,7 +712,7 @@ async function settleExpiredTrades() {
 // ==========================================================================
 // AUTH MIDDLEWARE & SIGNED TOKENS
 // ==========================================================================
-const SESSION_SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update(process.env.TURSO_AUTH_TOKEN || 'daraz-trade-hmac-secret-2026').digest('hex');
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DATABASE_URL || 'daraz-trade-hmac-secret-2026').digest('hex');
 
 function signSession(user) {
   const payload = Buffer.from(JSON.stringify({
@@ -856,7 +916,7 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
   const createdAt = Date.now();
   const expiresAt = createdAt + Number(duration) * 1000;
 
-  await turso.batch([
+  await dbBatch([
     {
       sql: 'UPDATE users SET balance = ?, inOrderBalance = ? WHERE id = ?',
       args: [newBal, newInOrder, req.user.id]
@@ -866,7 +926,7 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'RUNNING', ?, ?)`,
       args: [id, req.user.id, req.user.username, pair, direction, amount, payoutPercent, Number(duration), entryPrice, createdAt, expiresAt]
     }
-  ], 'write');
+  ]);
 
   broadcastEvent('NEW_TRADE', { id, username: req.user.username, pair });
   res.json({
@@ -924,7 +984,7 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   const newBal = Number((req.user.balance - numAmount).toFixed(2));
   const id = 'WDR-' + generateTrx();
 
-  await turso.batch([
+  await dbBatch([
     {
       sql: 'UPDATE users SET balance = ? WHERE id = ?',
       args: [newBal, req.user.id]
@@ -934,7 +994,7 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
       args: [id, req.user.id, req.user.username, numAmount, method || 'Direct Transfer', accountDetails || '', new Date().toISOString()]
     }
-  ], 'write');
+  ]);
 
   broadcastEvent('NEW_WITHDRAWAL', { id, username: req.user.username, amount: numAmount });
   res.json({ message: 'Your withdrawal request is under review.' });
