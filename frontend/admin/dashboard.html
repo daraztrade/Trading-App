@@ -487,6 +487,20 @@
 
     <!-- SECTION 1: DASHBOARD -->
     <section id="sec-dashboard">
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-left:4px solid #6366f1;">
+  <div style="flex:1;min-width:240px;">
+    <div style="font-size:0.74rem;text-transform:uppercase;letter-spacing:0.6px;color:#818cf8;font-weight:700;">🔗 Your Admin Invitation Link</div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+      <input type="text" id="adminInviteUrlInput" class="input-dark" style="flex:1;min-width:220px;" readonly />
+      <button type="button" class="pill-btn pill-indigo" onclick="copyAdminInviteLink()">📋 Copy Link</button>
+      <button type="button" class="btn-details" onclick="openEditInviteCodeModal()">✏️ Customize Code</button>
+    </div>
+  </div>
+  <div style="text-align:right;background:#131b2e;padding:12px 18px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);">
+    <div style="font-size:1.5rem;font-weight:800;color:#10b981;" id="adminInvitedCount">0</div>
+    <div style="font-size:0.72rem;color:#94a3b8;text-transform:uppercase;font-weight:700;">Users Joined via Link</div>
+  </div>
+</div>
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-left">
@@ -1127,6 +1141,7 @@
         <td>
           <strong>${fullName}</strong>
           <span class="user-handle">@${u.username}</span>
+          ${inviteBadge}
         </td>
         <td>
           <div>${u.email}</div>
@@ -1485,6 +1500,60 @@ async function deleteModeratorAdmin(id) {
   }
 }
 
+function copyAdminInviteLink() {
+  const inp = document.getElementById('adminInviteUrlInput');
+  inp.select();
+  navigator.clipboard?.writeText(inp.value);
+  showToast('Invitation link copied to clipboard!');
+}
+
+function openEditInviteCodeModal() {
+  const currentCode = (adminData?.actor?.invitationCode || adminData?.actor?.username || '').toUpperCase();
+  openCustomModal(
+    '✏️ Customize Your Invitation Code',
+    `<div class="field"><label>Invitation Code</label><input type="text" id="modalInviteCode" value="${currentCode}" placeholder="e.g. VIP2026" /></div>`,
+    async () => {
+      const invitationCode = document.getElementById('modalInviteCode').value.trim();
+      if (!invitationCode) return;
+      const res = await fetch('/api/admin/my-invite-code', {
+        method: 'POST', headers: adminHeaders(), body: JSON.stringify({ invitationCode })
+      });
+      closeCustomModal();
+      if (res.ok) {
+        showToast('Invitation link updated!');
+        fetchAdminOverview();
+      }
+    }
+  );
+}
+
+async function createModeratorAdmin() {
+  const payload = {
+    username: document.getElementById('newModUser').value.trim(),
+    email: document.getElementById('newModEmail').value.trim(),
+    invitationCode: document.getElementById('newModCode').value.trim(),
+    password: document.getElementById('newModPass').value
+  };
+  const res = await fetch('/api/admin/staff', {
+    method: 'POST', headers: adminHeaders(), body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) return showToast(data.error || 'Failed to create admin', true);
+  document.getElementById('newModUser').value = '';
+  document.getElementById('newModEmail').value = '';
+  document.getElementById('newModCode').value = '';
+  document.getElementById('newModPass').value = '';
+  showToast('Admin account created!');
+  fetchAdminOverview();
+}
+
+async function deleteModeratorAdmin(id) {
+  const res = await fetch(`/api/admin/staff/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  if (res.ok) {
+    showToast('Admin removed');
+    fetchAdminOverview();
+  }
+}
   function adminLogout() {
     localStorage.removeItem('staffUser');
     localStorage.removeItem('staffToken');
