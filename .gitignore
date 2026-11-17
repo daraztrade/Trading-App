@@ -2,5 +2,8 @@ node_modules/
 backend/daraz_trade.db
 backend/daraz_trade.db-wal
 backend/daraz_trade.db-shm
+backend/daraz_trade_local.db
+backend/daraz_trade_local.db-wal
+backend/daraz_trade_local.db-shm
 backend/uploads/*
 .env

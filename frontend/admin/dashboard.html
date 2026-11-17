@@ -330,6 +330,59 @@
       padding: 11px 18px; border-radius: 8px; font-weight: 700; font-size: 0.86rem;
       z-index: 1000; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.4);
     }
+    .mode-switch {
+      display: inline-flex;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #111318;
+    }
+    .mode-switch button {
+      background: transparent;
+      color: #a1a1aa;
+      border: none;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .mode-switch button.active {
+      background: #f4f4f5;
+      color: #111;
+    }
+
+    /* Keep this admin screen quiet. Shared theme forces orange borders. */
+    body { background-image: none !important; background: #0c0c0e !important; }
+    .sidebar { background: #111113 !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
+    .brand { color: #f4f4f5 !important; }
+    .nav-item.active, .nav-btn.active {
+      background: #1c1c20 !important;
+      color: #f4f4f5 !important;
+      border-left: 3px solid #3f3f46 !important;
+      box-shadow: none !important;
+    }
+    .nav-item:hover, .nav-btn:hover { background: rgba(255,255,255,0.05) !important; color: #fff !important; }
+    .card, .stat-card, .topbar {
+      background: #141416 !important;
+      border: 1px solid rgba(255,255,255,0.08) !important;
+      box-shadow: none !important;
+    }
+    .stats-grid .stat-card { border-top: 1px solid rgba(255,255,255,0.08) !important; }
+    .role-badge { background: #27272a; color: #d4d4d8; }
+    .badge-count, .badge-count.green { background: #3f3f46; color: #f4f4f5; }
+    .view-all-btn, .btn-details {
+      border-color: rgba(255,255,255,0.16) !important;
+      color: #e4e4e7 !important;
+      background: transparent !important;
+    }
+    .stat-icon { background: #27272a !important; color: #e4e4e7 !important; }
+    .user-handle { color: #a1a1aa; }
+    #inviteCodeBox {
+      background: #18181b !important;
+      border: 1px solid rgba(255,255,255,0.12) !important;
+      color: #d4d4d8 !important;
+    }
+
     @media (max-width: 900px) {
       .sidebar { transform: translateX(-100%); }
       .sidebar.mobile-open { transform: translateX(0); }
@@ -397,6 +450,11 @@
       <span>⚠️ Error Sender</span>
     </div>
 
+    <div class="nav-item" id="nav-subadmins" onclick="showSection('subadmins', this)" style="display:none;">
+      <span>🛡️ Sub-Admins</span>
+      <span class="badge-count green" id="badgeSubAdmins">0</span>
+    </div>
+
     <div class="nav-item" id="nav-settings" onclick="showSection('settings', this)">
       <span>⚙️ Settings</span>
     </div>
@@ -413,10 +471,15 @@
         <button class="hamburger-btn" title="Toggle Menu & Running Trades" onclick="toggleAdminSidebar()">☰</button>
         <div>
           <strong style="font-size:1.1rem;" id="pageHeaderTitle">Dashboard Overview</strong>
-          <div style="font-size:0.78rem;color:#94a3b8;">Logged in as <strong id="actorName" style="color:#fff;">mainadmin</strong></div>
+          <div style="font-size:0.78rem;color:#94a3b8;">Logged in as <strong id="actorFullName" style="color:#fff;"></strong> <span id="actorName" style="color:#a5b4fc;"></span> · <span id="actorRoleLabel"></span></div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <!-- Invite code box — shown only for SUB_ADMIN -->
+        <div id="inviteCodeBox" style="display:none;padding:7px 14px;border-radius:8px;font-size:0.82rem;">
+          Invite <strong id="myInviteCode" style="letter-spacing:1px;"></strong>
+          <button onclick="copyInviteCode()" style="margin-left:8px;background:#27272a;color:#f4f4f5;border:1px solid rgba(255,255,255,0.12);padding:3px 9px;border-radius:4px;cursor:pointer;font-size:0.72rem;font-weight:700;">Copy</button>
+        </div>
         <button class="btn-details" onclick="showSection('running-trades')">⚡ Running Trades (<span id="topRunningCount">0</span>)</button>
         <button class="btn-details" onclick="showSection('users')">👥 All Users</button>
       </div>
@@ -529,6 +592,7 @@
                 <th>COUNTRY</th>
                 <th>BALANCE</th>
                 <th>TRADE MODE</th>
+                <th id="subAdminColTh" style="display:none;">SUB-ADMIN</th>
                 <th>JOINED AT</th>
                 <th>ACTION</th>
               </tr>
@@ -584,6 +648,42 @@
         <button class="pill-btn pill-purple" onclick="impersonateSelectedUser()">🔑 Login as User</button>
         <button class="pill-btn pill-orange" id="udBanPillBtn" onclick="toggleBanSelectedUser()">🚫 Ban User</button>
         <button class="pill-btn pill-indigo" onclick="openPasswordModal()">🔒 Change Password</button>
+      </div>
+
+      <div class="card">
+        <h4 style="margin-top:0;">Account Controls</h4>
+        <p style="color:#94a3b8;font-size:0.84rem;margin-top:0;">Ban withdraw, ban trade, or freeze balance. Freeze balance keeps the account open and the amount visible, but blocks withdrawals.</p>
+        <div class="form-grid-2">
+          <div class="field">
+            <label>Withdraw</label>
+            <button type="button" class="toggle-pill toggle-on" id="ctrlWithdraw" onclick="flipToggle('togWithdraw','ALLOWED','BANNED'); syncControlButtons();">ALLOWED</button>
+          </div>
+          <div class="field">
+            <label>Message if withdraw is banned</label>
+            <input type="text" id="ctrlWithdrawMsg" placeholder="Withdrawals are banned on your account." oninput="document.getElementById('udWithdrawMsg').value=this.value" />
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="field">
+            <label>Trade</label>
+            <button type="button" class="toggle-pill toggle-on" id="ctrlTrade" onclick="flipToggle('togTrade','ALLOWED','BANNED'); syncControlButtons();">ALLOWED</button>
+          </div>
+          <div class="field">
+            <label>Message if trade is banned</label>
+            <input type="text" id="ctrlTradeMsg" placeholder="Trading is banned on your account." oninput="document.getElementById('udTradeMsg').value=this.value" />
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="field">
+            <label>Balance</label>
+            <button type="button" class="toggle-pill toggle-on" id="togFreeze" onclick="flipToggle('togFreeze','OPEN','FROZEN')">OPEN</button>
+          </div>
+          <div class="field">
+            <label>Message if balance is frozen</label>
+            <input type="text" id="ctrlFreezeMsg" placeholder="Your balance is frozen. You can see the amount, but withdrawals are not allowed." />
+          </div>
+        </div>
+        <button type="button" class="pill-btn pill-indigo" style="width:100%;padding:12px;" onclick="saveUserDetail()">Save Account Controls</button>
       </div>
 
       <!-- INFORMATION & TRADE CONTROL FORM -->
@@ -643,11 +743,11 @@
         <div class="form-grid-2">
           <div class="field">
             <label>Withdraw Permission</label>
-            <button type="button" class="toggle-pill toggle-on" id="togWithdraw" onclick="flipToggle('togWithdraw','ALLOWED','DISABLED')">ALLOWED</button>
+            <button type="button" class="toggle-pill toggle-on" id="togWithdraw" onclick="flipToggle('togWithdraw','ALLOWED','BANNED'); syncControlButtons();">ALLOWED</button>
           </div>
           <div class="field">
             <label>Trade Permission</label>
-            <button type="button" class="toggle-pill toggle-on" id="togTrade" onclick="flipToggle('togTrade','ALLOWED','BANNED')">ALLOWED</button>
+            <button type="button" class="toggle-pill toggle-on" id="togTrade" onclick="flipToggle('togTrade','ALLOWED','BANNED'); syncControlButtons();">ALLOWED</button>
           </div>
         </div>
 
@@ -707,7 +807,28 @@
       </div>
     </section>
 
-    <!-- SECTION 11: SETTINGS -->
+    <!-- SECTION 11: SUB-ADMINS (MAIN_ADMIN only) -->
+    <section id="sec-subadmins" class="hidden">
+      <div class="card" style="max-width:560px;margin-bottom:18px;">
+        <h3 style="margin-top:0;">➕ Create New Sub-Admin</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="field"><label>Username *</label><input type="text" id="saUsername" placeholder="e.g. admin_ali" /></div>
+          <div class="field"><label>Email *</label><input type="email" id="saEmail" placeholder="ali@daraztrade.online" /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="field"><label>First Name</label><input type="text" id="saFirstName" placeholder="Ali" /></div>
+          <div class="field"><label>Last Name</label><input type="text" id="saLastName" placeholder="Khan" /></div>
+        </div>
+        <div class="field"><label>Password *</label><input type="password" id="saPassword" placeholder="Strong password" /></div>
+        <button class="pill-btn pill-indigo" style="width:100%;padding:12px;" onclick="createSubAdmin()">Create Sub-Admin &amp; Generate Invite Code</button>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0;">🛡️ All Sub-Admins</h3>
+        <div class="table-wrap" id="subadminsTable"><p style="color:#94a3b8;">Loading...</p></div>
+      </div>
+    </section>
+
+    <!-- SECTION 12: SETTINGS -->
     <section id="sec-settings" class="hidden">
       <div class="card" style="max-width:520px;">
         <h3 style="margin-top:0;">⚙️ Global Platform Settings</h3>
@@ -800,6 +921,7 @@
       'withdrawals': 'Withdrawals',
       'tickets': 'Help Center',
       'errors': 'Error Sender',
+      'subadmins': 'Manage Sub-Admins',
       'settings': 'Settings'
     };
     document.getElementById('pageHeaderTitle').textContent = titles[sec] || 'Admin Command Center';
@@ -828,8 +950,26 @@
     if (!adminData) return;
     const { actor, stats, traders, trades, deposits, withdrawals, tickets, settings } = adminData;
 
-    document.getElementById('actorName').textContent = actor.username;
-    document.getElementById('actorRoleBadge').textContent = actor.role;
+    const fullName = `${actor.firstName || ''} ${actor.lastName || ''}`.trim();
+    document.getElementById('actorFullName').textContent = fullName || actor.username;
+    document.getElementById('actorName').textContent = `(@${actor.username})`;
+    document.getElementById('actorRoleLabel').textContent = actor.role === 'SUB_ADMIN' ? 'Sub Admin' : 'Main Admin';
+    document.getElementById('actorRoleBadge').textContent = actor.role === 'SUB_ADMIN' ? 'SUB ADMIN' : actor.role;
+
+    // Apply role-based UI visibility (runs once per render)
+    const isMain = actor.role === 'MAIN_ADMIN';
+    document.getElementById('nav-subadmins').style.display = isMain ? '' : 'none';
+    document.getElementById('nav-settings').style.display  = isMain ? '' : 'none';
+    document.getElementById('subAdminColTh').style.display = isMain ? '' : 'none';
+
+    if (isMain) {
+      document.getElementById('inviteCodeBox').style.display = 'none';
+      loadSubAdmins();
+    } else {
+      // Sub-admin: show their own invite code prominently
+      document.getElementById('inviteCodeBox').style.display = 'flex';
+      document.getElementById('myInviteCode').textContent = actor.invitationCode || 'N/A';
+    }
 
     document.getElementById('stTotalUsers').textContent = stats.totalUsers;
     document.getElementById('stActiveUsers').textContent = stats.activeUsers;
@@ -885,7 +1025,10 @@
         <td><strong>${w.username}</strong></td>
         <td>PKR ${Number(w.amount).toLocaleString()}</td>
         <td>${w.accountDetails}</td>
-        <td><span class="tag ${w.status==='APPROVED'?'tag-win':w.status==='REJECTED'?'tag-loss':'tag-run'}">${w.status}</span></td>
+        <td>
+          <span class="tag ${w.status==='APPROVED'?'tag-win':w.status==='REJECTED'?'tag-loss':'tag-run'}">${w.status}</span>
+          ${w.status==='REJECTED' && w.rejectReason ? `<div style="color:#a1a1aa;font-size:0.75rem;margin-top:6px;max-width:240px;line-height:1.4;">${String(w.rejectReason).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>` : ''}
+        </td>
         <td>${w.status==='PENDING' ? `<button class="btn-sm btn-win" onclick="reviewWithdrawal('${w.id}','APPROVE')">Approve</button><button class="btn-sm btn-loss" onclick="reviewWithdrawal('${w.id}','REJECT')">Reject</button>` : '-'}</td>
       </tr>`).join('')}
       </tbody></table>` : '<p style="color:#94a3b8;">No withdrawal requests.</p>';
@@ -950,14 +1093,22 @@
       return true;
     });
 
+    const isMain = adminData?.actor?.role === 'MAIN_ADMIN';
     const tbody = document.getElementById('allUsersTbody');
     tbody.innerHTML = filtered.length ? filtered.map(u => {
       const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.username;
-      const modeTag = u.tradeOutcome === 'FORCE_LOSS'
-        ? '<span class="tag tag-loss">Force Loss</span>'
-        : u.tradeOutcome === 'FORCE_WIN'
-          ? '<span class="tag tag-win">Force Win</span>'
-          : '<span class="tag tag-run">Default Win</span>';
+      const isLoss = u.tradeOutcome === 'FORCE_LOSS';
+      const modeSwitch = `<div class="mode-switch">
+          <button type="button" class="${isLoss ? '' : 'active'}" onclick="setUserTradeMode('${u.id}','FORCE_WIN')">Win</button>
+          <button type="button" class="${isLoss ? 'active' : ''}" onclick="setUserTradeMode('${u.id}','FORCE_LOSS')">Lose</button>
+        </div>`;
+      // Resolve sub-admin name from staff list
+      const saName = (() => {
+        if (!isMain) return '';
+        if (!u.subAdminId) return '<span style="color:#4b5563;">—</span>';
+        const sa = (adminData.staff || []).find(s => s.id === u.subAdminId);
+        return sa ? `<span style="color:#a5b4fc;">@${sa.username}</span>` : '<span style="color:#4b5563;">Unknown</span>';
+      })();
       return `<tr>
         <td>
           <strong>${fullName}</strong>
@@ -969,14 +1120,29 @@
         </td>
         <td><strong>${u.country || 'PK'}</strong></td>
         <td><strong>PKR ${Number(u.balance).toLocaleString()}</strong></td>
-        <td>${modeTag}</td>
+        <td>${modeSwitch}</td>
+        ${isMain ? `<td>${saName}</td>` : ''}
         <td>
           <div>${new Date(u.createdAt).toLocaleDateString()}</div>
           <small style="color:#94a3b8;">${timeAgo(u.createdAt)}</small>
         </td>
         <td><button class="btn-details" onclick="openUserDetail('${u.id}')">🖥 Details</button></td>
       </tr>`;
-    }).join('') : '<tr><td colspan="7" style="text-align:center;color:#94a3b8;">No matching users found.</td></tr>';
+    }).join('') : `<tr><td colspan="${isMain ? 8 : 7}" style="text-align:center;color:#94a3b8;">No matching users found.</td></tr>`;
+  }
+
+  async function setUserTradeMode(userId, tradeOutcome) {
+    const res = await fetch(`/api/admin/users/${userId}/trade-mode`, {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify({ tradeOutcome })
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Could not change trade mode', true);
+    const trader = adminData?.traders?.find(u => u.id === userId);
+    if (trader) trader.tradeOutcome = tradeOutcome;
+    renderUsersTable();
+    showToast(tradeOutcome === 'FORCE_WIN' ? 'This user will win' : 'This user will lose');
   }
 
   // ==========================================================================
@@ -1004,8 +1170,15 @@ function populateUserDetailFields(user) {
   setToggleState('togMobile', user.mobileVerified, 'VERIFIED', 'UNVERIFIED');
   setToggleState('togKyc', user.kycVerified, 'VERIFIED', 'UNVERIFIED');
   setToggleState('togStatus', user.status === 'ACTIVE', 'ACTIVE', 'BANNED');
-  setToggleState('togWithdraw', !user.withdrawBan?.enabled, 'ALLOWED', 'DISABLED');
+  setToggleState('togWithdraw', !user.withdrawBan?.enabled, 'ALLOWED', 'BANNED');
   setToggleState('togTrade', !user.tradeBan?.enabled, 'ALLOWED', 'BANNED');
+  setToggleState('togFreeze', !user.balanceFreeze?.enabled, 'OPEN', 'FROZEN');
+  const withdrawMsg = user.withdrawBan?.message || '';
+  const tradeMsg = user.tradeBan?.message || '';
+  document.getElementById('ctrlWithdrawMsg').value = withdrawMsg;
+  document.getElementById('ctrlTradeMsg').value = tradeMsg;
+  document.getElementById('ctrlFreezeMsg').value = user.balanceFreeze?.message || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.';
+  syncControlButtons();
   document.getElementById('udBanPillBtn').textContent = user.status === 'ACTIVE' ? '🚫 Ban User' : '✅ Unban User';
 }
 
@@ -1057,6 +1230,13 @@ async function openUserDetail(userId) {
     setToggleState(id, next, onTxt, offTxt);
   }
 
+  function syncControlButtons() {
+    const withdrawOn = document.getElementById('togWithdraw').dataset.on === '1';
+    const tradeOn = document.getElementById('togTrade').dataset.on === '1';
+    setToggleState('ctrlWithdraw', withdrawOn, 'ALLOWED', 'BANNED');
+    setToggleState('ctrlTrade', tradeOn, 'ALLOWED', 'BANNED');
+  }
+
   async function saveUserDetail() {
     if (!selectedUserId) return;
     const payload = {
@@ -1077,11 +1257,15 @@ async function openUserDetail(userId) {
       status: document.getElementById('togStatus').dataset.on === '1' ? 'ACTIVE' : 'BANNED',
       withdrawBan: {
         enabled: document.getElementById('togWithdraw').dataset.on !== '1',
-        message: document.getElementById('udWithdrawMsg').value.trim()
+        message: document.getElementById('ctrlWithdrawMsg').value.trim() || 'Withdrawals are banned on your account. Contact support.'
       },
       tradeBan: {
         enabled: document.getElementById('togTrade').dataset.on !== '1',
-        message: document.getElementById('udTradeMsg').value.trim()
+        message: document.getElementById('ctrlTradeMsg').value.trim() || 'Trading is banned on your account. Contact support.'
+      },
+      balanceFreeze: {
+        enabled: document.getElementById('togFreeze').dataset.on !== '1',
+        message: document.getElementById('ctrlFreezeMsg').value.trim() || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'
       }
     };
 
@@ -1207,12 +1391,33 @@ async function openUserDetail(userId) {
     fetchAdminOverview();
   }
 
-  async function reviewWithdrawal(id, action) {
-    await fetch(`/api/admin/withdrawals/${id}/review`, {
-      method: 'POST', headers: adminHeaders(), body: JSON.stringify({ action })
+  async function submitWithdrawalReview(id, action, reason) {
+    const res = await fetch(`/api/admin/withdrawals/${id}/review`, {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify({ action, reason })
     });
-    showToast(`Withdrawal ${action}D`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showToast(data.error || 'Could not update withdrawal', true);
+    closeCustomModal();
+    showToast(action === 'APPROVE' ? 'Withdrawal approved' : 'Withdrawal rejected');
     fetchAdminOverview();
+  }
+
+  function reviewWithdrawal(id, action) {
+    if (action !== 'REJECT') {
+      submitWithdrawalReview(id, 'APPROVE', '');
+      return;
+    }
+    openCustomModal(
+      'Reject Withdrawal',
+      `<div class="field"><label>Reason for the user</label><textarea id="modalRejectReason" rows="4" placeholder="Explain why this withdrawal was rejected" style="width:100%;min-height:96px;background:#131b2e;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:10px 12px;border-radius:8px;resize:vertical;"></textarea></div>`,
+      () => {
+        const reason = document.getElementById('modalRejectReason').value.trim();
+        if (!reason) return showToast('Write a reason before rejecting.', true);
+        submitWithdrawalReview(id, 'REJECT', reason);
+      }
+    );
   }
 
   async function sendCustomError() {
@@ -1242,6 +1447,98 @@ async function openUserDetail(userId) {
     localStorage.removeItem('staffUser');
     localStorage.removeItem('staffToken');
     window.location.href = './login.html';
+  }
+
+  // ==========================================================================
+  // SUB-ADMIN MANAGEMENT (Main Admin only)
+  // ==========================================================================
+
+  async function loadSubAdmins() {
+    try {
+      const res = await fetch('/api/admin/subadmins', { headers: adminHeaders() });
+      if (!res.ok) return;
+      const { subAdmins } = await res.json();
+      document.getElementById('badgeSubAdmins').textContent = subAdmins.length;
+      renderSubAdmins(subAdmins);
+    } catch (_) {}
+  }
+
+  function renderSubAdmins(list) {
+    const wrap = document.getElementById('subadminsTable');
+    if (!wrap) return;
+    if (!list || !list.length) {
+      wrap.innerHTML = '<p style="color:#94a3b8;">No sub-admins yet. Create one above.</p>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr><th>NAME</th><th>USERNAME</th><th>EMAIL</th><th>INVITE CODE</th><th>USERS</th><th>JOINED</th><th>ACTION</th></tr></thead>
+      <tbody>
+      ${list.map(sa => `<tr>
+        <td><strong>${(sa.firstName || '') + ' ' + (sa.lastName || '')}</strong></td>
+        <td><span style="color:#a5b4fc;">@${sa.username}</span></td>
+        <td style="color:#94a3b8;">${sa.email}</td>
+        <td>
+          <strong style="color:#34d399;letter-spacing:1.5px;font-size:0.9rem;">${sa.inviteCode || 'N/A'}</strong>
+          <button onclick="navigator.clipboard.writeText('${sa.inviteCode || ''}').then(()=>showToast('Copied!'))" style="margin-left:6px;background:#059669;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.72rem;font-weight:700;">Copy</button>
+          <button onclick="regenInviteCode('${sa.id}')" style="margin-left:4px;background:#374151;color:#94a3b8;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.72rem;">Regen</button>
+        </td>
+        <td><strong>${sa.userCount}</strong> user${sa.userCount !== 1 ? 's' : ''}</td>
+        <td>${new Date(sa.createdAt).toLocaleDateString()}</td>
+        <td><button class="btn-sm btn-loss" onclick="deleteSubAdmin('${sa.id}','${sa.username}')">Delete</button></td>
+      </tr>`).join('')}
+      </tbody>
+    </table>`;
+  }
+
+  async function createSubAdmin() {
+    const username  = document.getElementById('saUsername').value.trim();
+    const email     = document.getElementById('saEmail').value.trim();
+    const password  = document.getElementById('saPassword').value;
+    const firstName = document.getElementById('saFirstName').value.trim();
+    const lastName  = document.getElementById('saLastName').value.trim();
+    if (!username || !email || !password) return showToast('Username, email & password are required', true);
+
+    const res = await fetch('/api/admin/subadmins/create', {
+      method: 'POST', headers: adminHeaders(),
+      body: JSON.stringify({ username, email, password, firstName, lastName })
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Failed to create sub-admin', true);
+
+    ['saUsername','saEmail','saPassword','saFirstName','saLastName'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    showToast(`✅ Sub-admin @${data.subAdmin.username} created! Invite: ${data.subAdmin.invitationCode}`);
+    loadSubAdmins();
+    fetchAdminOverview();
+  }
+
+  async function deleteSubAdmin(id, username) {
+    if (!confirm(`Delete sub-admin @${username}?\n\nTheir traders will NOT be deleted — they will become unassigned.`)) return;
+    const res = await fetch(`/api/admin/subadmins/${id}`, {
+      method: 'DELETE', headers: adminHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Failed', true);
+    showToast(data.message);
+    loadSubAdmins();
+    fetchAdminOverview();
+  }
+
+  async function regenInviteCode(id) {
+    if (!confirm('Regenerate invite code? The old code will stop working.')) return;
+    const res = await fetch(`/api/admin/subadmins/${id}/regen-code`, {
+      method: 'POST', headers: adminHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Failed', true);
+    showToast(`New invite code: ${data.inviteCode}`);
+    loadSubAdmins();
+  }
+
+  function copyInviteCode() {
+    const code = document.getElementById('myInviteCode').textContent.trim();
+    navigator.clipboard.writeText(code).then(() => showToast('Invite code copied to clipboard!'));
   }
 
   fetchAdminOverview();

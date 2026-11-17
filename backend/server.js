@@ -327,11 +327,24 @@ function ensureDbInitialized() {
       "ALTER TABLE users ADD COLUMN emailVerified INTEGER DEFAULT 1",
       "ALTER TABLE users ADD COLUMN mobileVerified INTEGER DEFAULT 1",
       "ALTER TABLE users ADD COLUMN kycVerified INTEGER DEFAULT 1",
-      "ALTER TABLE trades ADD COLUMN outcomeOverride TEXT DEFAULT ''"
+      "ALTER TABLE trades ADD COLUMN outcomeOverride TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN subAdminId TEXT DEFAULT ''",
+      "ALTER TABLE withdrawals ADD COLUMN rejectReason TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN balanceFrozen INTEGER DEFAULT 0",
+      "ALTER TABLE users ADD COLUMN balanceFreezeMessage TEXT DEFAULT 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'"
     ];
     for (const sql of safeAlter) {
       try { await dbRun(sql); } catch (_) {}
     }
+
+    // Older "FROZEN account" status becomes balance freeze; account stays open.
+    try {
+      await dbRun(
+        `UPDATE users SET balanceFrozen = 1, status = 'ACTIVE',
+         balanceFreezeMessage = COALESCE(NULLIF(balanceFreezeMessage, ''), 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.')
+         WHERE status = 'FROZEN'`
+      );
+    } catch (_) {}
 
     const countRow = await dbGet('SELECT COUNT(*) as c FROM settings');
     if (!countRow || Number(countRow.c) === 0) {
@@ -460,6 +473,10 @@ function formatUserRow(row) {
     tradeOutcome: row.tradeOutcome || 'WIN_DEFAULT',
     tradeBan: { enabled: Boolean(row.tradeBanEnabled), message: row.tradeBanMessage || 'Trading is restricted on your account.' },
     withdrawBan: { enabled: Boolean(row.withdrawBanEnabled), message: row.withdrawBanMessage || 'Withdrawals are restricted on your account.' },
+    balanceFreeze: {
+      enabled: Boolean(row.balanceFrozen),
+      message: row.balanceFreezeMessage || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'
+    },
     permissions: { canApproveWithdrawals: Boolean(row.canApproveWithdrawals) }
   };
 }
@@ -622,8 +639,8 @@ function requireAuth(roles = []) {
 
       const user = formatUserRow(row);
       user._rawPassword = row.password;
-      if (user.status === 'BANNED' || user.status === 'FROZEN') {
-        return res.status(403).json({ error: `Account is ${user.status}. Contact Help Center.` });
+      if (user.status === 'BANNED') {
+        return res.status(403).json({ error: 'Your account is banned. Contact Help Center.' });
       }
       if (roles.length && !roles.includes(user.role)) {
         return res.status(403).json({ error: 'Access denied.' });
@@ -678,11 +695,19 @@ app.post('/api/auth/register', async (req, res) => {
   const exists = await dbGet('SELECT id FROM users WHERE username = ? OR email = ?', [username, email]);
   if (exists) return res.status(400).json({ error: 'Username or email already exists.' });
 
+  // Resolve invitation code → sub-admin linkage
+  let subAdminId = '';
+  if (invitationCode && invitationCode.trim()) {
+    const subAdmin = await dbGet("SELECT id FROM users WHERE role = 'SUB_ADMIN' AND invitationCode = ?", [invitationCode.trim()]);
+    if (!subAdmin) return res.status(400).json({ error: 'Invalid invitation code. Please check with your referrer.' });
+    subAdminId = subAdmin.id;
+  }
+
   const id = 'usr-' + Date.now();
   await dbRun(
-    `INSERT INTO users (id, username, email, password, role, country, mobile, currency, invitationCode, createdAt)
-     VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?)`,
-    [id, username, email, hashPassword(password), country || 'Pakistan', mobile || '', currency || 'BTC', invitationCode || '', new Date().toISOString()]
+    `INSERT INTO users (id, username, email, password, role, country, mobile, currency, invitationCode, subAdminId, createdAt)
+     VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?, ?)`,
+    [id, username, email, hashPassword(password), country || 'Pakistan', mobile || '', currency || 'BTC', invitationCode || '', subAdminId, new Date().toISOString()]
   );
 
   const user = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [id]));
@@ -705,7 +730,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   const user = formatUserRow(row);
-  if (user.status !== 'ACTIVE') return res.status(403).json({ error: `Account is ${user.status}.` });
+  if (user.status === 'BANNED') return res.status(403).json({ error: 'Your account is banned. Contact Help Center.' });
   if (portal === 'ADMIN' && user.role === 'TRADER') return res.status(403).json({ error: 'Traders cannot access the Admin Portal.' });
   if (portal === 'TRADER' && user.role !== 'TRADER') return res.status(403).json({ error: 'Staff must log in via the Admin Portal.' });
 
@@ -731,13 +756,14 @@ app.post('/api/auth/change-password', requireAuth(['TRADER', 'SUB_ADMIN', 'MAIN_
 app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
   tickMarketPrices();
   await settleExpiredTrades();
-  const [userRow, settings, trades, transactions, tickets, customErrors] = await Promise.all([
+  const [userRow, settings, trades, transactions, tickets, customErrors, withdrawals] = await Promise.all([
     dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]),
     getSettings(),
     dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.user.id]),
     dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.user.id]),
     dbAll('SELECT * FROM tickets WHERE userId = ? ORDER BY createdAt DESC', [req.user.id]),
-    dbAll("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC", [req.user.id])
+    dbAll("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC", [req.user.id]),
+    dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.user.id])
   ]);
 
   res.json({
@@ -747,7 +773,8 @@ app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
     trades,
     transactions,
     tickets,
-    customErrors
+    customErrors,
+    withdrawals
   });
 });
 
@@ -759,7 +786,9 @@ app.post('/api/trader/errors/:id/dismiss', requireAuth(['TRADER']), async (req, 
 app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
   const settings = await getSettings();
   if (settings.globalTradeBan?.enabled) return res.status(403).json({ error: settings.globalTradeBan.message });
-  if (req.user.tradeBan?.enabled) return res.status(403).json({ error: req.user.tradeBan.message });
+  if (req.user.tradeBan?.enabled) {
+    return res.status(403).json({ error: req.user.tradeBan.message || 'Trading is banned on your account. Contact support.' });
+  }
 
   const { pair, direction, stake, durationSeconds } = req.body;
   const amount = Number(stake);
@@ -814,8 +843,13 @@ app.post('/api/wallet/deposit', requireAuth(['TRADER']), upload.single('proof'),
 
 app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   const settings = await getSettings();
+  if (req.user.balanceFreeze?.enabled) {
+    return res.status(403).json({ error: req.user.balanceFreeze.message || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.' });
+  }
   if (settings.globalWithdrawBan?.enabled) return res.status(403).json({ error: settings.globalWithdrawBan.message });
-  if (req.user.withdrawBan?.enabled) return res.status(403).json({ error: req.user.withdrawBan.message });
+  if (req.user.withdrawBan?.enabled) {
+    return res.status(403).json({ error: req.user.withdrawBan.message || 'Withdrawals are banned on your account. Contact support.' });
+  }
 
   const { amount, method, accountDetails } = req.body;
   const numAmount = Number(amount);
@@ -839,7 +873,7 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   ], 'write');
 
   broadcastEvent('NEW_WITHDRAWAL', { id, username: req.user.username, amount: numAmount });
-  res.json({ message: 'Withdrawal request submitted.' });
+  res.json({ message: 'Your withdrawal request is under review.' });
 });
 
 app.post('/api/help-center/send', requireAuth(['TRADER']), async (req, res) => {
@@ -858,45 +892,89 @@ app.post('/api/help-center/send', requireAuth(['TRADER']), async (req, res) => {
 });
 
 // ==========================================================================
+// SUB-ADMIN OWNERSHIP HELPER
+// Returns null if access is allowed, or an error string if denied.
+// ==========================================================================
+async function assertSubAdminOwns(adminUser, traderId) {
+  if (adminUser.role === 'MAIN_ADMIN') return null;
+  const t = await dbGet('SELECT subAdminId FROM users WHERE id = ?', [traderId]);
+  if (!t || t.subAdminId !== adminUser.id) return 'Access denied. This trader is not under your management.';
+  return null;
+}
+
+// ==========================================================================
 // ADMIN & SUB-ADMIN GUARD ROUTES
 // ==========================================================================
 app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   await settleExpiredTrades();
-  const traders = (await dbAll("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC")).map(formatUserRow);
-  const staff = req.user.role === 'MAIN_ADMIN'
-    ? (await dbAll("SELECT * FROM users WHERE role != 'TRADER'")).map(formatUserRow)
+  const isMain = req.user.role === 'MAIN_ADMIN';
+
+  // Scope traders: main admin sees all; sub-admin sees only their own
+  const traders = isMain
+    ? (await dbAll("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC")).map(formatUserRow)
+    : (await dbAll("SELECT * FROM users WHERE role = 'TRADER' AND subAdminId = ? ORDER BY createdAt DESC", [req.user.id])).map(formatUserRow);
+
+  // Staff list (sub-admins, etc.) — only main admin can see
+  const staff = isMain
+    ? (await dbAll("SELECT * FROM users WHERE role != 'TRADER' ORDER BY createdAt DESC")).map(formatUserRow)
     : [];
 
-  const totalTrades = Number((await dbGet('SELECT COUNT(*) as c FROM trades'))?.c || 0);
-  const runningTrades = Number((await dbGet("SELECT COUNT(*) as c FROM trades WHERE status = 'RUNNING'"))?.c || 0);
-  const pendingDeposits = Number((await dbGet("SELECT COUNT(*) as c FROM deposits WHERE status = 'PENDING'"))?.c || 0);
-  const pendingWithdrawals = Number((await dbGet("SELECT COUNT(*) as c FROM withdrawals WHERE status = 'PENDING'"))?.c || 0);
-  const openTickets = Number((await dbGet("SELECT COUNT(*) as c FROM tickets WHERE status = 'OPEN'"))?.c || 0);
+  let totalTrades, runningTrades, pendingDeposits, pendingWithdrawals, openTickets;
+  let deposits, withdrawals, trades, tickets, auditLogs;
+
+  if (isMain) {
+    totalTrades        = Number((await dbGet('SELECT COUNT(*) as c FROM trades'))?.c || 0);
+    runningTrades      = Number((await dbGet("SELECT COUNT(*) as c FROM trades WHERE status = 'RUNNING'"))?.c || 0);
+    pendingDeposits    = Number((await dbGet("SELECT COUNT(*) as c FROM deposits WHERE status = 'PENDING'"))?.c || 0);
+    pendingWithdrawals = Number((await dbGet("SELECT COUNT(*) as c FROM withdrawals WHERE status = 'PENDING'"))?.c || 0);
+    openTickets        = Number((await dbGet("SELECT COUNT(*) as c FROM tickets WHERE status = 'OPEN'"))?.c || 0);
+    deposits    = await dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60');
+    withdrawals = await dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 60');
+    trades      = await dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 100');
+    tickets     = await dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 50');
+    auditLogs   = await dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60');
+  } else {
+    const tids = traders.map(t => t.id);
+    if (tids.length === 0) {
+      totalTrades = 0; runningTrades = 0; pendingDeposits = 0; pendingWithdrawals = 0; openTickets = 0;
+      deposits = []; withdrawals = []; trades = []; tickets = []; auditLogs = [];
+    } else {
+      const ph = tids.map(() => '?').join(',');
+      totalTrades        = Number((await dbGet(`SELECT COUNT(*) as c FROM trades WHERE userId IN (${ph})`, tids))?.c || 0);
+      runningTrades      = Number((await dbGet(`SELECT COUNT(*) as c FROM trades WHERE status = 'RUNNING' AND userId IN (${ph})`, tids))?.c || 0);
+      pendingDeposits    = Number((await dbGet(`SELECT COUNT(*) as c FROM deposits WHERE status = 'PENDING' AND userId IN (${ph})`, tids))?.c || 0);
+      pendingWithdrawals = Number((await dbGet(`SELECT COUNT(*) as c FROM withdrawals WHERE status = 'PENDING' AND userId IN (${ph})`, tids))?.c || 0);
+      openTickets        = Number((await dbGet(`SELECT COUNT(*) as c FROM tickets WHERE status = 'OPEN' AND userId IN (${ph})`, tids))?.c || 0);
+      deposits    = await dbAll(`SELECT * FROM deposits WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 60`, tids);
+      withdrawals = await dbAll(`SELECT * FROM withdrawals WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 60`, tids);
+      trades      = await dbAll(`SELECT * FROM trades WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 100`, tids);
+      tickets     = await dbAll(`SELECT * FROM tickets WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 50`, tids);
+      auditLogs   = await dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60');
+    }
+  }
 
   res.json({
     actor: req.user,
     stats: {
       totalUsers: traders.length,
       activeUsers: traders.filter(u => u.status === 'ACTIVE').length,
-      totalTrades,
-      runningTrades,
-      pendingDeposits,
-      pendingWithdrawals,
-      openTickets
+      totalTrades, runningTrades, pendingDeposits, pendingWithdrawals, openTickets
     },
     traders,
     staff,
-    deposits: await dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60'),
-    withdrawals: await dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 60'),
-    trades: await dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 100'),
-    tickets: await dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 50'),
-    auditLogs: await dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60'),
+    deposits,
+    withdrawals,
+    trades,
+    tickets,
+    auditLogs,
     settings: await getSettings()
   });
 });
 
 app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   await settleExpiredTrades();
+  const deny = await assertSubAdminOwns(req.user, req.params.id);
+  if (deny) return res.status(403).json({ error: deny });
   const [row, trades, deposits, withdrawals, transactions, logins, notifications] = await Promise.all([
     dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]),
     dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.params.id]),
@@ -912,14 +990,20 @@ app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']),
 });
 
 app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const deny = await assertSubAdminOwns(req.user, req.params.id);
+  if (deny) return res.status(403).json({ error: deny });
   const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Trader not found.' });
 
   const {
     firstName, lastName, email, mobile, country, address, city, state, zip,
     creditScore, status, tradeOutcome, emailVerified, mobileVerified, kycVerified,
-    tradeBan, withdrawBan
+    tradeBan, withdrawBan, balanceFreeze
   } = req.body;
+
+  // Never treat "freeze balance" as a full account lock. Keep ACTIVE/BANNED only.
+  let nextStatus = status || row.status;
+  if (nextStatus === 'FROZEN') nextStatus = 'ACTIVE';
 
   await dbRun(
     `UPDATE users SET
@@ -928,7 +1012,8 @@ app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
       creditScore = ?, status = ?, tradeOutcome = ?,
       emailVerified = ?, mobileVerified = ?, kycVerified = ?,
       tradeBanEnabled = ?, tradeBanMessage = ?,
-      withdrawBanEnabled = ?, withdrawBanMessage = ?
+      withdrawBanEnabled = ?, withdrawBanMessage = ?,
+      balanceFrozen = ?, balanceFreezeMessage = ?
      WHERE id = ?`,
     [
       firstName ?? row.firstName,
@@ -941,7 +1026,7 @@ app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
       state ?? row.state ?? '',
       zip ?? row.zip ?? '',
       creditScore !== undefined ? Math.max(0, Math.min(100, Number(creditScore))) : Number(row.creditScore),
-      status || row.status,
+      nextStatus,
       tradeOutcome || row.tradeOutcome || 'WIN_DEFAULT',
       emailVerified ? 1 : 0,
       mobileVerified ? 1 : 0,
@@ -950,19 +1035,42 @@ app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
       tradeBan?.message ?? row.tradeBanMessage ?? '',
       withdrawBan?.enabled ? 1 : 0,
       withdrawBan?.message ?? row.withdrawBanMessage ?? '',
+      balanceFreeze?.enabled ? 1 : 0,
+      balanceFreeze?.message || row.balanceFreezeMessage || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.',
       row.id
     ]
   );
 
-  await logAudit(req.user, 'UPDATE_USER_DETAIL', row.username, `Outcome: ${tradeOutcome || 'WIN_DEFAULT'}, Status: ${status || row.status}`);
+  await logAudit(req.user, 'UPDATE_USER_DETAIL', row.username, `Outcome: ${tradeOutcome || 'WIN_DEFAULT'}, Status: ${nextStatus}, BalanceFrozen: ${balanceFreeze?.enabled ? 1 : 0}`);
   broadcastEvent('USER_UPDATED');
   res.json({ message: 'User profile & controls saved.' });
+});
+
+app.post('/api/admin/users/:id/trade-mode', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const deny = await assertSubAdminOwns(req.user, req.params.id);
+  if (deny) return res.status(403).json({ error: deny });
+
+  const mode = req.body.tradeOutcome;
+  if (!['FORCE_WIN', 'FORCE_LOSS'].includes(mode)) {
+    return res.status(400).json({ error: 'Trade mode must be win or lose.' });
+  }
+
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Trader not found.' });
+
+  await dbRun('UPDATE users SET tradeOutcome = ? WHERE id = ?', [mode, row.id]);
+  await logAudit(req.user, 'SET_USER_TRADE_MODE', row.username, mode);
+  broadcastEvent('USER_UPDATED');
+  res.json({ message: mode === 'FORCE_WIN' ? 'User set to win.' : 'User set to lose.', tradeOutcome: mode });
 });
 
 app.post('/api/admin/trades/:id/outcome', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const { outcome } = req.body;
   const trade = await dbGet('SELECT * FROM trades WHERE id = ?', [req.params.id]);
   if (!trade || trade.status !== 'RUNNING') return res.status(400).json({ error: 'Trade not running.' });
+
+  const deny = await assertSubAdminOwns(req.user, trade.userId);
+  if (deny) return res.status(403).json({ error: deny });
 
   await dbRun('UPDATE trades SET outcomeOverride = ? WHERE id = ?', [outcome || '', trade.id]);
   await logAudit(req.user, 'SET_TRADE_OUTCOME', trade.username, `${trade.id} -> ${outcome || 'DEFAULT'}`);
@@ -973,6 +1081,9 @@ app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN
   const { action } = req.body;
   const deposit = await dbGet('SELECT * FROM deposits WHERE id = ?', [req.params.id]);
   if (!deposit || deposit.status !== 'PENDING') return res.status(400).json({ error: 'Invalid deposit.' });
+
+  const deny = await assertSubAdminOwns(req.user, deposit.userId);
+  if (deny) return res.status(403).json({ error: deny });
 
   const status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
   await dbRun('UPDATE deposits SET status = ?, reviewedBy = ? WHERE id = ?', [status, req.user.username, deposit.id]);
@@ -995,15 +1106,19 @@ app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN
 });
 
 app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  if (req.user.role === 'SUB_ADMIN' && !req.user.permissions?.canApproveWithdrawals) {
-    return res.status(403).json({ error: 'Sub-Admin lacks withdrawal approval permission.' });
-  }
   const { action } = req.body;
   const withdrawal = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [req.params.id]);
   if (!withdrawal || withdrawal.status !== 'PENDING') return res.status(400).json({ error: 'Invalid withdrawal.' });
 
+  const deny = await assertSubAdminOwns(req.user, withdrawal.userId);
+  if (deny) return res.status(403).json({ error: deny });
+
   const status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
-  await dbRun('UPDATE withdrawals SET status = ? WHERE id = ?', [status, withdrawal.id]);
+  const reason = String(req.body.reason || '').trim();
+  if (status === 'REJECTED' && !reason) {
+    return res.status(400).json({ error: 'Write a reason before rejecting this withdrawal.' });
+  }
+  await dbRun('UPDATE withdrawals SET status = ?, rejectReason = ? WHERE id = ?', [status, status === 'REJECTED' ? reason : '', withdrawal.id]);
 
   const trader = await dbGet('SELECT * FROM users WHERE id = ?', [withdrawal.userId]);
   if (trader) {
@@ -1020,7 +1135,7 @@ app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_AD
     }
   }
 
-  await logAudit(req.user, `WITHDRAWAL_${status}`, withdrawal.username, withdrawal.id);
+  await logAudit(req.user, `WITHDRAWAL_${status}`, withdrawal.username, status === 'REJECTED' ? `${withdrawal.id}: ${reason}` : withdrawal.id);
   broadcastEvent('WITHDRAWAL_UPDATED');
   res.json({ message: `Withdrawal ${status}.` });
 });
@@ -1028,6 +1143,9 @@ app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_AD
 app.post('/api/admin/trades/:id/void', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const trade = await dbGet('SELECT * FROM trades WHERE id = ?', [req.params.id]);
   if (!trade || trade.status !== 'RUNNING') return res.status(400).json({ error: 'Trade not running.' });
+
+  const deny = await assertSubAdminOwns(req.user, trade.userId);
+  if (deny) return res.status(403).json({ error: deny });
 
   await dbRun("UPDATE trades SET status = 'VOIDED' WHERE id = ?", [trade.id]);
   const trader = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
@@ -1046,6 +1164,9 @@ app.post('/api/admin/tickets/:id/reply', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
   const ticket = await dbGet('SELECT * FROM tickets WHERE id = ?', [req.params.id]);
   if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
 
+  const deny = await assertSubAdminOwns(req.user, ticket.userId);
+  if (deny) return res.status(403).json({ error: deny });
+
   await dbRun("UPDATE tickets SET reply = ?, repliedBy = ?, status = 'ANSWERED' WHERE id = ?", [req.body.reply, req.user.username, ticket.id]);
   await logAudit(req.user, 'REPLY_TICKET', ticket.username, `Replied to ${ticket.id}`);
   broadcastEvent('TICKET_UPDATED');
@@ -1054,6 +1175,11 @@ app.post('/api/admin/tickets/:id/reply', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
 
 app.post('/api/admin/error-sender', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const { targetUserId, title, message } = req.body;
+  // Sub-admins can only target ALL (their own traders via scoped overview) or specific traders they own
+  if (req.user.role === 'SUB_ADMIN' && targetUserId && targetUserId !== 'ALL') {
+    const deny = await assertSubAdminOwns(req.user, targetUserId);
+    if (deny) return res.status(403).json({ error: deny });
+  }
   const id = 'ERR-' + generateTrx();
   await dbRun(
     `INSERT INTO custom_errors (id, targetUserId, title, message, active, sentBy, createdAt)
@@ -1084,7 +1210,9 @@ app.post('/api/admin/users/:id/reset-password', requireAuth(['MAIN_ADMIN']), asy
   res.json({ message: `Password updated for ${trader.username}.` });
 });
 
-app.post('/api/admin/users/:id/adjust', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+app.post('/api/admin/users/:id/adjust', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const deny = await assertSubAdminOwns(req.user, req.params.id);
+  if (deny) return res.status(403).json({ error: deny });
   const { balanceDelta, creditScore } = req.body;
   const trader = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
   if (!trader) return res.status(404).json({ error: 'Trader not found.' });
@@ -1111,6 +1239,65 @@ app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN']), async (req, res) =>
   await logAudit(req.user, 'UPDATE_SETTINGS', 'SYSTEM', 'Updated platform settings');
   broadcastEvent('SETTINGS_UPDATED');
   res.json({ message: 'Settings saved.', settings: await getSettings() });
+});
+
+// ==========================================================================
+// SUB-ADMIN MANAGEMENT ROUTES (MAIN_ADMIN only)
+// ==========================================================================
+
+// Create a new sub-admin with an auto-generated invitation code
+app.post('/api/admin/subadmins/create', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const { username, email, password, firstName, lastName } = req.body;
+  if (!username || !email || !password) return res.status(400).json({ error: 'Username, email, and password are required.' });
+
+  const exists = await dbGet('SELECT id FROM users WHERE username = ? OR email = ?', [username, email]);
+  if (exists) return res.status(400).json({ error: 'Username or email is already taken.' });
+
+  const id = 'sub-' + Date.now();
+  const inviteCode = 'INV-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+
+  await dbRun(
+    `INSERT INTO users (id, username, email, password, role, firstName, lastName, status, invitationCode, canApproveWithdrawals, createdAt)
+     VALUES (?, ?, ?, ?, 'SUB_ADMIN', ?, ?, 'ACTIVE', ?, 1, ?)`,
+    [id, username, email, hashPassword(password), firstName || '', lastName || '', inviteCode, new Date().toISOString()]
+  );
+
+  await logAudit(req.user, 'CREATE_SUB_ADMIN', username, `Invite code: ${inviteCode}`);
+  broadcastEvent('NEW_USER', { username });
+  const subAdmin = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [id]));
+  res.json({ message: 'Sub-admin created successfully.', subAdmin });
+});
+
+// List all sub-admins with their user counts
+app.get('/api/admin/subadmins', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const rows = await dbAll("SELECT * FROM users WHERE role = 'SUB_ADMIN' ORDER BY createdAt DESC");
+  const result = await Promise.all(rows.map(async r => {
+    const sa = formatUserRow(r);
+    sa.inviteCode = r.invitationCode || '';
+    const countRow = await dbGet('SELECT COUNT(*) as c FROM users WHERE subAdminId = ?', [r.id]);
+    sa.userCount = Number(countRow?.c || 0);
+    return sa;
+  }));
+  res.json({ subAdmins: result });
+});
+
+// Delete a sub-admin (their traders are NOT deleted — they become unassigned)
+app.delete('/api/admin/subadmins/:id', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const sa = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'SUB_ADMIN'", [req.params.id]);
+  if (!sa) return res.status(404).json({ error: 'Sub-admin not found.' });
+  await dbRun('DELETE FROM users WHERE id = ?', [sa.id]);
+  await logAudit(req.user, 'DELETE_SUB_ADMIN', sa.username, 'Removed by Main Admin');
+  res.json({ message: `Sub-admin @${sa.username} removed.` });
+});
+
+// Regenerate the invitation code for a sub-admin
+app.post('/api/admin/subadmins/:id/regen-code', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const sa = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'SUB_ADMIN'", [req.params.id]);
+  if (!sa) return res.status(404).json({ error: 'Sub-admin not found.' });
+  const newCode = 'INV-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+  await dbRun('UPDATE users SET invitationCode = ? WHERE id = ?', [newCode, sa.id]);
+  await logAudit(req.user, 'REGEN_INVITE_CODE', sa.username, `New code: ${newCode}`);
+  res.json({ message: 'Invite code regenerated.', inviteCode: newCode });
 });
 
 if (require.main === module) {

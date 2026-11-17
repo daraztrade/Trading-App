@@ -45,6 +45,22 @@
       border-radius: var(--radius-sm);
       color: var(--text-main);
     }
+    .pass-row {
+      display: flex;
+      gap: 8px;
+    }
+    .pass-row input { flex: 1; }
+    .show-pass {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      border-radius: var(--radius-sm);
+      padding: 0 14px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
     .err {
       color: #fca5a5;
       background: rgba(239, 68, 68, 0.15);
@@ -72,13 +88,24 @@
       </div>
       <div class="field">
         <label>Password</label>
-        <input type="password" id="staffPass" placeholder="••••••••" required />
+        <div class="pass-row">
+          <input type="password" id="staffPass" placeholder="••••••••" required />
+          <button type="button" class="show-pass" id="showPassBtn" onclick="togglePassword()">Show</button>
+        </div>
       </div>
       <button type="submit" class="btn-secondary" style="width: 100%; margin-top: 6px;">Access Command Center</button>
     </form>
   </div>
 
   <script>
+    function togglePassword() {
+      const input = document.getElementById('staffPass');
+      const btn = document.getElementById('showPassBtn');
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      btn.textContent = showing ? 'Show' : 'Hide';
+    }
+
     if (localStorage.getItem('staffUser') && localStorage.getItem('staffToken')) {
   window.location.href = './dashboard.html';
 }
