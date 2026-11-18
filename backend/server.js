@@ -624,13 +624,118 @@ function getPairPrice(pair) {
   return null;
 }
 
+let lastRealSync = 0;
+let isSyncingPrices = false;
+
+async function syncRealBasePrices() {
+  if (isSyncingPrices || Date.now() - lastRealSync < 30000) return;
+  isSyncingPrices = true;
+  lastRealSync = Date.now();
+  try {
+    const res = await fetch('https://api.binance.com/api/v3/ticker/price', {
+      signal: AbortSignal.timeout(4000)
+    });
+    if (res.ok) {
+      const list = await res.json();
+      const map = new Map(list.map(item => [item.symbol, Number(item.price)]));
+      for (const pair in marketPrices) {
+        const binanceSymbol = pair.replace('_', '');
+        const realVal = map.get(binanceSymbol);
+        if (realVal && Number.isFinite(realVal) && realVal > 0) {
+          const decimals = realVal < 0.01 ? 6 : realVal < 1 ? 4 : 2;
+          // Blend toward the real market price smoothly without sudden jumps
+          const current = marketPrices[pair];
+          const diffRatio = Math.abs(realVal - current) / realVal;
+          const next = diffRatio > 0.05 ? realVal : current + (realVal - current) * 0.4;
+          marketPrices[pair] = Number(next.toFixed(decimals));
+        }
+      }
+      return;
+    }
+  } catch (_) {}
+
+  // Fallback to CoinGecko if Binance is geo-blocked on serverless region
+  try {
+    const cgRes = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana,ripple,dogecoin,tron,cardano,the-open-network,avalanche-2,polkadot,chainlink,litecoin,bitcoin-cash,shiba-inu,pepe,uniswap,cosmos,stellar,near,aptos,sui,filecoin,ethereum-classic,algorand,arbitrum,optimism,injective-protocol,celestia,sei-network,render-token,fetch-ai,aave,maker,vechain,hedera-hashgraph,internet-computer,the-graph,the-sandbox,decentraland,axie-infinity,theta-token,elrond-erd-2,tezos,eos,kava&vs_currencies=usd',
+      { signal: AbortSignal.timeout(4000) }
+    );
+    if (cgRes.ok) {
+      const cg = await cgRes.json();
+      const cgMap = {
+        BTC_USDT: cg.bitcoin?.usd,
+        ETH_USDT: cg.ethereum?.usd,
+        BNB_USDT: cg.binancecoin?.usd,
+        SOL_USDT: cg.solana?.usd,
+        XRP_USDT: cg.ripple?.usd,
+        DOGE_USDT: cg.dogecoin?.usd,
+        TRX_USDT: cg.tron?.usd,
+        ADA_USDT: cg.cardano?.usd,
+        TON_USDT: cg['the-open-network']?.usd,
+        AVAX_USDT: cg['avalanche-2']?.usd,
+        DOT_USDT: cg.polkadot?.usd,
+        LINK_USDT: cg.chainlink?.usd,
+        LTC_USDT: cg.litecoin?.usd,
+        BCH_USDT: cg['bitcoin-cash']?.usd,
+        SHIB_USDT: cg['shiba-inu']?.usd,
+        PEPE_USDT: cg.pepe?.usd,
+        UNI_USDT: cg.uniswap?.usd,
+        ATOM_USDT: cg.cosmos?.usd,
+        XLM_USDT: cg.stellar?.usd,
+        NEAR_USDT: cg.near?.usd,
+        APT_USDT: cg.aptos?.usd,
+        SUI_USDT: cg.sui?.usd,
+        FIL_USDT: cg.filecoin?.usd,
+        ETC_USDT: cg['ethereum-classic']?.usd,
+        ALGO_USDT: cg.algorand?.usd,
+        ARB_USDT: cg.arbitrum?.usd,
+        OP_USDT: cg.optimism?.usd,
+        INJ_USDT: cg['injective-protocol']?.usd,
+        TIA_USDT: cg.celestia?.usd,
+        SEI_USDT: cg['sei-network']?.usd,
+        RENDER_USDT: cg['render-token']?.usd,
+        FET_USDT: cg['fetch-ai']?.usd,
+        AAVE_USDT: cg.aave?.usd,
+        MKR_USDT: cg.maker?.usd,
+        VET_USDT: cg.vechain?.usd,
+        HBAR_USDT: cg['hedera-hashgraph']?.usd,
+        ICP_USDT: cg['internet-computer']?.usd,
+        GRT_USDT: cg['the-graph']?.usd,
+        SAND_USDT: cg['the-sandbox']?.usd,
+        MANA_USDT: cg.decentraland?.usd,
+        AXS_USDT: cg['axie-infinity']?.usd,
+        THETA_USDT: cg['theta-token']?.usd,
+        EGLD_USDT: cg['elrond-erd-2']?.usd,
+        XTZ_USDT: cg.tezos?.usd,
+        EOS_USDT: cg.eos?.usd,
+        KAVA_USDT: cg.kava?.usd
+      };
+      for (const [pair, realVal] of Object.entries(cgMap)) {
+        if (realVal && Number.isFinite(realVal) && realVal > 0 && marketPrices[pair] !== undefined) {
+          const decimals = realVal < 0.01 ? 6 : realVal < 1 ? 4 : 2;
+          marketPrices[pair] = Number(realVal.toFixed(decimals));
+        }
+      }
+    }
+  } catch (_) {
+  } finally {
+    isSyncingPrices = false;
+  }
+}
+
 function tickMarketPrices() {
+  syncRealBasePrices();
   for (const pair in marketPrices) {
     const changePercent = (Math.random() - 0.5) * 0.0024;
     const decimals = marketPrices[pair] < 0.01 ? 6 : marketPrices[pair] < 1 ? 4 : 2;
     marketPrices[pair] = Number((marketPrices[pair] * (1 + changePercent)).toFixed(decimals));
   }
 }
+
+setInterval(() => {
+  tickMarketPrices();
+  settleExpiredTrades().catch(() => {});
+}, 1000);
 
 setInterval(() => {
   tickMarketPrices();

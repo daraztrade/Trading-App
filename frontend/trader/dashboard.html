@@ -11,20 +11,20 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
   <style>
     .pass-wrap { position: relative; }
-.pass-wrap input { padding-right: 42px; }
-.pass-toggle {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 1rem;
-  padding: 4px;
-}
-.pass-toggle:hover { color: #fff; }
+    .pass-wrap input { padding-right: 42px; }
+    .pass-toggle {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 4px;
+    }
+    .pass-toggle:hover { color: #fff; }
     html, body { max-width: 100%; overflow-x: hidden; }
     .app-shell { display: flex; min-height: 100vh; }
     .sidebar {
@@ -209,6 +209,76 @@
       color: #ffffff !important;
     }
     .tier-btn strong { display: block; color: var(--color-orange) !important; font-size: 0.95rem; margin-top: 2px; }
+    .dir-btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .btn-buy-up, .btn-buy-down {
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 13px 12px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #ffffff;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      transition: transform 0.12s ease, opacity 0.15s ease;
+    }
+    .btn-buy-up {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25);
+    }
+    .btn-buy-down {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 6px 18px rgba(239, 68, 68, 0.25);
+    }
+    .btn-buy-up:hover:not(:disabled), .btn-buy-down:hover:not(:disabled) {
+      transform: translateY(-1px);
+      opacity: 0.95;
+    }
+    .btn-buy-up:disabled, .btn-buy-down:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .btn-buy-sub {
+      font-size: 0.7rem;
+      font-weight: 600;
+      opacity: 0.9;
+      letter-spacing: 0.4px;
+    }
+    .telegram-support-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+      border-radius: var(--radius-sm);
+      background: rgba(34, 158, 217, 0.1);
+      border: 1px solid rgba(34, 158, 217, 0.35);
+      flex-wrap: wrap;
+    }
+    .btn-telegram {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #229ED9;
+      color: #ffffff !important;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.86rem;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      transition: opacity 0.15s ease;
+    }
+    .btn-telegram:hover { opacity: 0.9; }
     .field { margin-bottom: 14px; }
     .field label { display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; }
     .field input, .field select, .field textarea {
@@ -454,7 +524,7 @@
   </aside>
 
   <main class="main-area">
-<div class="topbar">
+    <div class="topbar">
       <div class="topbar-left" style="display:flex;align-items:center;gap:12px;">
         <button type="button" class="menu-btn" onclick="toggleSidebar()">☰</button>
         <div>
@@ -541,7 +611,7 @@
                 <span class="live-pill">● LIVE</span>
               </div>
             </div>
-<div class="field" style="min-width: 190px; margin-bottom:0;">
+            <div class="field" style="min-width: 190px; margin-bottom:0;">
               <label for="tradePair">Select Trading Pair</label>
               <select id="tradePair" onchange="updateChartPair()">
                 <option value="BTC_USDT" selected>BTC_USDT</option>
@@ -618,7 +688,17 @@
             <input type="number" id="tradeAmount" placeholder="Enter amount (e.g. 500)" min="1" step="any" />
           </div>
 
-          <button type="button" class="btn-primary w-full" onclick="executeTrade('UP')">Submit Trade</button>
+          <span style="font-size:0.82rem;color:var(--text-muted);display:block;margin-bottom:6px;">Choose Market Direction</span>
+          <div class="dir-btn-grid">
+            <button type="button" id="btnBuyUp" class="btn-buy-up" onclick="executeTrade('UP')">
+              <span>▲ Buy UP</span>
+              <span class="btn-buy-sub">LONG / HIGHER</span>
+            </button>
+            <button type="button" id="btnBuyDown" class="btn-buy-down" onclick="executeTrade('DOWN')">
+              <span>▼ Buy DOWN</span>
+              <span class="btn-buy-sub">SHORT / LOWER</span>
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -689,9 +769,8 @@
     </section>
 
     <!-- TAB 6: PROFILE & SECURITY -->
-<!-- TAB 6: PROFILE & SECURITY -->
- <section id="tab-profile" class="hidden">
-   <div class="trade-grid">
+    <section id="tab-profile" class="hidden">
+      <div class="trade-grid">
         <div class="card">
           <h3 class="section-heading">Account & Personal Details</h3>
           <div class="stats-grid" style="margin-top:12px;">
@@ -743,23 +822,23 @@
         <div class="card">
           <h3 class="section-heading">Change Password</h3>
           <p class="section-sub">Keep your Daraz Trade account secure by updating your password regularly.</p>
-<form id="changePassForm">
-         <div class="field">
-           <label for="oldPass">Current Password</label>
-           <div class="pass-wrap">
-             <input type="password" id="oldPass" required />
-             <button type="button" class="pass-toggle" onclick="togglePass('oldPass', this)" aria-label="Show password">👁️</button>
-           </div>
-         </div>
-         <div class="field">
-           <label for="newPass">New Password (min 6 chars)</label>
-           <div class="pass-wrap">
-             <input type="password" id="newPass" minlength="6" required />
-             <button type="button" class="pass-toggle" onclick="togglePass('newPass', this)" aria-label="Show password">👁️</button>
-           </div>
-         </div>
-         <button type="submit" class="btn-secondary w-full">Update Password</button>
-       </form>
+          <form id="changePassForm">
+            <div class="field">
+              <label for="oldPass">Current Password</label>
+              <div class="pass-wrap">
+                <input type="password" id="oldPass" required />
+                <button type="button" class="pass-toggle" onclick="togglePass('oldPass', this)" aria-label="Show password">👁️</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="newPass">New Password (min 6 chars)</label>
+              <div class="pass-wrap">
+                <input type="password" id="newPass" minlength="6" required />
+                <button type="button" class="pass-toggle" onclick="togglePass('newPass', this)" aria-label="Show password">👁️</button>
+              </div>
+            </div>
+            <button type="submit" class="btn-secondary w-full">Update Password</button>
+          </form>
         </div>
       </div>
     </section>
@@ -769,7 +848,18 @@
       <div class="trade-grid">
         <div class="card">
           <h3 class="section-heading">Contact Help Center</h3>
-          <p class="section-sub">Need help with trades or account verification? Send a direct message to our support team.</p>
+          <p class="section-sub">Chat live with our support team on Telegram or send a direct support ticket below.</p>
+
+          <div class="telegram-support-box">
+            <div>
+              <strong style="color:#e0f2fe;font-size:0.92rem;display:block;">💬 Live Support Helpline</strong>
+              <span style="color:var(--text-muted);font-size:0.8rem;">Instant assistance for deposits, withdrawals &amp; account help.</span>
+            </div>
+            <a id="telegramSupportLink" href="https://t.me/daraztradesupport" target="_blank" rel="noopener noreferrer" class="btn-telegram">
+              ✈️ Chat on Telegram
+            </a>
+          </div>
+
           <form id="helpForm">
             <div class="field">
               <label for="helpSubject">Subject</label>
@@ -779,7 +869,7 @@
               <label for="helpMessage">Message</label>
               <textarea id="helpMessage" rows="4" placeholder="Describe your issue..." required></textarea>
             </div>
-            <button type="submit" class="btn-primary">Send Message</button>
+            <button type="submit" class="btn-primary">Send Ticket</button>
           </form>
         </div>
 
@@ -830,11 +920,11 @@
 
 <script>
   function togglePass(inputId, btn) {
-  const inp = document.getElementById(inputId);
-  const isHidden = inp.type === 'password';
-  inp.type = isHidden ? 'text' : 'password';
-  btn.textContent = isHidden ? '🙈' : '👁️';
-}
+    const inp = document.getElementById(inputId);
+    const isHidden = inp.type === 'password';
+    inp.type = isHidden ? 'text' : 'password';
+    btn.textContent = isHidden ? '🙈' : '👁️';
+  }
   const currentUser = JSON.parse(localStorage.getItem('traderUser'));
   if (!currentUser) {
     window.location.href = '/index.html';
@@ -936,8 +1026,9 @@
     document.getElementById('tradeLockCountdownPhase').classList.remove('hidden');
     document.getElementById('tradeLockResultPhase').classList.add('hidden');
     const rem = Math.max(0, Math.ceil((Number(trade.expiresAt) - Date.now()) / 1000));
+    const dirLabel = trade.direction === 'DOWN' ? '▼ DOWN' : '▲ UP';
     document.getElementById('lockTimerDisplay').textContent = `${rem}s`;
-    document.getElementById('lockTradeSummary').textContent = `${trade.pair} • Stake: ${formatMoney(trade.stake)} (+${trade.payoutPercent}%)`;
+    document.getElementById('lockTradeSummary').textContent = `${trade.pair} (${dirLabel}) • Stake: ${formatMoney(trade.stake)} (+${trade.payoutPercent}%)`;
     modal.classList.add('open');
   }
 
@@ -965,7 +1056,7 @@
     document.getElementById('tradeLockModal').classList.remove('open');
   }
 
-let isFetching = false;
+  let isFetching = false;
   async function fetchDashboard() {
     if (!currentUser || isFetching) return;
     isFetching = true;
@@ -1084,7 +1175,7 @@ let isFetching = false;
       .map(pair => `<div class="ticker-item">${pair}<span>${formatMoney(prices[pair])}</span></div>`)
       .join('');
 
-const pairSel = document.getElementById('tradePair');
+    const pairSel = document.getElementById('tradePair');
     const serverPairs = Object.keys(prices || {});
     if (serverPairs.length > 0) {
       const existing = new Set(Array.from(pairSel.options).map(o => o.value));
@@ -1173,6 +1264,9 @@ const pairSel = document.getElementById('tradePair');
 
     const renderTradeRow = (t) => {
       const stCls = t.status === 'WON' ? 'st-won' : t.status === 'LOST' ? 'st-lost' : 'st-run';
+      const dirBadge = t.direction === 'DOWN'
+        ? '<span style="color:#ef4444;font-size:0.74rem;font-weight:700;">▼ DOWN</span>'
+        : '<span style="color:#10b981;font-size:0.74rem;font-weight:700;">▲ UP</span>';
       const profitTxt = t.status === 'WON'
         ? `<span style="color:#10b981;font-weight:700;">+${formatMoney(t.profit)}</span>`
         : t.status === 'LOST'
@@ -1181,7 +1275,7 @@ const pairSel = document.getElementById('tradePair');
       return `
         <div class="tx-row">
           <div>
-            <strong>${t.pair}</strong> <span class="status-pill ${stCls}">${t.status}</span><br>
+            <strong>${t.pair}</strong> ${dirBadge} <span class="status-pill ${stCls}">${t.status}</span><br>
             <small style="color:var(--text-muted);">${t.durationSeconds}s • Stake: ${formatMoney(t.stake)} • ${new Date(t.createdAt).toLocaleString()}</small>
           </div>
           <div style="text-align:right;">
@@ -1385,24 +1479,38 @@ const pairSel = document.getElementById('tradePair');
     selectedDuration = Number(el.dataset.sec);
   }
 
+  let isSubmittingTrade = false;
   async function executeTrade(direction) {
+    if (isSubmittingTrade) return;
     if (window.__accountBlocks?.tradeBlock) return notify(window.__accountBlocks.tradeBlock, true);
     const stake = Number(document.getElementById('tradeAmount').value);
     const pair = document.getElementById('tradePair').value;
     if (!Number.isFinite(stake) || stake < 1) return notify('Enter a valid trade amount (minimum $1).', true);
     if (appState && stake > appState.user.balance) return notify('Amount exceeds your available balance.', true);
 
-    const res = await fetch('/api/trades/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
-      body: JSON.stringify({ pair, direction, stake, durationSeconds: selectedDuration })
-    });
-    const data = await res.json();
-    if (!res.ok) return notify(data.error, true);
+    isSubmittingTrade = true;
+    const upBtn = document.getElementById('btnBuyUp');
+    const downBtn = document.getElementById('btnBuyDown');
+    if (upBtn) upBtn.disabled = true;
+    if (downBtn) downBtn.disabled = true;
 
-    document.getElementById('tradeAmount').value = '';
-    if (data.trade) openTradeCountdownModal(data.trade);
-    fetchDashboard();
+    try {
+      const res = await fetch('/api/trades/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
+        body: JSON.stringify({ pair, direction, stake, durationSeconds: selectedDuration })
+      });
+      const data = await res.json();
+      if (!res.ok) return notify(data.error, true);
+
+      document.getElementById('tradeAmount').value = '';
+      if (data.trade) openTradeCountdownModal(data.trade);
+      fetchDashboard();
+    } finally {
+      isSubmittingTrade = false;
+      if (upBtn) upBtn.disabled = false;
+      if (downBtn) downBtn.disabled = false;
+    }
   }
 
   function toggleWithdrawFields() {
@@ -1544,7 +1652,7 @@ const pairSel = document.getElementById('tradePair');
   setTimeout(showRandomActivity, 2500);
   setInterval(showRandomActivity, 9000);
 
-function tickLiveChartLocally() {
+  function tickLiveChartLocally() {
     if (!appState || !appState.prices) return;
     const activePair = document.getElementById('tradePair').value || 'BTC_USDT';
     const basePrice = Number(appState.prices[activePair] || 89450.25);
