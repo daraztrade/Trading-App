@@ -264,7 +264,6 @@
     }
     .d-blue { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
     .d-indigo { background: linear-gradient(135deg, #3730a3, #4f46e5); }
-    .d-green { background: linear-gradient(135deg, #065f46, #059669); }
     .d-plum { background: linear-gradient(135deg, #581c87, #7e22ce); }
 
     .action-pills {
@@ -447,11 +446,6 @@
       <span class="badge-count green" id="badgeInvites">0</span>
     </div>
 
-    <div class="nav-item" id="nav-deposits" onclick="showSection('deposits', this)">
-      <span>💰 Deposit Proofs</span>
-      <span class="badge-count" id="badgeDep">0</span>
-    </div>
-
     <!-- COLLAPSIBLE WITHDRAWALS MENU (PENDING / APPROVED / REJECTED / ALL) -->
     <div class="nav-item" id="nav-withdrawals" onclick="toggleWithdrawMenu()">
       <span>🏛️ Withdrawals</span>
@@ -513,7 +507,7 @@
       </div>
     </div>
 
-    <!-- SECTION 1: DASHBOARD (INVITE CARD REMOVED — HANDLED IN INVITE MEMBERS TAB) -->
+    <!-- SECTION 1: DASHBOARD -->
     <section id="sec-dashboard">
       <div class="stats-grid">
         <div class="stat-card">
@@ -699,13 +693,6 @@
           </div>
           <div style="font-size:1.8rem;">📊</div>
         </div>
-        <div class="d-card d-green">
-          <div>
-            <div style="font-size:1.5rem;font-weight:800;" id="udTotalDeposit">0</div>
-            <div style="font-size:0.75rem;opacity:0.85;">TOTAL DEPOSIT</div>
-          </div>
-          <div style="font-size:1.8rem;">💳</div>
-        </div>
         <div class="d-card d-plum">
           <div>
             <div style="font-size:1.5rem;font-weight:800;" id="udTotalTx">0</div>
@@ -859,15 +846,7 @@
       </div>
     </section>
 
-    <!-- SECTION 7: DEPOSITS -->
-    <section id="sec-deposits" class="hidden">
-      <div class="card">
-        <h3 style="margin-top:0;">💰 Deposit Proofs Queue</h3>
-        <div class="table-wrap" id="depositsTable"></div>
-      </div>
-    </section>
-
-    <!-- SECTION 8: WITHDRAWALS (PENDING / APPROVED / REJECTED / ALL) -->
+    <!-- SECTION 7: WITHDRAWALS (PENDING / APPROVED / REJECTED / ALL) -->
     <section id="sec-withdrawals" class="hidden">
       <div class="card">
         <div class="toolbar">
@@ -889,7 +868,7 @@
       </div>
     </section>
 
-    <!-- SECTION 9: HELP CENTER -->
+    <!-- SECTION 8: HELP CENTER -->
     <section id="sec-tickets" class="hidden">
       <div class="card">
         <h3 style="margin-top:0;">🎧 Help Center Tickets</h3>
@@ -897,7 +876,7 @@
       </div>
     </section>
 
-    <!-- SECTION 10: ERROR SENDER -->
+    <!-- SECTION 9: ERROR SENDER -->
     <section id="sec-errors" class="hidden">
       <div class="card" style="max-width:520px;">
         <h3 style="margin-top:0;">⚠️ Send Custom Alert to Trader</h3>
@@ -908,7 +887,7 @@
       </div>
     </section>
 
-    <!-- SECTION 11: SETTINGS & ADMIN PROFILE -->
+    <!-- SECTION 10: SETTINGS & ADMIN PROFILE -->
     <section id="sec-settings" class="hidden">
       <div class="settings-grid">
         <div class="card">
@@ -1061,7 +1040,8 @@
 
   function showSection(sec, el) {
     document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(`sec-${sec}`).classList.remove('hidden');
+    const target = document.getElementById(`sec-${sec}`);
+    if (target) target.classList.remove('hidden');
     if (el) {
       document.querySelectorAll('.nav-item, .sub-item').forEach(n => n.classList.remove('active'));
       el.classList.add('active');
@@ -1073,7 +1053,6 @@
       'users': 'All Users',
       'invite-members': 'Invite Members (1 User Limit Per Link)',
       'user-detail': 'User Detail',
-      'deposits': 'Deposit Proofs',
       'withdrawals': 'Withdrawals Management',
       'tickets': 'Help Center',
       'errors': 'Error Sender',
@@ -1131,7 +1110,7 @@
 
   function renderAdminUI() {
     if (!adminData) return;
-    const { actor, stats, traders, trades, deposits, withdrawals, tickets, settings, invitedCount, inviteLinks = [] } = adminData;
+    const { actor, stats, traders, trades, withdrawals, tickets, settings, invitedCount, inviteLinks = [] } = adminData;
 
     const fullName = `${actor.firstName || ''} ${actor.lastName || ''}`.trim();
     document.getElementById('actorFullName').textContent = fullName || actor.username;
@@ -1157,7 +1136,6 @@
     document.getElementById('topPendingWdrCount').textContent = pendingWdr;
     document.getElementById('badgeUsers').textContent = stats.totalUsers;
     document.getElementById('badgeInvites').textContent = inviteLinks.filter(l => l.status === 'ACTIVE').length;
-    document.getElementById('badgeDep').textContent = stats.pendingDeposits;
     document.getElementById('badgeWdrPending').textContent = pendingWdr;
     document.getElementById('badgeWdrApproved').textContent = approvedWdr;
     document.getElementById('badgeWdrRejected').textContent = rejectedWdr;
@@ -1192,18 +1170,6 @@
 
     if (document.activeElement.id !== 'setTradeMode') document.getElementById('setTradeMode').value = settings.tradeOutcomeMode || 'WIN_DEFAULT';
     if (document.activeElement.id !== 'setMinScore') document.getElementById('setMinScore').value = settings.minCreditScoreForWithdraw ?? 90;
-
-    document.getElementById('depositsTable').innerHTML = deposits.length ? `
-      <table><thead><tr><th>USER</th><th>CRYPTO</th><th>AMOUNT</th><th>PROOF</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
-      ${deposits.map(d => `<tr>
-        <td><strong>${d.username}</strong></td>
-        <td>${d.cryptoCurrency}</td>
-        <td>${Number(d.amount).toLocaleString()}</td>
-        <td><a href="${d.proofUrl}" target="_blank" style="color:#818cf8;">View Receipt</a></td>
-        <td><span class="tag ${d.status==='APPROVED'?'tag-win':d.status==='REJECTED'?'tag-loss':'tag-run'}">${d.status}</span></td>
-        <td>${d.status==='PENDING' ? `<button class="btn-sm btn-win" onclick="reviewDeposit('${d.id}','APPROVE')">Approve</button><button class="btn-sm btn-loss" onclick="reviewDeposit('${d.id}','REJECT')">Reject</button>` : '-'}</td>
-      </tr>`).join('')}
-      </tbody></table>` : '<p style="color:#94a3b8;">No deposit proofs submitted.</p>';
 
     document.getElementById('ticketsTable').innerHTML = tickets.length ? `
       <table><thead><tr><th>USER</th><th>SUBJECT</th><th>MESSAGE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
@@ -1528,12 +1494,11 @@
 
     const res = await fetch(`/api/admin/users/${userId}/detail`, { headers: adminHeaders() });
     if (!res.ok) return showToast('Could not load user details', true);
-    const { user, trades, deposits, transactions, logins = [], notifications = [] } = await res.json();
+    const { user, trades, transactions, logins = [], notifications = [] } = await res.json();
 
     populateUserDetailFields(user);
     document.getElementById('udTotalOrder').textContent = trades.length;
     document.getElementById('udTotalTrade').textContent = trades.length;
-    document.getElementById('udTotalDeposit').textContent = deposits.length;
     document.getElementById('udTotalTx').textContent = transactions.length;
     document.getElementById('udTradesWrap').innerHTML = buildTradesTable(trades, false);
 
@@ -1634,7 +1599,7 @@
           <strong>Formula:</strong> Frozen Balance = Total Balance − Available Balance.<br/>
           Total Balance: <strong style="color:#fff;">${totalBal.toLocaleString()}</strong> · Currently Frozen: <strong style="color:#38bdf8;">${currentFrozen.toLocaleString()}</strong>
         </p>
-<div class="field">
+        <div class="field">
           <label>Amount to Freeze (Leave blank to freeze full balance)</label>
           <input type="number" id="modalFreezeAmt" value="${currentFrozen > 0 ? currentFrozen : totalBal}" min="0" max="${totalBal}" step="any" />
           <div style="display:flex;gap:6px;margin-top:8px;">
@@ -1645,7 +1610,7 @@
         </div>
         <div class="field">
           <label>Message shown to trader</label>
-          <input type="text" id="modalFreezeMsg" value="${document.getElementById('ctrlFreezeMsg').value || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'}" />
+          <input type="text" id="modalFreezeMsg" value="${document.getElementById('ctrlFreezeMsg')?.value || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'}" />
         </div>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button type="button" class="btn-sm btn-win" onclick="unfreezeSelectedUserBalance()">Unfreeze All (Set 0)</button>
@@ -1664,7 +1629,9 @@
         closeCustomModal();
         showToast(data.message);
         fetchAdminOverview();
-        openUserDetail(selectedUserId);
+        if (!document.getElementById('sec-user-detail').classList.contains('hidden')) {
+          openUserDetail(selectedUserId);
+        }
       }
     );
   }
@@ -1679,7 +1646,9 @@
       closeCustomModal();
       showToast('Trader balance unfrozen!');
       fetchAdminOverview();
-      openUserDetail(selectedUserId);
+      if (!document.getElementById('sec-user-detail').classList.contains('hidden')) {
+        openUserDetail(selectedUserId);
+      }
     }
   }
 
@@ -1774,14 +1743,6 @@
       showToast('Trade voided & refunded');
       fetchAdminOverview();
     }
-  }
-
-  async function reviewDeposit(id, action) {
-    await fetch(`/api/admin/deposits/${id}/review`, {
-      method: 'POST', headers: adminHeaders(), body: JSON.stringify({ action })
-    });
-    showToast(`Deposit ${action}D`);
-    fetchAdminOverview();
   }
 
   async function submitWithdrawalReview(id, action, reason) {

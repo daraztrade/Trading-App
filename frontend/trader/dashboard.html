@@ -164,22 +164,6 @@
     }
     .btn-buy:disabled, .btn-sell:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* WALLET CARDS */
-    .wallet-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 14px;
-      margin-bottom: 18px;
-    }
-    .w-card {
-      background: #182032;
-      border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .w-card small { font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; }
-    .w-card h3 { margin: 6px 0 0; font-size: 1.4rem; }
-
     /* TABLE */
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
@@ -242,7 +226,6 @@
 
       <button class="nav-btn active" onclick="switchTab('trade', this)">📊 Live Trading</button>
       <button class="nav-btn" onclick="switchTab('history', this)">📜 Trade History</button>
-      <button class="nav-btn" onclick="switchTab('wallet', this)">💳 Wallet &amp; Funds</button>
       <button class="nav-btn" onclick="switchTab('withdraw', this)">🏛️ Withdraw Funds</button>
       <button class="nav-btn" onclick="switchTab('support', this)">🎧 Help Center</button>
       <button class="nav-btn" onclick="switchTab('profile', this)">👤 Profile &amp; Security</button>
@@ -383,56 +366,7 @@
       </div>
     </section>
 
-    <!-- TAB 3: WALLET & FUNDS -->
-    <section id="tab-wallet" class="hidden">
-      <div class="wallet-grid">
-        <div class="w-card">
-          <small>Available Balance (Unlocked)</small>
-          <h3 style="color:#10b981;" id="wAvailBal">0.00</h3>
-        </div>
-        <div class="w-card">
-          <small>❄️ Frozen Balance (Total − Available)</small>
-          <h3 style="color:#38bdf8;" id="wFrozenBal">0.00</h3>
-        </div>
-        <div class="w-card">
-          <small>Total Account Balance</small>
-          <h3 style="color:#fff;" id="wTotalBal">0.00</h3>
-        </div>
-        <div class="w-card">
-          <small>Total Withdrawn</small>
-          <h3 style="color:#f59e0b;" id="wTotalWithdrawn">0.00</h3>
-        </div>
-      </div>
-
-      <div class="card" style="max-width:540px;">
-        <h3 style="margin-top:0;">➕ Deposit Funds (Crypto Proof)</h3>
-        <form id="depositForm" onsubmit="submitDeposit(event)">
-          <div class="field">
-            <label>Select Network / Coin</label>
-            <select id="depCrypto" onchange="updateDepositWallet()"></select>
-          </div>
-          <div class="field">
-            <label>Official Deposit Address</label>
-            <input type="text" id="depWalletAddr" readonly />
-          </div>
-          <div class="field">
-            <label>Amount</label>
-            <input type="number" id="depAmount" required min="1" step="any" placeholder="Enter deposit amount" />
-          </div>
-          <div class="field">
-            <label>Transaction Hash / Reference</label>
-            <input type="text" id="depTxHash" placeholder="Optional TXID" />
-          </div>
-          <div class="field">
-            <label>Payment Screenshot Proof *</label>
-            <input type="file" id="depProofFile" accept="image/*" required />
-          </div>
-          <button type="submit" class="btn-buy" style="width:100%;">Submit Deposit Proof</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- TAB 4: WITHDRAW FUNDS -->
+    <!-- TAB 3: WITHDRAW FUNDS -->
     <section id="tab-withdraw" class="hidden">
       <div class="terminal-grid">
         <div class="card">
@@ -482,7 +416,7 @@
       </div>
     </section>
 
-    <!-- TAB 5: HELP CENTER + TELEGRAM SUPPORT (@Darazhelpdisk) -->
+    <!-- TAB 4: HELP CENTER + TELEGRAM SUPPORT (@Darazhelpdisk) -->
     <section id="tab-support" class="hidden">
       <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-left:4px solid #229ed9;">
         <div>
@@ -508,7 +442,7 @@
       </div>
     </section>
 
-    <!-- TAB 6: PROFILE -->
+    <!-- TAB 5: PROFILE -->
     <section id="tab-profile" class="hidden">
       <div class="card" style="max-width:480px;">
         <h3 style="margin-top:0;">🔐 Change Password</h3>
@@ -602,7 +536,8 @@
 
   function switchTab(tab, btn) {
     document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    const target = document.getElementById(`tab-${tab}`);
+    if (target) target.classList.remove('hidden');
     if (btn) {
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -685,7 +620,6 @@
     if (!candles || !candles.length) return;
     candleSeries.setData(candles);
     lastCandle = candles[candles.length - 1];
-    // Show the latest ~85 candles anchored cleanly on the right edge, with 500 bars available to scroll left
     const total = candles.length;
     chart.timeScale().setVisibleLogicalRange({
       from: Math.max(0, total - 85),
@@ -700,7 +634,6 @@
     const decimals = basePrice < 1 ? 6 : 2;
     const vol = tf === '1M' ? 0.035 : tf === '1W' ? 0.022 : tf === '1D' ? 0.014 : 0.0028;
 
-    // Walk backward from current live price so the chart ends seamlessly at basePrice
     const raw = new Array(count);
     let close = Number(basePrice);
     for (let i = count - 1; i >= 0; i--) {
@@ -720,11 +653,9 @@
     const seq = ++candleLoadSeq;
     const pair = document.getElementById('pairSelector').value;
 
-    // Render 500 candles immediately so there is zero delay
     const synthetic = generateSyntheticCandles(basePrice, tf, 500);
     applyCandlesToChart(synthetic);
 
-    // For USDT pairs, enrich with 500 real Binance candles when reachable
     if (pair.endsWith('_USDT')) {
       try {
         const symbol = pair.replace('_', '');
@@ -743,9 +674,7 @@
             applyCandlesToChart(realCandles);
           }
         }
-      } catch (_) {
-        // Keep the 500-candle dataset seamlessly
-      }
+      } catch (_) {}
     }
   }
 
@@ -858,7 +787,7 @@
 
   function renderDashboard() {
     if (!dashState) return;
-    const { user, prices, trades, settings, customErrors, withdrawals, tickets } = dashState;
+    const { user, prices, trades, customErrors, withdrawals, tickets } = dashState;
     const curr = user.currency || 'PKR';
 
     const availBal = Number(user.availableBalance ?? user.balance ?? 0);
@@ -873,11 +802,6 @@
     document.getElementById('topAvailBal').textContent = `${availBal.toLocaleString()} ${curr}`;
     document.getElementById('topFrozenBal').textContent = `${frozenBal.toLocaleString()} ${curr}`;
     document.getElementById('topInOrderBal').textContent = `${inOrderBal.toLocaleString()} ${curr}`;
-
-    document.getElementById('wAvailBal').textContent = `${availBal.toLocaleString()} ${curr}`;
-    document.getElementById('wFrozenBal').textContent = `${frozenBal.toLocaleString()} ${curr}`;
-    document.getElementById('wTotalBal').textContent = `${totalBal.toLocaleString()} ${curr}`;
-    document.getElementById('wTotalWithdrawn').textContent = `${Number(user.totalWithdrawn || 0).toLocaleString()} ${curr}`;
 
     document.getElementById('wdrAvailNotice').textContent = `${availBal.toLocaleString()} ${curr}`;
     document.getElementById('wdrFrozenNotice').textContent = `${frozenBal.toLocaleString()} ${curr}`;
@@ -910,7 +834,7 @@
       </div>
     `).join('');
 
-    // Live price update & candle tick (advances bar time cleanly on new timeframe bucket)
+    // Live price update & candle tick
     const pair = document.getElementById('pairSelector').value;
     const livePrice = prices?.[pair];
     if (livePrice) {
@@ -935,13 +859,6 @@
         }
         candleSeries.update(lastCandle);
       }
-    }
-
-    // Deposit wallets dropdown
-    const depSel = document.getElementById('depCrypto');
-    if (depSel.options.length === 0 && settings?.cryptoWallets) {
-      depSel.innerHTML = Object.keys(settings.cryptoWallets).map(k => `<option value="${k}">${k}</option>`).join('');
-      updateDepositWallet();
     }
 
     // Check if tracked trade settled
@@ -1006,32 +923,6 @@
     `).join('') : '<p style="color:#94a3b8;">No messages yet.</p>';
 
     updateEstReturn();
-  }
-
-  function updateDepositWallet() {
-    const net = document.getElementById('depCrypto').value;
-    document.getElementById('depWalletAddr').value = dashState?.settings?.cryptoWallets?.[net] || '';
-  }
-
-  async function submitDeposit(e) {
-    e.preventDefault();
-    const fd = new FormData();
-    fd.append('cryptoCurrency', document.getElementById('depCrypto').value);
-    fd.append('amount', document.getElementById('depAmount').value);
-    fd.append('txHash', document.getElementById('depTxHash').value);
-    fd.append('proof', document.getElementById('depProofFile').files[0]);
-
-    const res = await fetch('/api/wallet/deposit', {
-      method: 'POST',
-      headers: traderHeaders(false),
-      body: fd
-    });
-    const data = await res.json();
-    if (!res.ok) return showToast(data.error || 'Deposit failed', true);
-    document.getElementById('depositForm').reset();
-    updateDepositWallet();
-    showToast('Deposit proof submitted!');
-    loadDashboard();
   }
 
   async function submitWithdrawal() {
