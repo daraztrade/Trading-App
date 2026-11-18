@@ -50,7 +50,17 @@ const storage = multer.diskStorage({
     cb(null, unique + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error('Only JPG, PNG, and WEBP images are allowed.'));
+    }
+    cb(null, true);
+  }
+});
 
 // ==========================================================================
 // VALIDATION HELPERS
@@ -430,7 +440,7 @@ function ensureDbInitialized() {
       await saveSettings(defaultSettings);
     }
 
-    // 1. Hardcoded Main Admin: mainadmin / admin321
+// 1. Seed Main Admin only if missing (do not overwrite existing password on restart)
     const existingMain = await dbGet(
       'SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?',
       ['mainadmin', 'mainadmin@daraztrade.online']
@@ -441,18 +451,9 @@ function ensureDbInitialized() {
          VALUES (?, ?, ?, ?, 'MAIN_ADMIN', 'Main', 'Admin', 'ACTIVE', 'MAINADMIN', 1, ?)`,
         ['admin-main', 'mainadmin', 'mainadmin@daraztrade.online', hashPassword('admin321'), new Date().toISOString()]
       );
-    } else {
-      await dbRun(
-        `DELETE FROM users WHERE id != ? AND (LOWER(username) = ? OR LOWER(email) = ?)`,
-        [existingMain.id, 'mainadmin', 'mainadmin@daraztrade.online']
-      );
-      await dbRun(
-        `UPDATE users SET username = 'mainadmin', email = 'mainadmin@daraztrade.online', password = ?, role = 'MAIN_ADMIN', status = 'ACTIVE', invitationCode = 'MAINADMIN' WHERE id = ?`,
-        [hashPassword('admin321'), existingMain.id]
-      );
     }
 
-    // 2. Hardcoded Admin (SUB_ADMIN): admin / admin123
+    // 2. Seed Sub Admin only if missing (do not overwrite existing password on restart)
     const existingAdmin = await dbGet(
       'SELECT id FROM users WHERE LOWER(username) IN (?, ?) OR LOWER(email) = ?',
       ['admin', 'ajmanzoor', 'admin@daraztrade.online']
@@ -463,29 +464,15 @@ function ensureDbInitialized() {
          VALUES (?, ?, ?, ?, 'SUB_ADMIN', 'Platform', 'Admin', 'ACTIVE', 'ADMIN', 1, ?)`,
         ['admin-sub', 'admin', 'admin@daraztrade.online', hashPassword('admin123'), new Date().toISOString()]
       );
-    } else {
-      await dbRun(
-        `DELETE FROM users WHERE id != ? AND (LOWER(username) IN (?, ?) OR LOWER(email) = ?)`,
-        [existingAdmin.id, 'admin', 'ajmanzoor', 'admin@daraztrade.online']
-      );
-      await dbRun(
-        `UPDATE users SET username = 'admin', email = 'admin@daraztrade.online', password = ?, role = 'SUB_ADMIN', firstName = 'Platform', lastName = 'Admin', status = 'ACTIVE', invitationCode = 'ADMIN' WHERE id = ?`,
-        [hashPassword('admin123'), existingAdmin.id]
-      );
     }
 
-    // 3. Hardcoded User Account: demo_trader / Trader@123
+    // 3. Seed Demo Trader only if missing
     const existingDemo = await dbGet('SELECT id FROM users WHERE username = ?', ['demo_trader']);
     if (!existingDemo) {
       await dbRun(
         `INSERT INTO users (id, username, email, password, role, firstName, lastName, country, mobile, currency, profileCompleted, status, balance, creditScore, createdAt)
          VALUES (?, ?, ?, ?, 'TRADER', 'Demo', 'Trader', 'Pakistan', '+923001234567', 'PKR', 1, 'ACTIVE', 50000, 100, ?)`,
         ['usr-demo-1', 'demo_trader', 'trader@daraztrade.online', hashPassword('Trader@123'), new Date().toISOString()]
-      );
-    } else {
-      await dbRun(
-        `UPDATE users SET password = ?, status = 'ACTIVE', profileCompleted = 1 WHERE id = ?`,
-        [hashPassword('Trader@123'), existingDemo.id]
       );
     }
   })().catch(err => {
@@ -616,16 +603,12 @@ const marketPrices = {
 };
 
 function getPairPrice(pair) {
-  if (marketPrices[pair] !== undefined) return marketPrices[pair];
-  if (pair && pair.endsWith('_USDT')) {
-    marketPrices[pair] = 12.50;
-    return marketPrices[pair];
-  }
-  return null;
+  return marketPrices[pair] !== undefined ? marketPrices[pair] : null;
 }
 
 let lastRealSync = 0;
 let isSyncingPrices = false;
+let hasInitialPriceSync = false;
 
 async function syncRealBasePrices() {
   if (isSyncingPrices || Date.now() - lastRealSync < 30000) return;
@@ -643,16 +626,19 @@ async function syncRealBasePrices() {
         const realVal = map.get(binanceSymbol);
         if (realVal && Number.isFinite(realVal) && realVal > 0) {
           const decimals = realVal < 0.01 ? 6 : realVal < 1 ? 4 : 2;
-          // Blend toward the real market price smoothly without sudden jumps
           const current = marketPrices[pair];
           const diffRatio = Math.abs(realVal - current) / realVal;
           const next = diffRatio > 0.05 ? realVal : current + (realVal - current) * 0.4;
           marketPrices[pair] = Number(next.toFixed(decimals));
         }
       }
+      hasInitialPriceSync = true;
       return;
     }
-  } catch (_) {}
+  } catch (_) {
+  } finally {
+    isSyncingPrices = false;
+  }
 
   // Fallback to CoinGecko if Binance is geo-blocked on serverless region
   try {
@@ -716,12 +702,12 @@ async function syncRealBasePrices() {
           marketPrices[pair] = Number(realVal.toFixed(decimals));
         }
       }
+      hasInitialPriceSync = true;
     }
-  } catch (_) {
-  } finally {
-    isSyncingPrices = false;
-  }
+  } catch (_) {}
 }
+
+syncRealBasePrices();
 
 function tickMarketPrices() {
   syncRealBasePrices();
@@ -731,11 +717,6 @@ function tickMarketPrices() {
     marketPrices[pair] = Number((marketPrices[pair] * (1 + changePercent)).toFixed(decimals));
   }
 }
-
-setInterval(() => {
-  tickMarketPrices();
-  settleExpiredTrades().catch(() => {});
-}, 1000);
 
 setInterval(() => {
   tickMarketPrices();
@@ -840,7 +821,8 @@ function signSession(user) {
   const payload = Buffer.from(JSON.stringify({
     id: user.id,
     username: user.username,
-    role: user.role
+    role: user.role,
+    exp: Date.now() + 7 * 24 * 60 * 60 * 1000
   })).toString('base64url');
   const sig = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
   return `${payload}.${sig}`;
@@ -850,9 +832,13 @@ function verifySession(token) {
   if (!token || !token.includes('.')) return null;
   const [payload, sig] = token.split('.');
   const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
-  if (sig !== expected) return null;
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try {
-    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!data.exp || Date.now() > data.exp) return null;
+    return data;
   } catch {
     return null;
   }
@@ -1036,6 +1022,9 @@ app.post('/api/auth/change-password', requireAuth(['TRADER', 'SUB_ADMIN', 'MAIN_
 });
 
 app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
+  if (!hasInitialPriceSync) {
+    await syncRealBasePrices();
+  }
   tickMarketPrices();
   await settleExpiredTrades();
   const [userRow, settings, trades, transactions, tickets, customErrors, withdrawals] = await Promise.all([
@@ -1547,7 +1536,24 @@ app.post('/api/admin/users/:id/adjust', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN'])
 });
 
 app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  await saveSettings(req.body);
+  const allowedKeys = [
+    'defaultCurrency',
+    'currencies',
+    'taxRate',
+    'minCreditScoreForWithdraw',
+    'tradeOutcomeMode',
+    'payoutPercentages',
+    'globalTradeBan',
+    'globalWithdrawBan',
+    'cryptoWallets'
+  ];
+  const filtered = {};
+  for (const key of allowedKeys) {
+    if (req.body[key] !== undefined) {
+      filtered[key] = req.body[key];
+    }
+  }
+  await saveSettings(filtered);
   await logAudit(req.user, 'UPDATE_SETTINGS', 'SYSTEM', 'Updated platform settings');
   broadcastEvent('SETTINGS_UPDATED');
   res.json({ message: 'Settings saved.', settings: await getSettings() });

@@ -534,12 +534,12 @@
       </div>
     </div>
 
-    <div class="ticker-bar" id="tickerBar">
-      <div class="ticker-item">BTC_USDT <span>$89,450.25</span></div>
-      <div class="ticker-item">ETH_USDT <span>$3,120.80</span></div>
-      <div class="ticker-item">BNB_USDT <span>$612.40</span></div>
-      <div class="ticker-item">SOL_USDT <span>$184.65</span></div>
-    </div>
+<div class="ticker-bar" id="tickerBar">
+  <div class="ticker-item">BTC_USDT <span>—</span></div>
+  <div class="ticker-item">ETH_USDT <span>—</span></div>
+  <div class="ticker-item">BNB_USDT <span>—</span></div>
+  <div class="ticker-item">SOL_USDT <span>—</span></div>
+</div>
 
     <div id="customErrorBanner" class="card hidden" style="border-left:4px solid #ef4444 !important;margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
@@ -582,11 +582,11 @@
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div>
               <strong id="chartPairTitle" style="color:var(--text-muted); font-size:0.85rem;">BTC_USDT</strong>
-              <div class="pro-price-hero" id="chartLivePrice">$89,450.25</div>
-              <div class="pro-change-row">
-                <span id="ovChangePct" class="pro-change-up">▲ +3.62% <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
-                <span class="live-pill">● LIVE</span>
-              </div>
+<div class="pro-price-hero" id="chartLivePrice">—</div>
+<div class="pro-change-row">
+  <span id="ovChangePct" class="pro-change-up">— <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
+  <span class="live-pill">● LIVE</span>
+</div>
             </div>
             <button type="button" class="btn-primary" onclick="switchTab('trade')">Start Trading →</button>
           </div>
@@ -605,11 +605,11 @@
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
             <div>
-              <div class="pro-price-hero" id="tradeLiveHero">$89,450.25</div>
-              <div class="pro-change-row">
-                <span id="trChangePct" class="pro-change-up">▲ +3.62% <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
-                <span class="live-pill">● LIVE</span>
-              </div>
+<div class="pro-price-hero" id="tradeLiveHero">—</div>
+<div class="pro-change-row">
+  <span id="trChangePct" class="pro-change-up">— <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
+  <span class="live-pill">● LIVE</span>
+</div>
             </div>
             <div class="field" style="min-width: 190px; margin-bottom:0;">
               <label for="tradePair">Select Trading Pair</label>
@@ -667,7 +667,7 @@
             <div><div class="tele-label">OPEN</div><div class="tele-val" id="trOpen">-</div></div>
             <div><div class="tele-label">HIGH</div><div class="tele-val tele-green" id="trHigh">-</div></div>
             <div><div class="tele-label">LOW</div><div class="tele-val tele-red" id="trLow">-</div></div>
-            <div><div class="tele-label">24H CHANGE</div><div class="tele-val tele-green" id="trChangeStat">+3.62%</div></div>
+            <div><div class="tele-label">24H CHANGE</div><div class="tele-val tele-green" id="trChangeStat">—</div></div>
             <div><div class="tele-label">MARKET CAP</div><div class="tele-val" id="trMcap">$594,267.72B</div></div>
             <div><div class="tele-label">24H VOL</div><div class="tele-val" id="trVol">48,920 BTC</div></div>
           </div>
@@ -1013,8 +1013,6 @@
     }
   }
 
-  seedHistoryIfEmpty(89450.25);
-
   function updateChartPair() {
     priceHistory = [];
     if (appState) renderDashboard();
@@ -1189,8 +1187,9 @@
       });
     }
 
-    const activePair = pairSel.value || 'BTC_USDT';
-    const liveVal = Number(prices[activePair] || 89450.25);
+const activePair = pairSel.value || 'BTC_USDT';
+const liveVal = Number(prices[activePair]);
+if (!Number.isFinite(liveVal) || liveVal <= 0) return;
     document.getElementById('chartPairTitle').textContent = activePair;
     document.getElementById('chartLivePrice').textContent = formatMoney(liveVal);
 
@@ -1654,8 +1653,9 @@
 
   function tickLiveChartLocally() {
     if (!appState || !appState.prices) return;
-    const activePair = document.getElementById('tradePair').value || 'BTC_USDT';
-    const basePrice = Number(appState.prices[activePair] || 89450.25);
+const activePair = document.getElementById('tradePair').value || 'BTC_USDT';
+const basePrice = Number(appState.prices[activePair]);
+if (!Number.isFinite(basePrice) || basePrice <= 0) return;
     const now = Date.now();
 
     let lastPt = priceHistory.length
