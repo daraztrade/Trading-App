@@ -965,8 +965,10 @@
     document.getElementById('tradeLockModal').classList.remove('open');
   }
 
+let isFetching = false;
   async function fetchDashboard() {
-    if (!currentUser) return;
+    if (!currentUser || isFetching) return;
+    isFetching = true;
     try {
       const res = await fetch('/api/trader/dashboard', {
         headers: { 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' }
@@ -980,7 +982,10 @@
       localStorage.setItem('traderUser', JSON.stringify(appState.user));
       renderWithdrawalHistory(appState.withdrawals || []);
       renderDashboard();
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      isFetching = false;
+    }
   }
 
   function withdrawalLabel(status) {
@@ -1539,10 +1544,51 @@ const pairSel = document.getElementById('tradePair');
   setTimeout(showRandomActivity, 2500);
   setInterval(showRandomActivity, 9000);
 
+function tickLiveChartLocally() {
+    if (!appState || !appState.prices) return;
+    const activePair = document.getElementById('tradePair').value || 'BTC_USDT';
+    const basePrice = Number(appState.prices[activePair] || 89450.25);
+    const now = Date.now();
+
+    let lastPt = priceHistory.length
+      ? priceHistory[priceHistory.length - 1]
+      : { price: basePrice, vol: 40, ts: now - 1000 };
+
+    // Backfill missed 1-second ticks if the browser throttled a background tab
+    const gapSteps = Math.min(55, Math.max(1, Math.floor((now - lastPt.ts) / 1000)));
+    for (let i = 1; i <= gapSteps; i++) {
+      const stepTs = i === gapSteps ? now : lastPt.ts + i * 1000;
+      const microMove = (basePrice - lastPt.price) * 0.35 + basePrice * ((Math.random() - 0.5) * 0.0006);
+      const nextPrice = Math.max(0.0001, lastPt.price + microMove);
+      lastPt = { price: nextPrice, vol: Math.floor(Math.random() * 75 + 20), ts: stepTs };
+      priceHistory.push(lastPt);
+      if (priceHistory.length > 55) priceHistory.shift();
+    }
+
+    document.getElementById('chartLivePrice').textContent = formatMoney(lastPt.price);
+    const hero = document.getElementById('tradeLiveHero');
+    if (hero) hero.textContent = formatMoney(lastPt.price);
+
+    const running = (appState.trades || []).find(t => t.status === 'RUNNING');
+    if (running) {
+      const rem = Math.max(0, Math.ceil((Number(running.expiresAt) - now) / 1000));
+      document.getElementById('lockTimerDisplay').textContent = `${rem}s`;
+    }
+    drawChart('tradeChartCanvas', running && running.pair === activePair ? Number(running.entryPrice) : null);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      tickLiveChartLocally();
+      fetchDashboard();
+    }
+  });
+
   fetchDashboard();
   const traderStream = new EventSource('/api/stream');
   traderStream.onmessage = () => fetchDashboard();
-  setInterval(fetchDashboard, 10000);
+  setInterval(fetchDashboard, 3000);
+  setInterval(tickLiveChartLocally, 900);
 </script>
 </body>
 </html>

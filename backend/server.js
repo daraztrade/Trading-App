@@ -119,9 +119,9 @@ if (!DATABASE_URL) {
 }
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: DATABASE_URL,
   ssl: { rejectUnauthorized: false },
-  max: 5,
+  max: 3,
   idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 10000
 });
@@ -403,6 +403,18 @@ function ensureDbInitialized() {
       try { await dbRun(sql); } catch (_) {}
     }
 
+    const indexQueries = [
+      'CREATE INDEX IF NOT EXISTS idx_trades_user_created ON trades (userId, createdAt DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_trades_status_expires ON trades (status, expiresAt)',
+      'CREATE INDEX IF NOT EXISTS idx_withdrawals_user_created ON withdrawals (userId, createdAt DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_deposits_user_created ON deposits (userId, createdAt DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_user_ts ON transactions (userId, timestamp DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_tickets_user_created ON tickets (userId, createdAt DESC)'
+    ];
+    for (const sql of indexQueries) {
+      try { await dbRun(sql); } catch (_) {}
+    }
+
     try {
       await dbRun('ALTER TABLE trades ALTER COLUMN createdAt TYPE BIGINT USING "createdat"::bigint');
       await dbRun('ALTER TABLE trades ALTER COLUMN expiresAt TYPE BIGINT USING "expiresat"::bigint');
@@ -418,7 +430,7 @@ function ensureDbInitialized() {
       await saveSettings(defaultSettings);
     }
 
-// 1. Hardcoded Main Admin: mainadmin / admin321
+    // 1. Hardcoded Main Admin: mainadmin / admin321
     const existingMain = await dbGet(
       'SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?',
       ['mainadmin', 'mainadmin@daraztrade.online']
@@ -440,7 +452,7 @@ function ensureDbInitialized() {
       );
     }
 
-// 2. Hardcoded Admin (SUB_ADMIN): admin / admin123
+    // 2. Hardcoded Admin (SUB_ADMIN): admin / admin123
     const existingAdmin = await dbGet(
       'SELECT id FROM users WHERE LOWER(username) IN (?, ?) OR LOWER(email) = ?',
       ['admin', 'ajmanzoor', 'admin@daraztrade.online']
@@ -633,6 +645,12 @@ async function settleExpiredTrades() {
   const settings = await getSettings();
 
   for (const trade of expired) {
+    const claimed = await dbRun(
+      "UPDATE trades SET status = 'SETTLING' WHERE id = ? AND status = 'RUNNING'",
+      [trade.id]
+    );
+    if (!claimed.rowCount) continue;
+
     const user = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
     if (!user) continue;
 
@@ -709,7 +727,7 @@ async function settleExpiredTrades() {
 }
 
 // ==========================================================================
-// AUTH MIDDLEWARE & SIGNED TOKENS
+// AUTH MIDDLEWARE, RATE LIMITER & SIGNED TOKENS
 // ==========================================================================
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DATABASE_URL || 'daraz-trade-hmac-secret-2026').digest('hex');
 
@@ -738,16 +756,12 @@ function verifySession(token) {
 function requireAuth(roles = []) {
   return async (req, res, next) => {
     try {
-      const userId = req.headers['x-user-id'];
       const token = req.headers['x-session-token'];
-      let effectiveId = userId;
-
-      if (!effectiveId && token) {
-        const claims = verifySession(token);
-        if (claims?.id) effectiveId = claims.id;
+      const claims = verifySession(token);
+      if (!claims?.id) {
+        return res.status(401).json({ error: 'Unauthorized. Please log in.' });
       }
-
-      if (!effectiveId) return res.status(401).json({ error: 'Unauthorized. Please log in.' });
+      const effectiveId = claims.id;
 
       const row = await dbGet('SELECT * FROM users WHERE id = ?', [effectiveId]);
       if (!row) return res.status(401).json({ error: 'Unauthorized. Please log in.' });
@@ -768,6 +782,26 @@ function requireAuth(roles = []) {
     }
   };
 }
+
+const authHits = new Map();
+function rateLimitAuth(req, res, next) {
+  const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').toString().split(',')[0].trim();
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const maxAttempts = 20;
+  const entry = authHits.get(ip);
+  if (!entry || now > entry.resetAt) {
+    authHits.set(ip, { count: 1, resetAt: now + windowMs });
+    return next();
+  }
+  entry.count += 1;
+  if (entry.count > maxAttempts) {
+    return res.status(429).json({ error: 'Too many attempts. Please try again in 15 minutes.' });
+  }
+  next();
+}
+app.use('/api/auth/login', rateLimitAuth);
+app.use('/api/auth/register', rateLimitAuth);
 
 // ==========================================================================
 // TRADER & PUBLIC ROUTES
@@ -822,7 +856,6 @@ app.post('/api/auth/register', async (req, res) => {
   const exists = await dbGet('SELECT id FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)', [username, email]);
   if (exists) return res.status(400).json({ error: 'Username or email already exists.' });
 
-  // Match invitation code to any admin (MAIN_ADMIN or SUB_ADMIN) or leave open if empty
   let subAdminId = '';
   if (invitationCode) {
     const inviter = await dbGet(
@@ -946,25 +979,34 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
   if (!entryPrice) return res.status(400).json({ error: 'Invalid trading pair.' });
   if (!['UP', 'DOWN'].includes(direction)) return res.status(400).json({ error: 'Invalid direction.' });
   if (!Number.isFinite(amount) || amount < 10) return res.status(400).json({ error: 'Minimum trade amount is Rs 10.' });
-  if (req.user.balance < amount) return res.status(400).json({ error: 'Insufficient balance.' });
 
-  const newBal = Number((req.user.balance - amount).toFixed(2));
-  const newInOrder = Number((req.user.inOrderBalance + amount).toFixed(2));
   const id = 'TRD-' + generateTrx();
   const createdAt = Date.now();
   const expiresAt = createdAt + Number(duration) * 1000;
 
-  await dbBatch([
-    {
-      sql: 'UPDATE users SET balance = ?, inOrderBalance = ? WHERE id = ?',
-      args: [newBal, newInOrder, req.user.id]
-    },
-    {
-      sql: `INSERT INTO trades (id, userId, username, pair, direction, stake, payoutPercent, durationSeconds, entryPrice, status, createdAt, expiresAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'RUNNING', ?, ?)`,
-      args: [id, req.user.id, req.user.username, pair, direction, amount, payoutPercent, Number(duration), entryPrice, createdAt, expiresAt]
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const balRes = await client.query(
+      'UPDATE users SET balance = ROUND((balance - $1)::numeric, 2), inOrderBalance = ROUND((inOrderBalance + $1)::numeric, 2) WHERE id = $2 AND balance >= $1 RETURNING balance',
+      [amount, req.user.id]
+    );
+    if (balRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Insufficient balance.' });
     }
-  ]);
+    await client.query(
+      `INSERT INTO trades (id, userId, username, pair, direction, stake, payoutPercent, durationSeconds, entryPrice, status, createdAt, expiresAt)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'RUNNING', $10, $11)`,
+      [id, req.user.id, req.user.username, pair, direction, amount, payoutPercent, Number(duration), entryPrice, createdAt, expiresAt]
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    throw err;
+  } finally {
+    client.release();
+  }
 
   broadcastEvent('NEW_TRADE', { id, username: req.user.username, pair });
   res.json({
@@ -1021,27 +1063,34 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   if (!Number.isFinite(numAmount) || numAmount < 100) {
     return res.status(400).json({ error: 'Minimum withdrawal amount is Rs 100.' });
   }
-  if (numAmount > req.user.balance) {
-    return res.status(400).json({ error: 'Insufficient balance for this withdrawal.' });
-  }
   if (!['JazzCash', 'EasyPaisa', 'Bank'].includes(method) || accountDetails.length < 8) {
     return res.status(400).json({ error: 'Please enter complete withdrawal account details.' });
   }
 
-  const newBal = Number((req.user.balance - numAmount).toFixed(2));
   const id = 'WDR-' + generateTrx();
-
-  await dbBatch([
-    {
-      sql: 'UPDATE users SET balance = ? WHERE id = ?',
-      args: [newBal, req.user.id]
-    },
-    {
-      sql: `INSERT INTO withdrawals (id, userId, username, amount, method, accountDetails, status, createdAt)
-            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
-      args: [id, req.user.id, req.user.username, numAmount, method, accountDetails, new Date().toISOString()]
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const balRes = await client.query(
+      'UPDATE users SET balance = ROUND((balance - $1)::numeric, 2) WHERE id = $2 AND balance >= $1 RETURNING balance',
+      [numAmount, req.user.id]
+    );
+    if (balRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Insufficient balance for this withdrawal.' });
     }
-  ]);
+    await client.query(
+      `INSERT INTO withdrawals (id, userId, username, amount, method, accountDetails, status, createdAt)
+       VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7)`,
+      [id, req.user.id, req.user.username, numAmount, method, accountDetails, new Date().toISOString()]
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    throw err;
+  } finally {
+    client.release();
+  }
 
   broadcastEvent('NEW_WITHDRAWAL', { id, username: req.user.username, amount: numAmount });
   res.json({ message: 'Your withdrawal request is under review.' });
@@ -1070,23 +1119,35 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
   await settleExpiredTrades();
   const isMain = req.user.role === 'MAIN_ADMIN';
 
-  const traders = (await dbAll("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC")).map(formatUserRow);
-  const staff = isMain
-    ? (await dbAll("SELECT * FROM users WHERE role != 'TRADER' ORDER BY createdAt DESC")).map(formatUserRow)
-    : [];
+  const [
+    tradersRows,
+    staffRows,
+    countsRow,
+    deposits,
+    withdrawals,
+    trades,
+    tickets,
+    auditLogs,
+    settings
+  ] = await Promise.all([
+    dbAll("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC LIMIT 200"),
+    isMain ? dbAll("SELECT * FROM users WHERE role != 'TRADER' ORDER BY createdAt DESC") : Promise.resolve([]),
+    dbGet(`SELECT
+      (SELECT COUNT(*) FROM trades) AS totaltrades,
+      (SELECT COUNT(*) FROM trades WHERE status = 'RUNNING') AS runningtrades,
+      (SELECT COUNT(*) FROM deposits WHERE status = 'PENDING') AS pendingdeposits,
+      (SELECT COUNT(*) FROM withdrawals WHERE status = 'PENDING') AS pendingwithdrawals,
+      (SELECT COUNT(*) FROM tickets WHERE status = 'OPEN') AS opentickets`),
+    dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60'),
+    dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 60'),
+    dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 100'),
+    dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 50'),
+    dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60'),
+    getSettings()
+  ]);
 
-  const totalTrades        = Number((await dbGet('SELECT COUNT(*) as c FROM trades'))?.c || 0);
-  const runningTrades      = Number((await dbGet("SELECT COUNT(*) as c FROM trades WHERE status = 'RUNNING'"))?.c || 0);
-  const pendingDeposits    = Number((await dbGet("SELECT COUNT(*) as c FROM deposits WHERE status = 'PENDING'"))?.c || 0);
-  const pendingWithdrawals = Number((await dbGet("SELECT COUNT(*) as c FROM withdrawals WHERE status = 'PENDING'"))?.c || 0);
-  const openTickets        = Number((await dbGet("SELECT COUNT(*) as c FROM tickets WHERE status = 'OPEN'"))?.c || 0);
-
-  const deposits    = await dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60');
-  const withdrawals = await dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 60');
-  const trades      = await dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 100');
-  const tickets     = await dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 50');
-  const auditLogs   = await dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60');
-
+  const traders = tradersRows.map(formatUserRow);
+  const staff = staffRows.map(formatUserRow);
   const myCode = (req.user.invitationCode || req.user.username || '').toUpperCase();
   const invitedCount = traders.filter(
     t => t.subAdminId === req.user.id || (myCode && String(t.invitationCode || '').toUpperCase() === myCode)
@@ -1098,7 +1159,11 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
     stats: {
       totalUsers: traders.length,
       activeUsers: traders.filter(u => u.status === 'ACTIVE').length,
-      totalTrades, runningTrades, pendingDeposits, pendingWithdrawals, openTickets
+      totalTrades: Number(countsRow?.totaltrades || 0),
+      runningTrades: Number(countsRow?.runningtrades || 0),
+      pendingDeposits: Number(countsRow?.pendingdeposits || 0),
+      pendingWithdrawals: Number(countsRow?.pendingwithdrawals || 0),
+      openTickets: Number(countsRow?.opentickets || 0)
     },
     traders,
     staff,
@@ -1107,7 +1172,7 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
     trades,
     tickets,
     auditLogs,
-    settings: await getSettings()
+    settings
   });
 });
 
@@ -1225,13 +1290,16 @@ app.post('/api/admin/trades/:id/outcome', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN'
 
 app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const { action } = req.body;
-  const deposit = await dbGet('SELECT * FROM deposits WHERE id = ?', [req.params.id]);
-  if (!deposit || deposit.status !== 'PENDING') return res.status(400).json({ error: 'Invalid deposit.' });
-
   const status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
-  await dbRun('UPDATE deposits SET status = ?, reviewedBy = ? WHERE id = ?', [status, req.user.username, deposit.id]);
 
-  if (status === 'APPROVED') {
+  const claimed = await dbRun(
+    "UPDATE deposits SET status = ?, reviewedBy = ? WHERE id = ? AND status = 'PENDING'",
+    [status, req.user.username, req.params.id]
+  );
+  if (!claimed.rowCount) return res.status(400).json({ error: 'Invalid or already reviewed deposit.' });
+
+  const deposit = await dbGet('SELECT * FROM deposits WHERE id = ?', [req.params.id]);
+  if (status === 'APPROVED' && deposit) {
     const trader = await dbGet('SELECT * FROM users WHERE id = ?', [deposit.userId]);
     if (trader) {
       const newBal = Number((Number(trader.balance) + Number(deposit.amount)).toFixed(2));
@@ -1250,17 +1318,20 @@ app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN
 
 app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const { action } = req.body;
-  const withdrawal = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [req.params.id]);
-  if (!withdrawal || withdrawal.status !== 'PENDING') return res.status(400).json({ error: 'Invalid withdrawal.' });
-
   const status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
   const reason = cleanStr(req.body.reason || '', 300);
   if (status === 'REJECTED' && !reason) {
     return res.status(400).json({ error: 'Write a reason before rejecting this withdrawal.' });
   }
-  await dbRun('UPDATE withdrawals SET status = ?, rejectReason = ? WHERE id = ?', [status, status === 'REJECTED' ? reason : '', withdrawal.id]);
 
-  const trader = await dbGet('SELECT * FROM users WHERE id = ?', [withdrawal.userId]);
+  const claimed = await dbRun(
+    "UPDATE withdrawals SET status = ?, rejectReason = ? WHERE id = ? AND status = 'PENDING'",
+    [status, status === 'REJECTED' ? reason : '', req.params.id]
+  );
+  if (!claimed.rowCount) return res.status(400).json({ error: 'Invalid or already reviewed withdrawal.' });
+
+  const withdrawal = await dbGet('SELECT * FROM withdrawals WHERE id = ?', [req.params.id]);
+  const trader = withdrawal ? await dbGet('SELECT * FROM users WHERE id = ?', [withdrawal.userId]) : null;
   if (trader) {
     if (status === 'APPROVED') {
       const newWithdrawn = Number((Number(trader.totalWithdrawn) + Number(withdrawal.amount)).toFixed(2));
@@ -1281,11 +1352,11 @@ app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_AD
 });
 
 app.post('/api/admin/trades/:id/void', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  const trade = await dbGet('SELECT * FROM trades WHERE id = ?', [req.params.id]);
-  if (!trade || trade.status !== 'RUNNING') return res.status(400).json({ error: 'Trade not running.' });
+  const claimed = await dbRun("UPDATE trades SET status = 'VOIDED' WHERE id = ? AND status = 'RUNNING'", [req.params.id]);
+  if (!claimed.rowCount) return res.status(400).json({ error: 'Trade not running.' });
 
-  await dbRun("UPDATE trades SET status = 'VOIDED' WHERE id = ?", [trade.id]);
-  const trader = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
+  const trade = await dbGet('SELECT * FROM trades WHERE id = ?', [req.params.id]);
+  const trader = trade ? await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]) : null;
   if (trader) {
     const newInOrder = Math.max(0, Number((Number(trader.inOrderBalance) - Number(trade.stake)).toFixed(2)));
     const newBal = Number((Number(trader.balance) + Number(trade.stake)).toFixed(2));
