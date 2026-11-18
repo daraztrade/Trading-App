@@ -199,6 +199,24 @@
       font-size: 0.86rem;
       outline: none;
     }
+    .trade-summary-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #10131c;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+    }
+    .ts-item { font-size: 0.74rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    .ts-item strong { display: block; font-size: 1.05rem; color: #f8fafc; margin-top: 2px; }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
     th {
@@ -277,6 +295,7 @@
 
     .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
     .form-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+    .field { margin-bottom: 14px; }
     .field label { display: block; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
     .field input, .field select {
       width: 100%;
@@ -382,9 +401,6 @@
         <span>⊙ Running Trade</span>
         <span class="badge-count green" id="badgeRunning">0</span>
       </div>
-      <div class="sub-item" id="sub-orders" onclick="showSection('order-history', this)">
-        <span>⊙ Order History</span>
-      </div>
       <div class="sub-item" id="sub-trades" onclick="showSection('trade-history', this)">
         <span>⊙ Trade History</span>
       </div>
@@ -415,7 +431,7 @@
     </div>
 
     <div class="nav-item" id="nav-settings" onclick="showSection('settings', this)">
-      <span>⚙️ Settings</span>
+      <span>⚙️ Settings &amp; Profile</span>
     </div>
 
     <div class="nav-item" style="color:#f87171;margin-top:16px;" onclick="adminLogout()">
@@ -435,6 +451,7 @@
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn-details" onclick="showSection('running-trades')">⚡ Running Trades (<span id="topRunningCount">0</span>)</button>
+        <button class="btn-details" onclick="showSection('trade-history')">📜 Trade History</button>
         <button class="btn-details" onclick="showSection('users')">👥 All Users</button>
       </div>
     </div>
@@ -519,18 +536,29 @@
       </div>
     </section>
 
-    <!-- SECTION 3: ORDER HISTORY -->
-    <section id="sec-order-history" class="hidden">
-      <div class="card">
-        <h3 style="margin-top:0;">📋 Order History</h3>
-        <div class="table-wrap" id="orderHistoryTable"></div>
-      </div>
-    </section>
-
-    <!-- SECTION 4: TRADE HISTORY -->
+    <!-- SECTION 3: CONSOLIDATED TRADE HISTORY (ALL OR PER USER) -->
     <section id="sec-trade-history" class="hidden">
       <div class="card">
-        <h3 style="margin-top:0;">📜 Settled Trade History</h3>
+        <div class="toolbar">
+          <div>
+            <h3 style="margin:0;">📜 Trade History</h3>
+            <span style="font-size:0.8rem;color:#94a3b8;">Filter all orders and settled trades globally or inspect a single trader</span>
+          </div>
+          <div class="search-group">
+            <select id="tradeHistoryUserFilter" class="select-dark" onchange="renderTradeHistorySection()">
+              <option value="ALL">All Traders</option>
+            </select>
+            <select id="tradeHistoryStatusFilter" class="select-dark" onchange="renderTradeHistorySection()">
+              <option value="ALL">All Statuses</option>
+              <option value="RUNNING">Running</option>
+              <option value="WON">Won</option>
+              <option value="LOST">Lost</option>
+              <option value="VOIDED">Voided</option>
+            </select>
+            <input type="text" id="tradeHistorySearchInput" class="input-dark" placeholder="Search ID, @user, or pair..." oninput="renderTradeHistorySection()" />
+          </div>
+        </div>
+        <div class="trade-summary-bar" id="tradeHistorySummary"></div>
         <div class="table-wrap" id="tradeHistoryTable"></div>
       </div>
     </section>
@@ -772,20 +800,40 @@
       </div>
     </section>
 
-    <!-- SECTION 11: SETTINGS -->
+    <!-- SECTION 11: SETTINGS & ADMIN PROFILE -->
     <section id="sec-settings" class="hidden">
-      <div class="card" style="max-width:520px;">
-        <h3 style="margin-top:0;">⚙️ Global Platform Settings</h3>
-        <div class="field">
-          <label>Global Default Trade Outcome</label>
-          <select id="setTradeMode">
-            <option value="WIN_DEFAULT">Win by Default</option>
-            <option value="LOSS_DEFAULT">Loss by Default</option>
-            <option value="MARKET">Real Market Price</option>
-          </select>
+      <div class="settings-grid">
+        <div class="card">
+          <h3 style="margin-top:0;">⚙️ Global Platform Settings</h3>
+          <div class="field">
+            <label>Global Default Trade Outcome</label>
+            <select id="setTradeMode">
+              <option value="WIN_DEFAULT">Win by Default</option>
+              <option value="LOSS_DEFAULT">Loss by Default</option>
+              <option value="MARKET">Real Market Price</option>
+            </select>
+          </div>
+          <div class="field"><label>Min Credit Score for Withdraw</label><input type="number" id="setMinScore" /></div>
+          <button class="pill-btn pill-indigo" style="width:100%;" onclick="saveGlobalSettings()">Save Settings</button>
         </div>
-        <div class="field"><label>Min Credit Score for Withdraw</label><input type="number" id="setMinScore" /></div>
-        <button class="pill-btn pill-indigo" style="width:100%;" onclick="saveGlobalSettings()">Save Settings</button>
+
+        <div class="card">
+          <h3 style="margin-top:0;">🔐 Admin Profile &amp; Password</h3>
+          <p style="color:#94a3b8;font-size:0.82rem;margin-top:0;">Update the password for your admin account (<strong id="profAdminUsername" style="color:#fff;">admin</strong>).</p>
+          <div class="field">
+            <label>Current Password</label>
+            <input type="password" id="adminOldPass" placeholder="Enter current password" />
+          </div>
+          <div class="field">
+            <label>New Password (min 6 characters)</label>
+            <input type="password" id="adminNewPass" placeholder="Enter new password" minlength="6" />
+          </div>
+          <div class="field">
+            <label>Confirm New Password</label>
+            <input type="password" id="adminConfirmPass" placeholder="Re-enter new password" minlength="6" />
+          </div>
+          <button type="button" class="pill-btn pill-indigo" style="width:100%;" onclick="changeAdminPassword()">Update Admin Password</button>
+        </div>
       </div>
     </section>
   </main>
@@ -855,7 +903,6 @@
     const titles = {
       'dashboard': 'Dashboard Overview',
       'running-trades': 'Running Trades',
-      'order-history': 'Order History',
       'trade-history': 'Trade History',
       'users': 'All Users',
       'user-detail': 'User Detail',
@@ -863,7 +910,7 @@
       'withdrawals': 'Withdrawals',
       'tickets': 'Help Center',
       'errors': 'Error Sender',
-      'settings': 'Settings'
+      'settings': 'Settings & Profile'
     };
     document.getElementById('pageHeaderTitle').textContent = titles[sec] || 'Admin Command Center';
     if (window.innerWidth <= 900) document.getElementById('adminSidebar').classList.remove('mobile-open');
@@ -894,6 +941,7 @@
     const fullName = `${actor.firstName || ''} ${actor.lastName || ''}`.trim();
     document.getElementById('actorFullName').textContent = fullName || actor.username;
     document.getElementById('actorName').textContent = `(@${actor.username})`;
+    document.getElementById('profAdminUsername').textContent = actor.username;
     document.getElementById('actorRoleLabel').textContent = 'Admin';
     document.getElementById('actorRoleBadge').textContent = actor.role === 'MAIN_ADMIN' ? 'MAIN_ADMIN' : 'ADMIN';
 
@@ -920,13 +968,21 @@
     document.getElementById('badgeTkt').textContent = stats.openTickets;
 
     const running = trades.filter(t => t.status === 'RUNNING');
-    const settled = trades.filter(t => t.status !== 'RUNNING');
-
     const runningHtml = buildTradesTable(running, true);
     document.getElementById('dashRunningWrap').innerHTML = runningHtml;
     document.getElementById('runningTradesTable').innerHTML = runningHtml;
-    document.getElementById('orderHistoryTable').innerHTML = buildTradesTable(trades, false);
-    document.getElementById('tradeHistoryTable').innerHTML = buildTradesTable(settled, false);
+
+    const thUserSel = document.getElementById('tradeHistoryUserFilter');
+    const prevUserVal = thUserSel.value || 'ALL';
+    thUserSel.innerHTML = `<option value="ALL">All Traders (${traders.length})</option>` +
+      traders.map(u => {
+        const label = `${u.firstName || ''} ${u.lastName || ''}`.trim();
+        return `<option value="${u.id}">@${u.username}${label ? ` (${label})` : ''}</option>`;
+      }).join('');
+    if ([...thUserSel.options].some(o => o.value === prevUserVal)) {
+      thUserSel.value = prevUserVal;
+    }
+    renderTradeHistorySection();
 
     renderUsersTable();
 
@@ -977,22 +1033,56 @@
       </tbody></table>` : '<p style="color:#94a3b8;">No support tickets.</p>';
   }
 
-  function buildTradesTable(list, isRunning) {
+  function renderTradeHistorySection() {
+    if (!adminData) return;
+    const selectedTrader = document.getElementById('tradeHistoryUserFilter').value;
+    const statusFilter = document.getElementById('tradeHistoryStatusFilter').value;
+    const q = (document.getElementById('tradeHistorySearchInput').value || '').toLowerCase().trim();
+
+    const filtered = (adminData.trades || []).filter(t => {
+      if (selectedTrader !== 'ALL' && t.userId !== selectedTrader) return false;
+      if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
+      if (q) {
+        const hay = `${t.id} ${t.username} ${t.pair} ${t.direction}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const wins = filtered.filter(t => t.status === 'WON').length;
+    const losses = filtered.filter(t => t.status === 'LOST').length;
+    const totalStaked = filtered.reduce((acc, t) => acc + Number(t.stake || 0), 0);
+    const netPnl = filtered.reduce((acc, t) => acc + (t.status === 'WON' || t.status === 'LOST' ? Number(t.profit || 0) : 0), 0);
+
+    document.getElementById('tradeHistorySummary').innerHTML = `
+      <div class="ts-item">Matching Trades<strong>${filtered.length}</strong></div>
+      <div class="ts-item">Won / Lost<strong><span style="color:#34d399;">${wins}W</span> / <span style="color:#f87171;">${losses}L</span></strong></div>
+      <div class="ts-item">Total Staked<strong>$${totalStaked.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
+      <div class="ts-item">Net Trader PnL<strong style="color:${netPnl >= 0 ? '#34d399' : '#f87171'};">${netPnl >= 0 ? '+' : ''}$${netPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
+    `;
+
+    document.getElementById('tradeHistoryTable').innerHTML = buildTradesTable(filtered, false, true);
+  }
+
+  function buildTradesTable(list, isRunning, allowLiveControls = false) {
     if (!list.length) return '<p style="color:#94a3b8;margin:8px 0;">No trades found.</p>';
     return `<table>
       <thead><tr><th>ID</th><th>TRADER</th><th>PAIR</th><th>STAKE</th><th>PAYOUT</th><th>TIME / STATUS</th><th>ADMIN CONTROL</th></tr></thead>
       <tbody>
         ${list.map(t => {
+          const active = t.status === 'RUNNING';
           const rem = Math.max(0, Math.ceil((Number(t.expiresAt) - Date.now()) / 1000));
           const tagCls = t.status === 'WON' ? 'tag-win' : t.status === 'LOST' ? 'tag-loss' : 'tag-run';
+          const showControls = isRunning || (allowLiveControls && active);
+          const createdTxt = t.createdAt ? new Date(Number(t.createdAt)).toLocaleString() : '';
           return `<tr>
-            <td><strong>${t.id}</strong></td>
-            <td>@${t.username}</td>
+            <td><strong>${t.id}</strong><div style="font-size:0.72rem;color:#64748b;">${createdTxt}</div></td>
+            <td><a href="javascript:void(0)" onclick="openUserDetail('${t.userId}')" style="color:#818cf8;text-decoration:none;font-weight:700;">@${t.username}</a></td>
             <td>${t.pair} (${t.direction})</td>
             <td>$${Number(t.stake).toLocaleString()}</td>
             <td>+${t.payoutPercent}%</td>
-            <td>${isRunning ? `<span class="tag tag-run">${rem}s left</span>` : `<span class="tag ${tagCls}">${t.status}</span>`}</td>
-            <td>${isRunning ? `
+            <td>${active ? `<span class="tag tag-run">${rem}s left</span>` : `<span class="tag ${tagCls}">${t.status}</span>`}</td>
+            <td>${showControls ? `
               <button class="btn-sm btn-win" onclick="setTradeOutcome('${t.id}','WIN')">Force Win</button>
               <button class="btn-sm btn-loss" onclick="setTradeOutcome('${t.id}','LOSS')">Force Loss</button>
               <button class="btn-sm btn-void" onclick="voidTrade('${t.id}')">Void</button>
@@ -1358,6 +1448,29 @@
     });
     showToast('Global settings saved!');
     fetchAdminOverview();
+  }
+
+  async function changeAdminPassword() {
+    const oldPassword = document.getElementById('adminOldPass').value;
+    const newPassword = document.getElementById('adminNewPass').value;
+    const confirmPassword = document.getElementById('adminConfirmPass').value;
+    if (!oldPassword || newPassword.length < 6) {
+      return showToast('New password must be at least 6 characters.', true);
+    }
+    if (newPassword !== confirmPassword) {
+      return showToast('New passwords do not match.', true);
+    }
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify({ oldPassword, newPassword })
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Could not update password.', true);
+    document.getElementById('adminOldPass').value = '';
+    document.getElementById('adminNewPass').value = '';
+    document.getElementById('adminConfirmPass').value = '';
+    showToast('Admin password updated!');
   }
 
   function copyAdminInviteLink() {
