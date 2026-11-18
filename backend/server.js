@@ -151,6 +151,7 @@ const CAMEL_COLS = {
   invitationcode: 'invitationCode',
   profilecompleted: 'profileCompleted',
   inorderbalance: 'inOrderBalance',
+  frozenbalance: 'frozenBalance',
   totalwithdrawn: 'totalWithdrawn',
   creditscore: 'creditScore',
   tradebanenabled: 'tradeBanEnabled',
@@ -187,7 +188,14 @@ const CAMEL_COLS = {
   subadminid: 'subAdminId',
   balancefrozen: 'balanceFrozen',
   balancefreezemessage: 'balanceFreezeMessage',
-  repliedby: 'repliedBy'
+  repliedby: 'repliedBy',
+  createdby: 'createdBy',
+  createdbyusername: 'createdByUsername',
+  usedbyuserid: 'usedByUserId',
+  usedbyusername: 'usedByUsername',
+  usedat: 'usedAt',
+  maxuses: 'maxUses',
+  usecount: 'useCount'
 };
 
 function mapRow(row) {
@@ -237,9 +245,12 @@ async function dbBatch(stmts) {
 
 const defaultSettings = {
   defaultCurrency: 'PKR',
+  pkrRate: 278.5,
   currencies: [
-    { code: 'PKR', symbol: 'Rs ', name: 'Pakistani Rupee', rateToBase: 1 },
-    { code: 'USDT', symbol: '$', name: 'Tether USDT', rateToBase: 0.0036 }
+    { code: 'PKR', symbol: 'Rs ', name: 'Pakistani Rupee', rateToBase: 278.5 },
+    { code: 'USDT', symbol: '$', name: 'Tether USDT', rateToBase: 1 },
+    { code: 'BTC', symbol: '₿', name: 'Bitcoin', rateToBase: 0.000011 },
+    { code: 'ETH', symbol: 'Ξ', name: 'Ethereum', rateToBase: 0.00032 }
   ],
   taxRate: 0,
   minCreditScoreForWithdraw: 90,
@@ -284,6 +295,7 @@ function ensureDbInitialized() {
         status TEXT DEFAULT 'ACTIVE',
         balance REAL DEFAULT 0,
         inOrderBalance REAL DEFAULT 0,
+        frozenBalance REAL DEFAULT 0,
         totalWithdrawn REAL DEFAULT 0,
         creditScore INTEGER DEFAULT 100,
         tradeBanEnabled INTEGER DEFAULT 0,
@@ -303,11 +315,25 @@ function ensureDbInitialized() {
         kycVerified INTEGER DEFAULT 1,
         createdAt TEXT NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS invite_links (
+        code TEXT PRIMARY KEY,
+        createdBy TEXT NOT NULL,
+        createdByUsername TEXT NOT NULL,
+        label TEXT DEFAULT '',
+        maxUses INTEGER NOT NULL DEFAULT 1,
+        useCount INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'ACTIVE',
+        usedByUserId TEXT DEFAULT '',
+        usedByUsername TEXT DEFAULT '',
+        usedAt TEXT DEFAULT '',
+        createdAt TEXT NOT NULL
+      )`,
       `CREATE TABLE IF NOT EXISTS trades (
         id TEXT PRIMARY KEY,
         userId TEXT NOT NULL,
         username TEXT NOT NULL,
         pair TEXT NOT NULL,
+        currency TEXT DEFAULT 'PKR',
         direction TEXT NOT NULL,
         stake REAL NOT NULL,
         payoutPercent REAL NOT NULL,
@@ -339,6 +365,7 @@ function ensureDbInitialized() {
         userId TEXT NOT NULL,
         username TEXT NOT NULL,
         amount REAL NOT NULL,
+        currency TEXT DEFAULT 'PKR',
         method TEXT NOT NULL,
         accountDetails TEXT NOT NULL,
         rejectReason TEXT DEFAULT '',
@@ -404,8 +431,11 @@ function ensureDbInitialized() {
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS mobileVerified INTEGER DEFAULT 1",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS kycVerified INTEGER DEFAULT 1",
       "ALTER TABLE trades ADD COLUMN IF NOT EXISTS outcomeOverride TEXT DEFAULT ''",
+      "ALTER TABLE trades ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'PKR'",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS subAdminId TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS frozenBalance REAL DEFAULT 0",
       "ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejectReason TEXT DEFAULT ''",
+      "ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'PKR'",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS balanceFrozen INTEGER DEFAULT 0",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS balanceFreezeMessage TEXT DEFAULT 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'"
     ];
@@ -440,7 +470,6 @@ function ensureDbInitialized() {
       await saveSettings(defaultSettings);
     }
 
-// 1. Seed Main Admin only if missing (do not overwrite existing password on restart)
     const existingMain = await dbGet(
       'SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?',
       ['mainadmin', 'mainadmin@daraztrade.online']
@@ -453,7 +482,6 @@ function ensureDbInitialized() {
       );
     }
 
-    // 2. Seed Sub Admin only if missing (do not overwrite existing password on restart)
     const existingAdmin = await dbGet(
       'SELECT id FROM users WHERE LOWER(username) IN (?, ?) OR LOWER(email) = ?',
       ['admin', 'ajmanzoor', 'admin@daraztrade.online']
@@ -466,7 +494,6 @@ function ensureDbInitialized() {
       );
     }
 
-    // 3. Seed Demo Trader only if missing
     const existingDemo = await dbGet('SELECT id FROM users WHERE username = ?', ['demo_trader']);
     if (!existingDemo) {
       await dbRun(
@@ -517,9 +544,18 @@ function formatUserRow(row) {
   if (!row) return null;
   const safe = { ...row };
   delete safe.password;
+
+  const totalBalance = Number(row.balance || 0);
+  const frozenBalance = Math.max(0, Math.min(totalBalance, Number(row.frozenBalance || 0)));
+  // Frozen Balance = Total Balance - Available Balance  =>  Available Balance = Total Balance - Frozen Balance
+  const availableBalance = Math.max(0, Number((totalBalance - frozenBalance).toFixed(2)));
+
   return {
     ...safe,
-    balance: Number(row.balance || 0),
+    totalBalance,
+    frozenBalance,
+    availableBalance,
+    balance: availableBalance,
     inOrderBalance: Number(row.inOrderBalance || 0),
     totalWithdrawn: Number(row.totalWithdrawn || 0),
     creditScore: Number(row.creditScore ?? 100),
@@ -531,7 +567,8 @@ function formatUserRow(row) {
     tradeBan: { enabled: Boolean(row.tradeBanEnabled), message: row.tradeBanMessage || 'Trading is restricted on your account.' },
     withdrawBan: { enabled: Boolean(row.withdrawBanEnabled), message: row.withdrawBanMessage || 'Withdrawals are restricted on your account.' },
     balanceFreeze: {
-      enabled: Boolean(row.balanceFrozen),
+      enabled: Boolean(row.balanceFrozen) || frozenBalance > 0,
+      frozenAmount: frozenBalance,
       message: row.balanceFreezeMessage || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'
     },
     permissions: { canApproveWithdrawals: Boolean(row.canApproveWithdrawals) }
@@ -547,9 +584,12 @@ async function logAudit(actor, action, target, details) {
 }
 
 // ==========================================================================
-// LIVE MARKET TICK ENGINE (ALL *_USDT PAIRS) & TRADE SETTLEMENT
+// LIVE MARKET TICK ENGINE (BTC_PKR DEFAULT + ALL *_USDT PAIRS)
 // ==========================================================================
+const PKR_PER_USD = 278.5;
+
 const marketPrices = {
+  'BTC_PKR': 24911895,
   'BTC_USDT': 89450.25,
   'ETH_USDT': 3120.80,
   'BNB_USDT': 612.40,
@@ -622,6 +662,7 @@ async function syncRealBasePrices() {
       const list = await res.json();
       const map = new Map(list.map(item => [item.symbol, Number(item.price)]));
       for (const pair in marketPrices) {
+        if (pair === 'BTC_PKR') continue;
         const binanceSymbol = pair.replace('_', '');
         const realVal = map.get(binanceSymbol);
         if (realVal && Number.isFinite(realVal) && realVal > 0) {
@@ -632,6 +673,7 @@ async function syncRealBasePrices() {
           marketPrices[pair] = Number(next.toFixed(decimals));
         }
       }
+      marketPrices['BTC_PKR'] = Math.round(marketPrices['BTC_USDT'] * PKR_PER_USD);
       hasInitialPriceSync = true;
       return;
     }
@@ -640,7 +682,6 @@ async function syncRealBasePrices() {
     isSyncingPrices = false;
   }
 
-  // Fallback to CoinGecko if Binance is geo-blocked on serverless region
   try {
     const cgRes = await fetch(
       'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana,ripple,dogecoin,tron,cardano,the-open-network,avalanche-2,polkadot,chainlink,litecoin,bitcoin-cash,shiba-inu,pepe,uniswap,cosmos,stellar,near,aptos,sui,filecoin,ethereum-classic,algorand,arbitrum,optimism,injective-protocol,celestia,sei-network,render-token,fetch-ai,aave,maker,vechain,hedera-hashgraph,internet-computer,the-graph,the-sandbox,decentraland,axie-infinity,theta-token,elrond-erd-2,tezos,eos,kava&vs_currencies=usd',
@@ -702,6 +743,7 @@ async function syncRealBasePrices() {
           marketPrices[pair] = Number(realVal.toFixed(decimals));
         }
       }
+      marketPrices['BTC_PKR'] = Math.round(marketPrices['BTC_USDT'] * PKR_PER_USD);
       hasInitialPriceSync = true;
     }
   } catch (_) {}
@@ -712,10 +754,12 @@ syncRealBasePrices();
 function tickMarketPrices() {
   syncRealBasePrices();
   for (const pair in marketPrices) {
+    if (pair === 'BTC_PKR') continue;
     const changePercent = (Math.random() - 0.5) * 0.0024;
     const decimals = marketPrices[pair] < 0.01 ? 6 : marketPrices[pair] < 1 ? 4 : 2;
     marketPrices[pair] = Number((marketPrices[pair] * (1 + changePercent)).toFixed(decimals));
   }
+  marketPrices['BTC_PKR'] = Math.round(marketPrices['BTC_USDT'] * PKR_PER_USD);
 }
 
 setInterval(() => {
@@ -731,20 +775,13 @@ async function settleExpiredTrades() {
   const settings = await getSettings();
 
   for (const trade of expired) {
-    const claimed = await dbRun(
-      "UPDATE trades SET status = 'SETTLING' WHERE id = ? AND status = 'RUNNING'",
-      [trade.id]
-    );
-    if (!claimed.rowCount) continue;
-
     const user = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
     if (!user) continue;
 
     let exitPrice = getPairPrice(trade.pair) || Number(trade.entryPrice);
     let mode = settings.tradeOutcomeMode || 'WIN_DEFAULT';
-    if (user.tradeOutcome === 'FORCE_WIN' || user.tradeOutcome === 'FORCE_LOSS') {
-      mode = user.tradeOutcome === 'FORCE_WIN' ? 'WIN_DEFAULT' : 'LOSS_DEFAULT';
-    }
+    if (user.tradeOutcome === 'FORCE_WIN') mode = 'WIN_DEFAULT';
+    if (user.tradeOutcome === 'FORCE_LOSS') mode = 'LOSS_DEFAULT';
     if (trade.outcomeOverride === 'WIN') mode = 'WIN_DEFAULT';
     if (trade.outcomeOverride === 'LOSS') mode = 'LOSS_DEFAULT';
 
@@ -768,6 +805,7 @@ async function settleExpiredTrades() {
     const settledAt = new Date().toISOString();
     const stake = Number(trade.stake);
     const payoutPercent = Number(trade.payoutPercent);
+    const tradeCurr = trade.currency || user.currency || 'PKR';
     const newInOrder = Math.max(0, Number((Number(user.inOrderBalance) - stake).toFixed(2)));
 
     if (won) {
@@ -776,34 +814,38 @@ async function settleExpiredTrades() {
       const newBalance = Number((Number(user.balance) + totalReturn).toFixed(2));
       const newScore = Math.min(100, Number(user.creditScore) + 5);
 
+      const claimed = await dbRun(
+        "UPDATE trades SET status = 'WON', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ? AND status = 'RUNNING'",
+        [exitPrice, profit, settledAt, trade.id]
+      );
+      if (!claimed.rowCount) continue;
+
       await dbBatch([
         {
           sql: 'UPDATE users SET balance = ?, inOrderBalance = ?, creditScore = ? WHERE id = ?',
           args: [newBalance, newInOrder, newScore, user.id]
         },
         {
-          sql: "UPDATE trades SET status = 'WON', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ?",
-          args: [exitPrice, profit, settledAt, trade.id]
-        },
-        {
           sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          args: [generateTrx(), user.id, user.username, 'TRADE_WIN', totalReturn, newBalance, `Trade Win (${trade.pair} +${payoutPercent}%)`, settledAt]
+          args: [generateTrx(), user.id, user.username, 'TRADE_WIN', totalReturn, newBalance, `Trade Win (${trade.pair} [${tradeCurr}] +${payoutPercent}%)`, settledAt]
         }
       ]);
     } else {
       const newScore = Math.max(0, Number(user.creditScore) - 15);
+      const claimed = await dbRun(
+        "UPDATE trades SET status = 'LOST', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ? AND status = 'RUNNING'",
+        [exitPrice, -stake, settledAt, trade.id]
+      );
+      if (!claimed.rowCount) continue;
+
       await dbBatch([
         {
           sql: 'UPDATE users SET inOrderBalance = ?, creditScore = ? WHERE id = ?',
           args: [newInOrder, newScore, user.id]
         },
         {
-          sql: "UPDATE trades SET status = 'LOST', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ?",
-          args: [exitPrice, -stake, settledAt, trade.id]
-        },
-        {
           sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          args: [generateTrx(), user.id, user.username, 'TRADE_LOSS', -stake, Number(user.balance), `Trade Loss (${trade.pair})`, settledAt]
+          args: [generateTrx(), user.id, user.username, 'TRADE_LOSS', -stake, Number(user.balance), `Trade Loss (${trade.pair} [${tradeCurr}])`, settledAt]
         }
       ]);
     }
@@ -948,22 +990,49 @@ app.post('/api/auth/register', async (req, res) => {
   if (exists) return res.status(400).json({ error: 'Username or email already exists.' });
 
   let subAdminId = '';
+  let usedSingleInvite = null;
+
   if (invitationCode) {
-    const inviter = await dbGet(
-      "SELECT id FROM users WHERE role IN ('MAIN_ADMIN', 'SUB_ADMIN') AND UPPER(invitationCode) = ?",
-      [invitationCode]
-    );
-    if (!inviter) {
-      return res.status(400).json({ error: 'Invalid invitation code. Leave blank or check your invitation link.' });
+    // 1. Check single-use unique invitation links first
+    const inviteLink = await dbGet('SELECT * FROM invite_links WHERE UPPER(code) = ?', [invitationCode]);
+    if (inviteLink) {
+      if (inviteLink.status !== 'ACTIVE' || Number(inviteLink.useCount) >= Number(inviteLink.maxUses || 1)) {
+        return res.status(400).json({ error: 'This invitation link has already been used or expired (1 user limit).' });
+      }
+      subAdminId = inviteLink.createdBy;
+      usedSingleInvite = inviteLink;
+    } else {
+      // 2. Fallback to admin static invitation code
+      const inviter = await dbGet(
+        "SELECT id FROM users WHERE role IN ('MAIN_ADMIN', 'SUB_ADMIN') AND UPPER(invitationCode) = ?",
+        [invitationCode]
+      );
+      if (!inviter) {
+        return res.status(400).json({ error: 'Invalid or already-used invitation link.' });
+      }
+      subAdminId = inviter.id;
     }
-    subAdminId = inviter.id;
   }
 
   const id = 'usr-' + Date.now();
+  const nowIso = new Date().toISOString();
+
+  if (usedSingleInvite) {
+    const claimedLink = await dbRun(
+      `UPDATE invite_links
+       SET useCount = useCount + 1, status = 'USED', usedByUserId = ?, usedByUsername = ?, usedAt = ?
+       WHERE code = ? AND status = 'ACTIVE' AND useCount < maxUses`,
+      [id, username, nowIso, usedSingleInvite.code]
+    );
+    if (!claimedLink.rowCount) {
+      return res.status(400).json({ error: 'This invitation link has already been claimed by another user.' });
+    }
+  }
+
   await dbRun(
     `INSERT INTO users (id, username, email, password, role, country, mobile, currency, invitationCode, subAdminId, createdAt)
      VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?, ?)`,
-    [id, username, email, hashPassword(password), country, mobile, currency, invitationCode, subAdminId, new Date().toISOString()]
+    [id, username, email, hashPassword(password), country, mobile, currency, invitationCode, subAdminId, nowIso]
   );
 
   const user = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [id]));
@@ -1021,6 +1090,15 @@ app.post('/api/auth/change-password', requireAuth(['TRADER', 'SUB_ADMIN', 'MAIN_
   res.json({ message: 'Password updated successfully.' });
 });
 
+app.post('/api/trader/currency', requireAuth(['TRADER']), async (req, res) => {
+  const currency = cleanStr(req.body.currency, 10).toUpperCase();
+  if (!['PKR', 'USDT', 'BTC', 'ETH'].includes(currency)) {
+    return res.status(400).json({ error: 'Unsupported currency.' });
+  }
+  await dbRun('UPDATE users SET currency = ? WHERE id = ?', [currency, req.user.id]);
+  res.json({ message: 'Currency updated', currency });
+});
+
 app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
   if (!hasInitialPriceSync) {
     await syncRealBasePrices();
@@ -1062,6 +1140,7 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
   }
 
   const pair = cleanStr(req.body.pair, 20);
+  const currency = cleanStr(req.body.currency || req.user.currency || 'PKR', 10).toUpperCase();
   const direction = cleanStr(req.body.direction, 10);
   const amount = Number(req.body.stake);
   const duration = String(req.body.durationSeconds || '60');
@@ -1072,7 +1151,7 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
 
   if (!entryPrice) return res.status(400).json({ error: 'Invalid trading pair.' });
   if (!['UP', 'DOWN'].includes(direction)) return res.status(400).json({ error: 'Invalid direction.' });
-  if (!Number.isFinite(amount) || amount < 10) return res.status(400).json({ error: 'Minimum trade amount is Rs 10.' });
+  if (!Number.isFinite(amount) || amount < 10) return res.status(400).json({ error: 'Minimum trade amount is 10.' });
 
   const id = 'TRD-' + generateTrx();
   const createdAt = Date.now();
@@ -1081,18 +1160,23 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Only deduct from unlocked available balance: (balance - frozenBalance) >= amount
     const balRes = await client.query(
-      'UPDATE users SET balance = ROUND((balance - $1)::numeric, 2), inOrderBalance = ROUND((inOrderBalance + $1)::numeric, 2) WHERE id = $2 AND balance >= $1 RETURNING balance',
+      `UPDATE users
+       SET balance = ROUND((balance - $1)::numeric, 2),
+           inOrderBalance = ROUND((inOrderBalance + $1)::numeric, 2)
+       WHERE id = $2 AND (balance - COALESCE(frozenBalance, 0)) >= $1
+       RETURNING balance`,
       [amount, req.user.id]
     );
     if (balRes.rowCount === 0) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Insufficient balance.' });
+      return res.status(400).json({ error: 'Insufficient available balance (frozen funds cannot be traded).' });
     }
     await client.query(
-      `INSERT INTO trades (id, userId, username, pair, direction, stake, payoutPercent, durationSeconds, entryPrice, status, createdAt, expiresAt)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'RUNNING', $10, $11)`,
-      [id, req.user.id, req.user.username, pair, direction, amount, payoutPercent, Number(duration), entryPrice, createdAt, expiresAt]
+      `INSERT INTO trades (id, userId, username, pair, currency, direction, stake, payoutPercent, durationSeconds, entryPrice, status, createdAt, expiresAt)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'RUNNING', $11, $12)`,
+      [id, req.user.id, req.user.username, pair, currency, direction, amount, payoutPercent, Number(duration), entryPrice, createdAt, expiresAt]
     );
     await client.query('COMMIT');
   } catch (err) {
@@ -1102,12 +1186,13 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
     client.release();
   }
 
-  broadcastEvent('NEW_TRADE', { id, username: req.user.username, pair });
+  broadcastEvent('NEW_TRADE', { id, username: req.user.username, pair, currency, stake: amount, direction });
   res.json({
     message: 'Trade started',
     trade: {
       id,
       pair,
+      currency,
       direction,
       stake: amount,
       payoutPercent,
@@ -1142,7 +1227,7 @@ app.post('/api/wallet/deposit', requireAuth(['TRADER']), upload.single('proof'),
 
 app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   const settings = await getSettings();
-  if (req.user.balanceFreeze?.enabled) {
+  if (req.user.balanceFreeze?.enabled && req.user.availableBalance <= 0) {
     return res.status(403).json({ error: req.user.balanceFreeze.message || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.' });
   }
   if (settings.globalWithdrawBan?.enabled) return res.status(403).json({ error: settings.globalWithdrawBan.message });
@@ -1151,11 +1236,12 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   }
 
   const numAmount = Number(req.body.amount);
+  const currency = cleanStr(req.body.currency || req.user.currency || 'PKR', 10).toUpperCase();
   const method = cleanStr(req.body.method, 40);
   const accountDetails = cleanStr(req.body.accountDetails, 240);
 
   if (!Number.isFinite(numAmount) || numAmount < 100) {
-    return res.status(400).json({ error: 'Minimum withdrawal amount is Rs 100.' });
+    return res.status(400).json({ error: 'Minimum withdrawal amount is 100.' });
   }
   if (!['JazzCash', 'EasyPaisa', 'Bank'].includes(method) || accountDetails.length < 8) {
     return res.status(400).json({ error: 'Please enter complete withdrawal account details.' });
@@ -1165,18 +1251,22 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Only allow withdrawing from unlocked available balance: (balance - frozenBalance) >= numAmount
     const balRes = await client.query(
-      'UPDATE users SET balance = ROUND((balance - $1)::numeric, 2) WHERE id = $2 AND balance >= $1 RETURNING balance',
+      `UPDATE users
+       SET balance = ROUND((balance - $1)::numeric, 2)
+       WHERE id = $2 AND (balance - COALESCE(frozenBalance, 0)) >= $1
+       RETURNING balance`,
       [numAmount, req.user.id]
     );
     if (balRes.rowCount === 0) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Insufficient balance for this withdrawal.' });
+      return res.status(400).json({ error: 'Insufficient available balance (frozen funds cannot be withdrawn).' });
     }
     await client.query(
-      `INSERT INTO withdrawals (id, userId, username, amount, method, accountDetails, status, createdAt)
-       VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7)`,
-      [id, req.user.id, req.user.username, numAmount, method, accountDetails, new Date().toISOString()]
+      `INSERT INTO withdrawals (id, userId, username, amount, currency, method, accountDetails, status, createdAt)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8)`,
+      [id, req.user.id, req.user.username, numAmount, currency, method, accountDetails, new Date().toISOString()]
     );
     await client.query('COMMIT');
   } catch (err) {
@@ -1186,7 +1276,7 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
     client.release();
   }
 
-  broadcastEvent('NEW_WITHDRAWAL', { id, username: req.user.username, amount: numAmount });
+  broadcastEvent('NEW_WITHDRAWAL', { id, username: req.user.username, amount: numAmount, currency });
   res.json({ message: 'Your withdrawal request is under review.' });
 });
 
@@ -1207,7 +1297,7 @@ app.post('/api/help-center/send', requireAuth(['TRADER']), async (req, res) => {
 });
 
 // ==========================================================================
-// ADMIN & SUB-ADMIN ROUTES (BOTH SEE ALL TRADERS; MAIN_ADMIN STEALTHY)
+// ADMIN & SUB-ADMIN ROUTES
 // ==========================================================================
 app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   await settleExpiredTrades();
@@ -1222,6 +1312,7 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
     trades,
     tickets,
     auditLogs,
+    inviteLinks,
     settings
   ] = await Promise.all([
     dbAll("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC LIMIT 200"),
@@ -1233,10 +1324,11 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
       (SELECT COUNT(*) FROM withdrawals WHERE status = 'PENDING') AS pendingwithdrawals,
       (SELECT COUNT(*) FROM tickets WHERE status = 'OPEN') AS opentickets`),
     dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60'),
-    dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 60'),
+    dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 100'),
     dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 100'),
     dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 50'),
     dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60'),
+    dbAll('SELECT * FROM invite_links ORDER BY createdAt DESC LIMIT 100'),
     getSettings()
   ]);
 
@@ -1266,11 +1358,39 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
     trades,
     tickets,
     auditLogs,
+    inviteLinks,
     settings
   });
 });
 
-// Customize current Admin's invitation link code
+// Single-Use Invite Links Management (Max 1 user registration per link)
+app.post('/api/admin/invite-links', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const label = cleanStr(req.body.label || '', 80);
+  const customCode = cleanStr(req.body.code || '', 24).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  const code = customCode.length >= 4
+    ? customCode
+    : 'INV-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+
+  const clash = await dbGet('SELECT code FROM invite_links WHERE UPPER(code) = ?', [code]);
+  if (clash) return res.status(400).json({ error: 'Invite code already exists. Try another.' });
+
+  await dbRun(
+    `INSERT INTO invite_links (code, createdBy, createdByUsername, label, maxUses, useCount, status, createdAt)
+     VALUES (?, ?, ?, ?, 1, 0, 'ACTIVE', ?)`,
+    [code, req.user.id, req.user.username, label, new Date().toISOString()]
+  );
+
+  await logAudit(req.user, 'CREATE_SINGLE_INVITE', code, label || '1-user unique invite link');
+  res.json({ message: 'Unique 1-user invite link created.', code });
+});
+
+app.delete('/api/admin/invite-links/:code', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const code = cleanStr(req.params.code, 40).toUpperCase();
+  await dbRun('DELETE FROM invite_links WHERE UPPER(code) = ?', [code]);
+  await logAudit(req.user, 'DELETE_INVITE_LINK', code, 'Removed invite link');
+  res.json({ message: 'Invite link deleted.' });
+});
+
 app.post('/api/admin/my-invite-code', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const code = cleanStr(req.body.invitationCode, 30).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
   if (code.length < 3) {
@@ -1301,6 +1421,46 @@ app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']),
   res.json({ user: formatUserRow(row), trades, deposits, withdrawals, transactions, logins, notifications });
 });
 
+// Freeze / Unfreeze Trader Balance (Frozen Balance = Total Balance - Available Balance)
+app.post('/api/admin/users/:id/freeze-balance', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Trader not found.' });
+
+  const totalBal = Number(row.balance || 0);
+  const action = cleanStr(req.body.action || 'FREEZE', 20).toUpperCase();
+  const message = cleanStr(
+    req.body.message || row.balanceFreezeMessage || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.',
+    240
+  );
+
+  let nextFrozen = 0;
+  let nextFlag = 0;
+  if (action === 'UNFREEZE') {
+    nextFrozen = 0;
+    nextFlag = 0;
+  } else {
+    const reqAmt = req.body.amount !== undefined && req.body.amount !== '' ? Number(req.body.amount) : totalBal;
+    if (!Number.isFinite(reqAmt) || reqAmt < 0) {
+      return res.status(400).json({ error: 'Enter a valid freeze amount.' });
+    }
+    nextFrozen = Math.min(totalBal, Number(reqAmt.toFixed(2)));
+    nextFlag = nextFrozen > 0 || req.body.freezeAll ? 1 : 0;
+  }
+
+  await dbRun(
+    'UPDATE users SET frozenBalance = ?, balanceFrozen = ?, balanceFreezeMessage = ? WHERE id = ?',
+    [nextFrozen, nextFlag, message, row.id]
+  );
+
+  await logAudit(req.user, action === 'UNFREEZE' ? 'UNFREEZE_BALANCE' : 'FREEZE_BALANCE', row.username, `Frozen: ${nextFrozen} / Total: ${totalBal}`);
+  broadcastEvent('USER_UPDATED');
+  res.json({
+    message: action === 'UNFREEZE' ? 'Trader balance unfrozen.' : `Frozen balance set to ${nextFrozen.toLocaleString()}.`,
+    frozenBalance: nextFrozen,
+    availableBalance: Math.max(0, Number((totalBal - nextFrozen).toFixed(2)))
+  });
+});
+
 app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Trader not found.' });
@@ -1316,6 +1476,12 @@ app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
   let nextStatus = status || row.status;
   if (nextStatus === 'FROZEN') nextStatus = 'ACTIVE';
 
+  const totalBal = Number(row.balance || 0);
+  const freezeEnabled = Boolean(balanceFreeze?.enabled);
+  const nextFrozen = freezeEnabled
+    ? (balanceFreeze?.frozenAmount !== undefined ? Math.min(totalBal, Math.max(0, Number(balanceFreeze.frozenAmount))) : totalBal)
+    : 0;
+
   await dbRun(
     `UPDATE users SET
       firstName = ?, lastName = ?, email = ?, mobile = ?, country = ?,
@@ -1324,7 +1490,7 @@ app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
       emailVerified = ?, mobileVerified = ?, kycVerified = ?,
       tradeBanEnabled = ?, tradeBanMessage = ?,
       withdrawBanEnabled = ?, withdrawBanMessage = ?,
-      balanceFrozen = ?, balanceFreezeMessage = ?
+      frozenBalance = ?, balanceFrozen = ?, balanceFreezeMessage = ?
      WHERE id = ?`,
     [
       cleanStr(firstName ?? row.firstName, 60),
@@ -1346,7 +1512,8 @@ app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
       cleanStr(tradeBan?.message ?? row.tradeBanMessage ?? '', 240),
       withdrawBan?.enabled ? 1 : 0,
       cleanStr(withdrawBan?.message ?? row.withdrawBanMessage ?? '', 240),
-      balanceFreeze?.enabled ? 1 : 0,
+      nextFrozen,
+      freezeEnabled ? 1 : 0,
       cleanStr(balanceFreeze?.message || row.balanceFreezeMessage || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.', 240),
       row.id
     ]
@@ -1432,7 +1599,7 @@ app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_AD
       await dbRun('UPDATE users SET totalWithdrawn = ? WHERE id = ?', [newWithdrawn, trader.id]);
       await dbRun(
         'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [generateTrx(), trader.id, trader.username, 'WITHDRAW', -Number(withdrawal.amount), Number(trader.balance), `Withdrawal Approved (${withdrawal.method}: ${withdrawal.accountDetails})`, new Date().toISOString()]
+        [generateTrx(), trader.id, trader.username, 'WITHDRAW', -Number(withdrawal.amount), Number(trader.balance), `Withdrawal Approved (${withdrawal.currency || 'PKR'} · ${withdrawal.method}: ${withdrawal.accountDetails})`, new Date().toISOString()]
       );
     } else {
       const refundedBal = Number((Number(trader.balance) + Number(withdrawal.amount)).toFixed(2));
@@ -1441,7 +1608,7 @@ app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_AD
   }
 
   await logAudit(req.user, `WITHDRAWAL_${status}`, withdrawal.username, status === 'REJECTED' ? `${withdrawal.id}: ${reason}` : withdrawal.id);
-  broadcastEvent('WITHDRAWAL_UPDATED');
+  broadcastEvent(status === 'REJECTED' ? 'WITHDRAWAL_REJECTED' : 'WITHDRAWAL_UPDATED', { id: withdrawal.id, username: withdrawal.username });
   res.json({ message: `Withdrawal ${status}.` });
 });
 

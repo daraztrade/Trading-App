@@ -3,1700 +3,1117 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
-  <title>Daraz Trade</title>
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23ee4d07'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='%23ffffff' font-family='sans-serif' font-weight='bold'>D</text></svg>" />
+  <title>Daraz Trade — Live Trading Terminal</title>
   <link rel="stylesheet" href="/shared/theme.css" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
-    .pass-wrap { position: relative; }
-    .pass-wrap input { padding-right: 42px; }
-    .pass-toggle {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 1rem;
-      padding: 4px;
-    }
-    .pass-toggle:hover { color: #fff; }
-    html, body { max-width: 100%; overflow-x: hidden; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0b0e14; color: #f1f5f9; font-family: system-ui, -apple-system, sans-serif; }
     .app-shell { display: flex; min-height: 100vh; }
+
+    /* SIDEBAR */
     .sidebar {
       width: 245px;
-      padding: 20px 14px;
-      display: flex;
-      flex-direction: column;
+      background: #111622;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 18px 12px;
       position: fixed;
       top: 0; bottom: 0; left: 0;
-      z-index: 100;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       transition: transform 0.25s ease;
     }
-    .sidebar-brand {
-      font-size: 1.35rem;
-      font-weight: 800;
-      padding: 0 12px 22px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 4px 10px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 14px;
+      font-weight: 800; font-size: 1.15rem; color: #fff;
     }
-    .nav-section {
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--text-dim);
-      padding: 12px 12px 6px;
+    .brand-icon {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: linear-gradient(135deg, #ee4d07, #f97316);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
     }
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 11px 14px;
-      border-radius: var(--radius-sm);
-      color: var(--text-muted);
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.92rem;
-      margin-bottom: 4px;
-      transition: all 0.15s ease;
+    .nav-btn {
+      width: 100%; text-align: left; background: transparent; border: none;
+      color: #94a3b8; padding: 11px 14px; border-radius: 9px;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 10px; margin-bottom: 4px;
+      text-decoration: none;
     }
-    .main-area {
-      flex: 1;
-      margin-left: 245px;
-      padding: 18px 24px 60px;
-      min-width: 0;
-    }
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      gap: 12px;
-    }
-    .menu-btn {
-      display: none;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      padding: 8px 12px;
-      border-radius: var(--radius-sm);
-      font-size: 1.2rem;
-      cursor: pointer;
-    }
-    .ticker-bar {
-      background: #14161c;
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: var(--radius-sm);
-      padding: 10px 14px;
-      display: flex;
-      gap: 20px;
-      overflow-x: auto;
-      font-size: 0.85rem;
-      margin-bottom: 20px;
-      color: var(--text-muted);
-      white-space: nowrap;
-    }
-    .ticker-item span {
-      color: var(--color-orange);
+    .nav-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+    .nav-btn.active { background: linear-gradient(90deg, #ee4d07, #f97316); color: #fff; }
+    .telegram-btn {
+      background: linear-gradient(135deg, #229ed9, #0088cc) !important;
+      color: #fff !important;
+      border: 1px solid rgba(255,255,255,0.16) !important;
       font-weight: 700;
-      margin-left: 6px;
-    }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 14px;
-      margin-bottom: 20px;
-    }
-    .stat-label {
-      font-size: 0.74rem;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--text-muted);
-    }
-    .stat-val {
-      font-size: 1.5rem;
-      font-weight: 800;
-      margin: 6px 0 4px;
-    }
-    .stat-sub { font-size: 0.78rem; color: var(--text-muted); cursor: pointer; }
-    .trade-grid {
-      display: grid;
-      grid-template-columns: 1.6fr 1fr;
-      gap: 18px;
-    }
-    .main-area, .card, .trade-grid > div, .stats-grid > div { min-width: 0; max-width: 100%; }
-    canvas {
-      width: 100%;
-      height: 290px;
-      background: #0a0d12;
-      border-radius: var(--radius-sm);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      display: block;
-      cursor: crosshair;
-    }
-    .pro-price-hero {
-      font-size: 1.9rem;
-      font-weight: 800;
-      color: #10b981;
-      letter-spacing: -0.5px;
-      line-height: 1.1;
-      margin: 4px 0 6px;
-    }
-    .pro-change-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 0.82rem;
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-    .pro-change-up { color: #10b981; }
-    .pro-change-down { color: #ef4444; }
-    .live-pill {
-      background: rgba(16, 185, 129, 0.14);
-      color: #10b981;
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 0.72rem;
-      letter-spacing: 0.5px;
-    }
-    .telemetry-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .tele-label {
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
-      color: var(--text-dim);
-      margin-bottom: 3px;
-    }
-    .tele-val { font-size: 0.92rem; font-weight: 700; color: var(--text-main); }
-    .tele-green { color: #10b981; }
-    .tele-red { color: #ef4444; }
-    .tier-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin: 10px 0 16px;
-    }
-    .tier-btn {
-      padding: 10px 6px !important;
-      background: #141821 !important;
-      color: #cbd5e1 !important;
-      border: 1px solid rgba(255, 255, 255, 0.14) !important;
-      border-radius: var(--radius-sm) !important;
-      cursor: pointer;
-      text-align: center;
-      font-size: 0.84rem;
-      font-weight: 600;
-      transition: all 0.15s ease;
-    }
-    .tier-btn:hover { border-color: var(--color-orange) !important; background: #1b202c !important; }
-    .tier-btn.active {
-      background: rgba(238, 77, 7, 0.18) !important;
-      border-color: var(--color-orange) !important;
-      color: #ffffff !important;
-    }
-    .tier-btn strong { display: block; color: var(--color-orange) !important; font-size: 0.95rem; margin-top: 2px; }
-    .dir-btn-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 6px;
-    }
-    .btn-buy-up, .btn-buy-down {
-      border: none;
-      border-radius: var(--radius-sm);
-      padding: 13px 12px;
-      font-size: 0.95rem;
-      font-weight: 800;
-      color: #ffffff;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
       justify-content: center;
-      gap: 2px;
-      transition: transform 0.12s ease, opacity 0.15s ease;
     }
-    .btn-buy-up {
-      background: linear-gradient(135deg, #10b981, #059669);
-      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25);
+    .telegram-btn:hover { filter: brightness(1.08); }
+
+    /* MAIN */
+    .main { flex: 1; margin-left: 245px; padding: 16px 22px 60px; min-width: 0; }
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #111622; border: 1px solid rgba(255,255,255,0.08);
+      padding: 12px 18px; border-radius: 12px; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
     }
-    .btn-buy-down {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      box-shadow: 0 6px 18px rgba(239, 68, 68, 0.25);
+    .bal-strip { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .bal-pill {
+      background: #182032; border: 1px solid rgba(255,255,255,0.09);
+      padding: 8px 14px; border-radius: 10px;
     }
-    .btn-buy-up:hover:not(:disabled), .btn-buy-down:hover:not(:disabled) {
-      transform: translateY(-1px);
-      opacity: 0.95;
+    .bal-pill small { display: block; font-size: 0.68rem; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; }
+    .bal-pill strong { font-size: 1rem; font-weight: 800; }
+
+    /* TRADE TERMINAL GRID */
+    .terminal-grid {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 16px;
+      align-items: start;
     }
-    .btn-buy-up:disabled, .btn-buy-down:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
+    .card {
+      background: #111622;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
     }
-    .btn-buy-sub {
-      font-size: 0.7rem;
-      font-weight: 600;
-      opacity: 0.9;
-      letter-spacing: 0.4px;
+    .chart-header {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
     }
-    .telegram-support-box {
+    .pair-controls {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px;
-      margin-bottom: 16px;
-      border-radius: var(--radius-sm);
-      background: rgba(34, 158, 217, 0.1);
-      border: 1px solid rgba(34, 158, 217, 0.35);
+      gap: 8px;
       flex-wrap: wrap;
     }
-    .btn-telegram {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: #229ED9;
-      color: #ffffff !important;
-      text-decoration: none;
-      font-weight: 700;
-      font-size: 0.86rem;
-      padding: 10px 16px;
-      border-radius: var(--radius-sm);
-      white-space: nowrap;
-      transition: opacity 0.15s ease;
+    .pair-search {
+      background: #182032;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 9px 11px;
+      border-radius: 9px;
+      font-size: 0.84rem;
+      width: 135px;
+      outline: none;
     }
-    .btn-telegram:hover { opacity: 0.9; }
-    .field { margin-bottom: 14px; }
-    .field label { display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; }
-    .field input, .field select, .field textarea {
-      width: 100%;
-      padding: 11px 12px;
-      border-radius: var(--radius-sm);
-      font-size: 0.92rem;
+    .pair-select {
+      background: #182032; color: #fff; border: 1px solid rgba(255,255,255,0.14);
+      padding: 9px 14px; border-radius: 9px; font-weight: 700; font-size: 0.95rem;
     }
-    .w-full { width: 100%; }
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(8, 12, 22, 0.88);
-      backdrop-filter: blur(6px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 2000;
+    .tf-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .tf-btn {
+      background: #182032; border: 1px solid rgba(255,255,255,0.1);
+      color: #94a3b8; padding: 6px 11px; border-radius: 7px;
+      font-size: 0.78rem; font-weight: 700; cursor: pointer;
     }
-    .modal-backdrop.open { display: flex; }
-    .win-modal {
-      background: #0f172a !important;
-      border: 1px solid rgba(255, 255, 255, 0.14) !important;
-      border-radius: var(--radius-lg);
-      padding: 32px 24px;
-      max-width: 410px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
-    }
-    .countdown-ring {
-      width: 110px;
-      height: 110px;
-      border-radius: 50%;
-      border: 4px solid #f97316;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 18px;
-      font-size: 2rem;
-      font-weight: 800;
-      color: #ffffff;
-      background: rgba(249, 115, 22, 0.12);
-      box-shadow: 0 0 28px rgba(249, 115, 22, 0.25);
-    }
-    .trophy { font-size: 3.6rem; margin-bottom: 8px; }
-    .win-badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      margin-bottom: 10px;
-    }
-    .badge-won { background: rgba(16, 185, 129, 0.18); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); }
-    .badge-lost { background: rgba(239, 68, 68, 0.18); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
-    .tx-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      font-size: 0.88rem;
-      gap: 16px;
-    }
-    .tx-row:last-child { border-bottom: none; }
-    .section-heading { margin: 0 0 4px; font-size: 1.02rem; font-weight: 700; }
-    .section-sub { margin: 0 0 14px; color: #8b909a; font-size: 0.82rem; }
-    .hist-empty { color: #8b909a; font-size: 0.88rem; padding: 8px 0 2px; }
-    .account-note {
-      margin: 0 0 14px;
-      padding: 12px 14px;
-      border-radius: 10px;
-      background: #1c1e24;
-      border: 1px solid rgba(255,255,255,0.08);
-      color: #e4e4e7;
-      font-size: 0.86rem;
-    }
-    .dash-freeze-banner {
-      margin: 0 0 16px;
-      padding: 12px 14px;
-      border-radius: 10px;
-      background: rgba(245,158,11,0.1);
-      border: 1px solid rgba(245,158,11,0.35);
-      color: #fde68a;
-      font-size: 0.86rem;
-    }
-    .hist-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      padding: 14px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .hist-row:last-child { border-bottom: none; }
-    .hist-title { font-size: 1rem; font-weight: 700; }
-    .hist-meta, .hist-time { color: #8b909a; font-size: 0.78rem; margin-top: 4px; }
-    .hist-reason { margin-top: 8px; color: #d4d4d8; font-size: 0.8rem; }
-    .hist-side { text-align: right; flex-shrink: 0; }
-    .wdr-status {
-      display: inline-block;
-      min-width: 92px;
-      text-align: center;
-      padding: 5px 10px;
-      border-radius: 999px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      background: #1c1e24;
-      color: #d4d4d8;
-    }
-    .wdr-status.approved { background: rgba(16,185,129,0.12); color: #6ee7b7; }
-    .wdr-status.rejected { background: rgba(239,68,68,0.12); color: #fca5a5; }
-    .wdr-status.pending { background: rgba(245,158,11,0.12); color: #fcd34d; }
-    body.trader-app { background: #0c0d10 !important; background-image: none !important; }
-    body.trader-app .sidebar { background: #101114 !important; border-right: 1px solid rgba(255,255,255,0.06) !important; }
-    body.trader-app .card,
-    body.trader-app .stat-card {
-      background: #14161c !important;
-      border: 1px solid rgba(255,255,255,0.07) !important;
-      border-top: 1px solid rgba(255,255,255,0.07) !important;
-      box-shadow: none !important;
-    }
-    body.trader-app .nav-item { border-left: 3px solid transparent; }
-    body.trader-app .nav-item.active {
-      background: rgba(255,255,255,0.05) !important;
-      color: #f4f4f5 !important;
-      border-left: 3px solid #ee4d07 !important;
-    }
-    .status-pill {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: 0.72rem;
-      font-weight: 800;
-    }
-    .st-won { background: rgba(16, 185, 129, 0.18); color: #10b981; }
-    .st-lost { background: rgba(239, 68, 68, 0.18); color: #ef4444; }
-    .st-run { background: rgba(245, 158, 11, 0.18); color: #f59e0b; }
-    .obsidian-toast {
-      position: fixed;
-      top: 18px;
-      right: 18px;
-      background: #111827;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-left: 4px solid #10b981;
-      color: #f8fafc;
-      padding: 12px 16px;
-      border-radius: 10px;
-      font-size: 0.86rem;
-      font-weight: 600;
-      z-index: 1100;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-      display: none;
-      max-width: 340px;
-    }
-    .obsidian-toast.err { border-left-color: #ef4444; }
-    .live-social-toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      border-radius: 12px;
-      z-index: 900;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(12px);
-      transition: all 0.25s ease;
-    }
-    .live-social-toast.show { opacity: 1; transform: translateY(0); }
-    .mobile-bottom-nav {
-      display: none;
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      height: 64px;
-      background: #0d1322;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      z-index: 250;
-      justify-content: space-around;
-      align-items: center;
-      padding: 4px 2px;
-    }
-    .mob-nav-btn {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: #94a3b8;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      font-size: 0.68rem;
+    .tf-btn.active, .tf-btn:hover { background: #ee4d07; color: #fff; border-color: #ee4d07; }
+    .snap-live-btn {
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      padding: 6px 10px;
+      border-radius: 7px;
+      font-size: 0.76rem;
       font-weight: 700;
       cursor: pointer;
     }
-    .mob-nav-btn span.ico { font-size: 1.15rem; line-height: 1; }
-    .mob-nav-btn.active { color: var(--color-orange); }
+    .snap-live-btn:hover { background: #10b981; color: #fff; }
+    #tvChart { width: 100%; height: 430px; border-radius: 10px; overflow: hidden; }
+
+    /* ORDER PANEL */
+    .field { margin-bottom: 13px; }
+    .field label { display: block; font-size: 0.74rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+    .field input, .field select, .field textarea {
+      width: 100%; background: #182032; border: 1px solid rgba(255,255,255,0.12);
+      color: #fff; padding: 10px 12px; border-radius: 9px; font-size: 0.92rem; outline: none;
+    }
+    .dur-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .dur-btn {
+      background: #182032; border: 1px solid rgba(255,255,255,0.12);
+      color: #cbd5e1; padding: 10px 6px; border-radius: 9px;
+      font-weight: 700; font-size: 0.82rem; cursor: pointer; text-align: center;
+    }
+    .dur-btn.active { border-color: #ee4d07; background: rgba(238,77,7,0.18); color: #fff; }
+    .quick-stakes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+    .qs-btn {
+      background: #182032; border: 1px solid rgba(255,255,255,0.1);
+      color: #cbd5e1; padding: 6px; border-radius: 7px; font-size: 0.76rem; font-weight: 700; cursor: pointer;
+    }
+    .qs-btn:hover { border-color: #ee4d07; color: #fff; }
+
+    .trade-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .btn-buy {
+      background: linear-gradient(135deg, #059669, #10b981);
+      border: none; color: #fff; padding: 14px; border-radius: 10px;
+      font-weight: 800; font-size: 1rem; cursor: pointer; letter-spacing: 0.5px;
+    }
+    .btn-sell {
+      background: linear-gradient(135deg, #dc2626, #ef4444);
+      border: none; color: #fff; padding: 14px; border-radius: 10px;
+      font-weight: 800; font-size: 1rem; cursor: pointer; letter-spacing: 0.5px;
+    }
+    .btn-buy:disabled, .btn-sell:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* WALLET CARDS */
+    .wallet-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .w-card {
+      background: #182032;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .w-card small { font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; }
+    .w-card h3 { margin: 6px 0 0; font-size: 1.4rem; }
+
+    /* TABLE */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { text-align: left; padding: 11px 12px; background: #182032; color: #94a3b8; font-size: 0.72rem; text-transform: uppercase; }
+    td { padding: 11px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .badge { padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; }
+    .b-win { background: rgba(16,185,129,0.18); color: #34d399; }
+    .b-loss { background: rgba(239,68,68,0.18); color: #f87171; }
+    .b-run { background: rgba(245,158,11,0.18); color: #fbbf24; }
+    .b-curr { background: rgba(99,102,241,0.2); color: #a5b4fc; margin-right: 6px; }
+
     .hidden { display: none !important; }
-    @media (max-width: 860px) {
+    .alert-banner {
+      background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.45);
+      color: #fecaca; padding: 12px 16px; border-radius: 10px; margin-bottom: 14px;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    .freeze-banner {
+      background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.4);
+      color: #bae6fd; padding: 12px 16px; border-radius: 10px; margin-bottom: 14px;
+    }
+
+    /* MODAL */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(5,8,15,0.82);
+      display: none; align-items: center; justify-content: center; z-index: 999; padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+      background: #111622; border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px; padding: 24px; width: 100%; max-width: 400px; text-align: center;
+    }
+    .toast {
+      position: fixed; bottom: 20px; right: 20px; background: #10b981; color: #fff;
+      padding: 11px 18px; border-radius: 9px; font-weight: 700; font-size: 0.86rem;
+      z-index: 1000; display: none;
+    }
+
+    @media (max-width: 960px) {
       .sidebar { transform: translateX(-100%); }
       .sidebar.open { transform: translateX(0); }
-      .main-area { margin-left: 0; width: 100%; padding: 12px 12px 88px; }
-      .menu-btn { display: inline-block; }
-      .trade-grid { grid-template-columns: 1fr; }
-      .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-      .telemetry-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-      .mobile-bottom-nav { display: flex !important; }
-      canvas { height: 240px; }
+      .main { margin-left: 0; padding: 12px; }
+      .terminal-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
-<body class="trader-app">
-
-<div id="obsidianToast" class="obsidian-toast"></div>
+<body>
 
 <div class="app-shell">
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <span>🛍️ DARAZ TRADE</span>
-      <button type="button" class="menu-btn" onclick="toggleSidebar()">✕</button>
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="traderSidebar">
+    <div>
+      <div class="brand">
+        <div class="brand-icon">📈</div>
+        <div>
+          <div>Daraz Trade</div>
+          <small style="font-size:0.7rem;color:#94a3b8;font-weight:500;" id="sideUserHandle">@trader</small>
+        </div>
+      </div>
+
+      <button class="nav-btn active" onclick="switchTab('trade', this)">📊 Live Trading</button>
+      <button class="nav-btn" onclick="switchTab('history', this)">📜 Trade History</button>
+      <button class="nav-btn" onclick="switchTab('wallet', this)">💳 Wallet &amp; Funds</button>
+      <button class="nav-btn" onclick="switchTab('withdraw', this)">🏛️ Withdraw Funds</button>
+      <button class="nav-btn" onclick="switchTab('support', this)">🎧 Help Center</button>
+      <button class="nav-btn" onclick="switchTab('profile', this)">👤 Profile &amp; Security</button>
     </div>
 
-    <div class="nav-section">Main</div>
-    <div class="nav-item active" data-tab="overview" onclick="switchTab('overview', this)">📊 Dashboard</div>
-    <div class="nav-item" data-tab="trade" onclick="switchTab('trade', this)">⚡ Trade</div>
-
-    <div class="nav-section">Account</div>
-    <div class="nav-item" data-tab="withdraw" onclick="switchTab('withdraw', this)">⬆️ Withdraw</div>
-    <div class="nav-item" data-tab="history" onclick="switchTab('history', this)">🕒 Trade History</div>
-    <div class="nav-item" data-tab="profile" onclick="switchTab('profile', this)">👤 Profile</div>
-    <div class="nav-item" data-tab="help" onclick="switchTab('help', this)">🎧 Help Center</div>
-
-    <div class="sidebar-footer" style="margin-top:auto;">
-      <div class="nav-item" onclick="installPWA()">📲 Download App</div>
-      <div class="nav-item" style="color:#f87171;" onclick="logout()">🚪 Logout</div>
+    <div>
+      <button class="nav-btn" style="color:#f87171;" onclick="logoutTrader()">🚪 Logout</button>
     </div>
   </aside>
 
-  <main class="main-area">
+  <!-- MAIN CONTENT -->
+  <main class="main">
     <div class="topbar">
-      <div class="topbar-left" style="display:flex;align-items:center;gap:12px;">
-        <button type="button" class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="tf-btn" onclick="document.getElementById('traderSidebar').classList.toggle('open')">☰</button>
         <div>
-          <h2 class="page-title" id="pageHeading" style="margin:0;">Dashboard Overview</h2>
-          <span class="welcome-sub" style="color:var(--text-muted);font-size:0.84rem;">Welcome back, <strong id="topUsername" style="color:#fff;">Trader</strong></span>
+          <strong style="font-size:1.05rem;" id="topGreeting">Welcome Trader</strong>
+          <div style="font-size:0.75rem;color:#94a3b8;">Credit Score: <strong id="topCreditScore" style="color:#10b981;">100</strong>/100</div>
+        </div>
+      </div>
+
+      <div class="bal-strip">
+        <div class="bal-pill">
+          <small>Available Balance</small>
+          <strong style="color:#10b981;" id="topAvailBal">0.00 PKR</strong>
+        </div>
+        <div class="bal-pill">
+          <small>❄️ Frozen Balance</small>
+          <strong style="color:#38bdf8;" id="topFrozenBal">0.00 PKR</strong>
+        </div>
+        <div class="bal-pill">
+          <small>In Order</small>
+          <strong style="color:#fbbf24;" id="topInOrderBal">0.00 PKR</strong>
         </div>
       </div>
     </div>
 
-<div class="ticker-bar" id="tickerBar">
-  <div class="ticker-item">BTC_USDT <span>—</span></div>
-  <div class="ticker-item">ETH_USDT <span>—</span></div>
-  <div class="ticker-item">BNB_USDT <span>—</span></div>
-  <div class="ticker-item">SOL_USDT <span>—</span></div>
-</div>
+    <div id="customAlertsContainer"></div>
+    <div id="frozenNoticeContainer"></div>
 
-    <div id="customErrorBanner" class="card hidden" style="border-left:4px solid #ef4444 !important;margin-bottom:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+    <!-- TAB 1: LIVE TRADING -->
+    <section id="tab-trade">
+      <div class="terminal-grid">
         <div>
-          <strong id="errBannerTitle" style="color:#fca5a5;">System Alert</strong>
-          <p id="errBannerMsg" style="margin:4px 0 0;font-size:0.86rem;"></p>
-        </div>
-        <button type="button" class="btn-primary" onclick="dismissErrorBanner()">Dismiss</button>
-      </div>
-    </div>
+          <div class="card">
+            <div class="chart-header">
+              <div class="pair-controls">
+                <input type="text" id="pairSearchInput" class="pair-search" placeholder="🔍 Filter pair..." oninput="filterPairsDropdown(this.value)" />
+                <select id="pairSelector" class="pair-select" onchange="onPairChange()"></select>
+                <div>
+                  <div style="font-size:1.3rem;font-weight:800;color:#10b981;" id="livePriceDisplay">24,911,895</div>
+                  <small style="color:#94a3b8;font-size:0.72rem;">Live Market Tick (50 Pairs)</small>
+                </div>
+              </div>
 
-    <!-- TAB 1: DASHBOARD OVERVIEW -->
-    <section id="tab-overview">
-      <div id="dashFreezeBanner" class="dash-freeze-banner hidden"></div>
-      <div class="stats-grid">
-        <div class="stat-card" id="balanceCard">
-          <div class="stat-label">Available Balance (USDT)</div>
-          <div class="stat-val" style="color:var(--color-orange);" id="statBalance">$0.00</div>
-          <div class="stat-sub" onclick="switchTab('trade')">Trade now →</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">In Order (USDT)</div>
-          <div class="stat-val" id="statInOrder">$0.00</div>
-          <div class="stat-sub">Active trade stake</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Total Withdraw (USDT)</div>
-          <div class="stat-val" id="statWithdraw">$0.00</div>
-          <div class="stat-sub" onclick="switchTab('history')">View trade history →</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Credit Score</div>
-          <div class="stat-val" style="color:var(--color-orange);" id="statScore">100</div>
-          <div class="stat-sub">Account standing</div>
-        </div>
-      </div>
-
-      <div class="trade-grid">
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-            <div>
-              <strong id="chartPairTitle" style="color:var(--text-muted); font-size:0.85rem;">BTC_USDT</strong>
-<div class="pro-price-hero" id="chartLivePrice">—</div>
-<div class="pro-change-row">
-  <span id="ovChangePct" class="pro-change-up">— <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
-  <span class="live-pill">● LIVE</span>
-</div>
+              <!-- TIMEFRAMES INCLUDING 1D, 1W, 1M + LIVE SNAP -->
+              <div class="tf-group" id="tfGroup">
+                <button type="button" class="tf-btn active" onclick="setChartTimeframe('1m', this)">1m</button>
+                <button type="button" class="tf-btn" onclick="setChartTimeframe('5m', this)">5m</button>
+                <button type="button" class="tf-btn" onclick="setChartTimeframe('15m', this)">15m</button>
+                <button type="button" class="tf-btn" onclick="setChartTimeframe('1h', this)">1h</button>
+                <button type="button" class="tf-btn" onclick="setChartTimeframe('1D', this)">1D</button>
+                <button type="button" class="tf-btn" onclick="setChartTimeframe('1W', this)">1W</button>
+                <button type="button" class="tf-btn" onclick="setChartTimeframe('1M', this)">1M</button>
+                <button type="button" class="snap-live-btn" title="Anchor latest candle to right edge" onclick="snapChartToLive()">⇥ Live</button>
+              </div>
             </div>
-            <button type="button" class="btn-primary" onclick="switchTab('trade')">Start Trading →</button>
+
+            <div id="tvChart"></div>
+          </div>
+
+          <div class="card">
+            <h4 style="margin:0 0 12px;">⚡ Active / Recent Orders</h4>
+            <div class="table-wrap" id="recentTradesWrap"></div>
           </div>
         </div>
 
+        <!-- ORDER PANEL -->
         <div class="card">
-          <h3 class="section-heading">Active & Recent Trades</h3>
-          <div id="overviewTradesList" style="color:var(--text-muted);font-size:0.88rem;margin-top:8px;">No trades placed yet.</div>
-        </div>
-      </div>
-    </section>
+          <h3 style="margin:0 0 14px;">Place Trade Order</h3>
 
-    <!-- TAB 2: TIMED PERCENTAGE TRADE -->
-    <section id="tab-trade" class="hidden">
-      <div class="trade-grid">
-        <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-            <div>
-<div class="pro-price-hero" id="tradeLiveHero">—</div>
-<div class="pro-change-row">
-  <span id="trChangePct" class="pro-change-up">— <small style="color:var(--text-dim);font-weight:500;">24h</small></span>
-  <span class="live-pill">● LIVE</span>
-</div>
-            </div>
-            <div class="field" style="min-width: 190px; margin-bottom:0;">
-              <label for="tradePair">Select Trading Pair</label>
-              <select id="tradePair" onchange="updateChartPair()">
-                <option value="BTC_USDT" selected>BTC_USDT</option>
-                <option value="ETH_USDT">ETH_USDT</option>
-                <option value="BNB_USDT">BNB_USDT</option>
-                <option value="SOL_USDT">SOL_USDT</option>
-                <option value="XRP_USDT">XRP_USDT</option>
-                <option value="USDC_USDT">USDC_USDT</option>
-                <option value="DOGE_USDT">DOGE_USDT</option>
-                <option value="TRX_USDT">TRX_USDT</option>
-                <option value="ADA_USDT">ADA_USDT</option>
-                <option value="TON_USDT">TON_USDT</option>
-                <option value="AVAX_USDT">AVAX_USDT</option>
-                <option value="SHIB_USDT">SHIB_USDT</option>
-                <option value="DOT_USDT">DOT_USDT</option>
-                <option value="LINK_USDT">LINK_USDT</option>
-                <option value="BCH_USDT">BCH_USDT</option>
-                <option value="LTC_USDT">LTC_USDT</option>
-                <option value="NEAR_USDT">NEAR_USDT</option>
-                <option value="MATIC_USDT">MATIC_USDT</option>
-                <option value="UNI_USDT">UNI_USDT</option>
-                <option value="ICP_USDT">ICP_USDT</option>
-                <option value="APT_USDT">APT_USDT</option>
-                <option value="ETC_USDT">ETC_USDT</option>
-                <option value="ATOM_USDT">ATOM_USDT</option>
-                <option value="XLM_USDT">XLM_USDT</option>
-                <option value="FIL_USDT">FIL_USDT</option>
-                <option value="HBAR_USDT">HBAR_USDT</option>
-                <option value="ARB_USDT">ARB_USDT</option>
-                <option value="OP_USDT">OP_USDT</option>
-                <option value="VET_USDT">VET_USDT</option>
-                <option value="MKR_USDT">MKR_USDT</option>
-                <option value="AAVE_USDT">AAVE_USDT</option>
-                <option value="INJ_USDT">INJ_USDT</option>
-                <option value="SUI_USDT">SUI_USDT</option>
-                <option value="PEPE_USDT">PEPE_USDT</option>
-                <option value="TIA_USDT">TIA_USDT</option>
-                <option value="SEI_USDT">SEI_USDT</option>
-                <option value="RENDER_USDT">RENDER_USDT</option>
-                <option value="FET_USDT">FET_USDT</option>
-                <option value="ALGO_USDT">ALGO_USDT</option>
-                <option value="FTM_USDT">FTM_USDT</option>
-                <option value="SAND_USDT">SAND_USDT</option>
-                <option value="MANA_USDT">MANA_USDT</option>
-                <option value="AXS_USDT">AXS_USDT</option>
-                <option value="GALA_USDT">GALA_USDT</option>
-                <option value="EGLD_USDT">EGLD_USDT</option>
-              </select>
-            </div>
-          </div>
-          <canvas id="tradeChartCanvas"></canvas>
-          <div class="telemetry-grid">
-            <div><div class="tele-label">OPEN</div><div class="tele-val" id="trOpen">-</div></div>
-            <div><div class="tele-label">HIGH</div><div class="tele-val tele-green" id="trHigh">-</div></div>
-            <div><div class="tele-label">LOW</div><div class="tele-val tele-red" id="trLow">-</div></div>
-            <div><div class="tele-label">24H CHANGE</div><div class="tele-val tele-green" id="trChangeStat">—</div></div>
-            <div><div class="tele-label">MARKET CAP</div><div class="tele-val" id="trMcap">$594,267.72B</div></div>
-            <div><div class="tele-label">24H VOL</div><div class="tele-val" id="trVol">48,920 BTC</div></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3 class="section-heading">Place Timed Trade</h3>
-          <div id="tradeBlockNote" class="account-note hidden"></div>
-          <span style="font-size:0.82rem;color:var(--text-muted);">Select Duration & Profit %</span>
-          <div class="tier-grid" id="durationTiers">
-            <div class="tier-btn active" data-sec="60" onclick="selectDuration(this)">60 Seconds<strong id="pct-60">+25%</strong></div>
-            <div class="tier-btn" data-sec="80" onclick="selectDuration(this)">80 Seconds<strong id="pct-80">+30%</strong></div>
-            <div class="tier-btn" data-sec="120" onclick="selectDuration(this)">120 Seconds<strong id="pct-120">+50%</strong></div>
-          </div>
-
+          <!-- SELECT CURRENCY BEFORE TRADING -->
           <div class="field">
-            <label for="tradeAmount">Investment Amount (Available: <span id="tradeAvailBal">$0.00</span>)</label>
-            <input type="number" id="tradeAmount" placeholder="Enter amount (e.g. 500)" min="1" step="any" />
-          </div>
-
-          <span style="font-size:0.82rem;color:var(--text-muted);display:block;margin-bottom:6px;">Choose Market Direction</span>
-          <div class="dir-btn-grid">
-            <button type="button" id="btnBuyUp" class="btn-buy-up" onclick="executeTrade('UP')">
-              <span>▲ Buy UP</span>
-              <span class="btn-buy-sub">LONG / HIGHER</span>
-            </button>
-            <button type="button" id="btnBuyDown" class="btn-buy-down" onclick="executeTrade('DOWN')">
-              <span>▼ Buy DOWN</span>
-              <span class="btn-buy-sub">SHORT / LOWER</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 4: WITHDRAWAL -->
-    <section id="tab-withdraw" class="hidden">
-      <div class="card" style="max-width:540px;">
-        <h3 class="section-heading">Withdraw Funds</h3>
-        <div id="withdrawBlockNote" class="account-note hidden"></div>
-        <form id="withdrawForm">
-          <div class="field">
-            <label for="wdrAmount">Withdraw Amount (USDT)</label>
-            <input type="number" id="wdrAmount" placeholder="Enter amount (min 100)" min="100" step="any" required />
-          </div>
-          <div class="field">
-            <label for="wdrMethod">Withdraw To</label>
-            <select id="wdrMethod" onchange="toggleWithdrawFields()">
-              <option value="JazzCash">JazzCash</option>
-              <option value="EasyPaisa">EasyPaisa</option>
-              <option value="Bank">Bank Account</option>
+            <label>Select Trading Currency</label>
+            <select id="tradeCurrencySelect" onchange="onCurrencySelectChange(this.value)">
+              <option value="PKR" selected>PKR — Pakistani Rupee</option>
+              <option value="USDT">USDT — Tether USD</option>
+              <option value="BTC">BTC — Bitcoin</option>
+              <option value="ETH">ETH — Ethereum</option>
             </select>
           </div>
-          <div id="wdrWalletFields">
-            <div class="field">
-              <label for="wdrHolder">Account Holder Name</label>
-              <input type="text" id="wdrHolder" placeholder="Name on the account" />
-            </div>
-            <div class="field">
-              <label for="wdrNumber" id="wdrNumberLabel">JazzCash Account Number</label>
-              <input type="tel" id="wdrNumber" placeholder="03xxxxxxxxx" />
-            </div>
-          </div>
-          <div id="wdrBankFields" class="hidden">
-            <div class="field">
-              <label for="wdrBankName">Bank Name</label>
-              <input type="text" id="wdrBankName" placeholder="e.g. HBL, Meezan, UBL" />
-            </div>
-            <div class="field">
-              <label for="wdrBankHolder">Account Holder Name</label>
-              <input type="text" id="wdrBankHolder" placeholder="Name on the bank account" />
-            </div>
-            <div class="field">
-              <label for="wdrIban">IBAN Number</label>
-              <input type="text" id="wdrIban" placeholder="PK00XXXX0000000000000000" />
+
+          <div class="field">
+            <label>Duration &amp; Profit Return</label>
+            <div class="dur-grid">
+              <button type="button" class="dur-btn active" data-dur="60" data-payout="25" onclick="selectDuration(this)">60s<br><small style="color:#10b981;">+25%</small></button>
+              <button type="button" class="dur-btn" data-dur="80" data-payout="30" onclick="selectDuration(this)">80s<br><small style="color:#10b981;">+30%</small></button>
+              <button type="button" class="dur-btn" data-dur="120" data-payout="50" onclick="selectDuration(this)">120s<br><small style="color:#10b981;">+50%</small></button>
             </div>
           </div>
-          <button type="submit" class="btn-primary w-full">Submit Withdrawal</button>
-        </form>
-      </div>
-      <div class="card">
-        <h3 class="section-heading">Your Withdrawal Requests</h3>
-        <p class="section-sub">Each request stays under review until an admin approves or rejects it.</p>
-        <div id="withdrawStatusList">No withdrawal requests yet.</div>
+
+          <div class="field">
+            <label>Trade Amount (<span id="stakeCurrencyLbl">PKR</span>)</label>
+            <input type="number" id="tradeStakeInput" value="500" min="10" step="any" oninput="updateEstReturn()" />
+            <div class="quick-stakes">
+              <button type="button" class="qs-btn" onclick="setStake(100)">100</button>
+              <button type="button" class="qs-btn" onclick="setStake(500)">500</button>
+              <button type="button" class="qs-btn" onclick="setStake(1000)">1,000</button>
+              <button type="button" class="qs-btn" onclick="setStake(5000)">5,000</button>
+            </div>
+          </div>
+
+          <div style="background:#182032;padding:12px;border-radius:10px;margin-bottom:12px;font-size:0.84rem;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="color:#94a3b8;">Selected Currency:</span>
+              <strong id="orderCurrSummary" style="color:#a5b4fc;">PKR</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span style="color:#94a3b8;">Estimated Payout:</span>
+              <strong id="estPayoutDisplay" style="color:#10b981;">625.00 PKR</strong>
+            </div>
+          </div>
+
+          <!-- BUY & SELL BUTTONS -->
+          <div class="trade-actions">
+            <button type="button" class="btn-buy" id="btnBuyOrder" onclick="placeTrade('UP')">▲ BUY</button>
+            <button type="button" class="btn-sell" id="btnSellOrder" onclick="placeTrade('DOWN')">▼ SELL</button>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- TAB 5: TRADE HISTORY -->
+    <!-- TAB 2: TRADE HISTORY -->
     <section id="tab-history" class="hidden">
       <div class="card">
-        <h3 class="section-heading">Withdrawal History</h3>
-        <p class="section-sub">Pending, approved, and rejected withdrawal requests.</p>
-        <div id="withdrawHistoryList">No withdrawal requests yet.</div>
-      </div>
-      <div class="card">
-        <h3 class="section-heading">Transaction History</h3>
-        <div id="txHistoryList">No transactions yet.</div>
+        <h3 style="margin-top:0;">📜 Complete Trade History</h3>
+        <div class="table-wrap" id="fullTradeHistoryWrap"></div>
       </div>
     </section>
 
-    <!-- TAB 6: PROFILE & SECURITY -->
+    <!-- TAB 3: WALLET & FUNDS -->
+    <section id="tab-wallet" class="hidden">
+      <div class="wallet-grid">
+        <div class="w-card">
+          <small>Available Balance (Unlocked)</small>
+          <h3 style="color:#10b981;" id="wAvailBal">0.00</h3>
+        </div>
+        <div class="w-card">
+          <small>❄️ Frozen Balance (Total − Available)</small>
+          <h3 style="color:#38bdf8;" id="wFrozenBal">0.00</h3>
+        </div>
+        <div class="w-card">
+          <small>Total Account Balance</small>
+          <h3 style="color:#fff;" id="wTotalBal">0.00</h3>
+        </div>
+        <div class="w-card">
+          <small>Total Withdrawn</small>
+          <h3 style="color:#f59e0b;" id="wTotalWithdrawn">0.00</h3>
+        </div>
+      </div>
+
+      <div class="card" style="max-width:540px;">
+        <h3 style="margin-top:0;">➕ Deposit Funds (Crypto Proof)</h3>
+        <form id="depositForm" onsubmit="submitDeposit(event)">
+          <div class="field">
+            <label>Select Network / Coin</label>
+            <select id="depCrypto" onchange="updateDepositWallet()"></select>
+          </div>
+          <div class="field">
+            <label>Official Deposit Address</label>
+            <input type="text" id="depWalletAddr" readonly />
+          </div>
+          <div class="field">
+            <label>Amount</label>
+            <input type="number" id="depAmount" required min="1" step="any" placeholder="Enter deposit amount" />
+          </div>
+          <div class="field">
+            <label>Transaction Hash / Reference</label>
+            <input type="text" id="depTxHash" placeholder="Optional TXID" />
+          </div>
+          <div class="field">
+            <label>Payment Screenshot Proof *</label>
+            <input type="file" id="depProofFile" accept="image/*" required />
+          </div>
+          <button type="submit" class="btn-buy" style="width:100%;">Submit Deposit Proof</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 4: WITHDRAW FUNDS -->
+    <section id="tab-withdraw" class="hidden">
+      <div class="terminal-grid">
+        <div class="card">
+          <h3 style="margin-top:0;">🏛️ Apply for Withdrawal</h3>
+          <p style="font-size:0.82rem;color:#94a3b8;margin-top:0;">
+            Available to withdraw: <strong style="color:#10b981;" id="wdrAvailNotice">0.00</strong>
+            (Frozen balance: <strong style="color:#38bdf8;" id="wdrFrozenNotice">0.00</strong> cannot be withdrawn).
+          </p>
+
+          <!-- SELECT CURRENCY BEFORE APPLYING FOR WITHDRAWAL -->
+          <div class="field">
+            <label>Select Withdrawal Currency</label>
+            <select id="wdrCurrencySelect" onchange="onCurrencySelectChange(this.value)">
+              <option value="PKR" selected>PKR — Pakistani Rupee</option>
+              <option value="USDT">USDT — Tether USD</option>
+              <option value="BTC">BTC — Bitcoin</option>
+              <option value="ETH">ETH — Ethereum</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Withdrawal Method</label>
+            <select id="wdrMethod">
+              <option value="JazzCash">JazzCash</option>
+              <option value="EasyPaisa">EasyPaisa</option>
+              <option value="Bank">Bank Transfer</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Amount (<span id="wdrCurrLbl">PKR</span>)</label>
+            <input type="number" id="wdrAmount" min="100" step="any" placeholder="Minimum 100" />
+          </div>
+
+          <div class="field">
+            <label>Account Title &amp; Account / IBAN Number</label>
+            <input type="text" id="wdrDetails" placeholder="e.g. Muhammad Ali - 03001234567" />
+          </div>
+
+          <button type="button" class="btn-buy" style="width:100%;" onclick="submitWithdrawal()">Submit Withdrawal Request</button>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0;">📋 My Withdrawal Requests</h3>
+          <div class="table-wrap" id="wdrHistoryWrap"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: HELP CENTER + TELEGRAM SUPPORT (@Darazhelpdisk) -->
+    <section id="tab-support" class="hidden">
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-left:4px solid #229ed9;">
+        <div>
+          <strong style="font-size:1rem;color:#fff;">✈️ Live Telegram Support Chat — <span style="color:#38bdf8;">@Darazhelpdisk</span></strong>
+          <div style="font-size:0.82rem;color:#94a3b8;margin-top:4px;">Need instant assistance? Connect directly with our official support desk on Telegram (<strong>@Darazhelpdisk</strong>).</div>
+        </div>
+        <a href="https://t.me/Darazhelpdisk" target="_blank" rel="noopener noreferrer" class="nav-btn telegram-btn" style="width:auto;padding:11px 18px;" onclick="openTelegramSupport(event)">
+          ✈️ Message @Darazhelpdisk on Telegram ↗
+        </a>
+      </div>
+
+      <div class="terminal-grid">
+        <div class="card">
+          <h3 style="margin-top:0;">🎧 Contact Help Center</h3>
+          <div class="field"><label>Subject</label><input type="text" id="tktSubject" placeholder="e.g. Withdrawal / Account Query" /></div>
+          <div class="field"><label>Message</label><textarea id="tktMessage" rows="4" placeholder="Describe your issue..."></textarea></div>
+          <button type="button" class="btn-buy" style="width:100%;" onclick="sendSupportTicket()">Send Message</button>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">My Support Tickets</h3>
+          <div id="ticketsListWrap"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: PROFILE -->
     <section id="tab-profile" class="hidden">
-      <div class="trade-grid">
-        <div class="card">
-          <h3 class="section-heading">Account & Personal Details</h3>
-          <div class="stats-grid" style="margin-top:12px;">
-            <div class="stat-card">
-              <div class="stat-label">Account Status</div>
-              <div class="stat-val" style="color:var(--color-orange);" id="profStatus">ACTIVE</div>
-              <div class="stat-sub">Joined: <span id="profJoined">-</span></div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Credit Standing</div>
-              <div class="stat-val" id="profScore">100</div>
-              <div class="stat-sub">Verified Member</div>
-            </div>
-          </div>
-
-          <form id="updateProfileForm">
-            <div class="field">
-              <label for="profUserField">Username</label>
-              <input type="text" id="profUserField" readonly />
-            </div>
-            <div class="field">
-              <label for="profEmailField">Registered Email</label>
-              <input type="email" id="profEmailField" readonly />
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-              <div class="field">
-                <label for="profFirstName">First Name</label>
-                <input type="text" id="profFirstName" placeholder="First Name" required />
-              </div>
-              <div class="field">
-                <label for="profLastName">Last Name</label>
-                <input type="text" id="profLastName" placeholder="Last Name" required />
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-              <div class="field">
-                <label for="profCountryField">Country</label>
-                <input type="text" id="profCountryField" readonly />
-              </div>
-              <div class="field">
-                <label for="profMobileField">Mobile Number</label>
-                <input type="text" id="profMobileField" readonly />
-              </div>
-            </div>
-            <button type="submit" class="btn-primary w-full">Save Profile Details</button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h3 class="section-heading">Change Password</h3>
-          <p class="section-sub">Keep your Daraz Trade account secure by updating your password regularly.</p>
-          <form id="changePassForm">
-            <div class="field">
-              <label for="oldPass">Current Password</label>
-              <div class="pass-wrap">
-                <input type="password" id="oldPass" required />
-                <button type="button" class="pass-toggle" onclick="togglePass('oldPass', this)" aria-label="Show password">👁️</button>
-              </div>
-            </div>
-            <div class="field">
-              <label for="newPass">New Password (min 6 chars)</label>
-              <div class="pass-wrap">
-                <input type="password" id="newPass" minlength="6" required />
-                <button type="button" class="pass-toggle" onclick="togglePass('newPass', this)" aria-label="Show password">👁️</button>
-              </div>
-            </div>
-            <button type="submit" class="btn-secondary w-full">Update Password</button>
-          </form>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 7: HELP CENTER -->
-    <section id="tab-help" class="hidden">
-      <div class="trade-grid">
-        <div class="card">
-          <h3 class="section-heading">Contact Help Center</h3>
-          <p class="section-sub">Chat live with our support team on Telegram or send a direct support ticket below.</p>
-
-          <div class="telegram-support-box">
-            <div>
-              <strong style="color:#e0f2fe;font-size:0.92rem;display:block;">💬 Live Support Helpline</strong>
-              <span style="color:var(--text-muted);font-size:0.8rem;">Instant assistance for deposits, withdrawals &amp; account help.</span>
-            </div>
-            <a id="telegramSupportLink" href="https://t.me/daraztradesupport" target="_blank" rel="noopener noreferrer" class="btn-telegram">
-              ✈️ Chat on Telegram
-            </a>
-          </div>
-
-          <form id="helpForm">
-            <div class="field">
-              <label for="helpSubject">Subject</label>
-              <input type="text" id="helpSubject" placeholder="e.g. Account Verification" required />
-            </div>
-            <div class="field">
-              <label for="helpMessage">Message</label>
-              <textarea id="helpMessage" rows="4" placeholder="Describe your issue..." required></textarea>
-            </div>
-            <button type="submit" class="btn-primary">Send Ticket</button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h3 class="section-heading">Your Support Tickets</h3>
-          <div id="ticketsList">No messages sent yet.</div>
-        </div>
+      <div class="card" style="max-width:480px;">
+        <h3 style="margin-top:0;">🔐 Change Password</h3>
+        <div class="field"><label>Current Password</label><input type="password" id="oldPassInput" /></div>
+        <div class="field"><label>New Password</label><input type="password" id="newPassInput" /></div>
+        <button type="button" class="btn-buy" style="width:100%;" onclick="updateTraderPassword()">Update Password</button>
       </div>
     </section>
   </main>
 </div>
 
-<nav class="mobile-bottom-nav" id="mobileBottomNav">
-  <button type="button" class="mob-nav-btn active" data-tab="overview" onclick="switchTab('overview', null, this)"><span class="ico">📊</span><span>Home</span></button>
-  <button type="button" class="mob-nav-btn" data-tab="trade" onclick="switchTab('trade', null, this)"><span class="ico">⚡</span><span>Trade</span></button>
-  <button type="button" class="mob-nav-btn" data-tab="withdraw" onclick="switchTab('withdraw', null, this)"><span class="ico">⬆️</span><span>Withdraw</span></button>
-  <button type="button" class="mob-nav-btn" data-tab="history" onclick="switchTab('history', null, this)"><span class="ico">🕒</span><span>Trades</span></button>
-  <button type="button" class="mob-nav-btn" data-tab="profile" onclick="switchTab('profile', null, this)"><span class="ico">👤</span><span>Profile</span></button>
-</nav>
-
-<div class="modal-backdrop" id="tradeLockModal">
-  <div class="win-modal">
-    <div id="tradeLockCountdownPhase">
-      <div class="win-badge" style="background:rgba(249,115,22,0.18);color:#f97316;border:1px solid rgba(249,115,22,0.4);">ACTIVE TRADE</div>
-      <div class="countdown-ring" id="lockTimerDisplay">60s</div>
-      <h2 style="margin:0 0 8px;font-size:1.3rem;">Executing Market Order</h2>
-      <p id="lockTradeSummary" style="color:var(--text-muted);font-size:0.88rem;margin-bottom:10px;">BTC_USDT • Stake: $0.00</p>
-      <p style="color:#94a3b8;font-size:0.78rem;margin:0;">Please wait until the countdown completes. Do not close this window.</p>
-    </div>
-
-    <div id="tradeLockResultPhase" class="hidden">
-      <div class="trophy" id="resultIcon">🏆</div>
-      <div class="win-badge badge-won" id="resultBadge">TRADE WON</div>
-      <h2 id="resultTitle" style="margin:0 0 8px;font-size:1.35rem;">Congratulations! You've won the trade</h2>
-      <p id="resultDesc" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;"></p>
-      <button type="button" class="btn-primary w-full" onclick="closeTradeLockModal()">Continue</button>
-    </div>
+<!-- SETTLEMENT RESULT MODAL -->
+<div class="modal-backdrop" id="resultModal">
+  <div class="modal-box">
+    <div style="font-size:2.6rem;margin-bottom:8px;" id="resModalIcon">🎉</div>
+    <h2 style="margin:0 0 8px;" id="resModalTitle">TRADE WON</h2>
+    <p style="color:#94a3b8;font-size:0.9rem;margin-bottom:16px;" id="resModalBody"></p>
+    <button type="button" class="btn-buy" style="width:100%;" onclick="document.getElementById('resultModal').classList.remove('open')">Continue Trading</button>
   </div>
 </div>
 
-<div id="liveSocialToast" class="live-social-toast">
-  <div id="toastIcon" style="font-size:1.3rem;">💰</div>
-  <div>
-    <div id="toastText" class="toast-text">Shamir K. deposited $1,250 USDT</div>
-    <div id="toastTime" class="toast-time">● 2 mins ago</div>
-  </div>
-</div>
+<div class="toast" id="traderToast">Done!</div>
 
 <script>
-  function togglePass(inputId, btn) {
-    const inp = document.getElementById(inputId);
-    const isHidden = inp.type === 'password';
-    inp.type = isHidden ? 'text' : 'password';
-    btn.textContent = isHidden ? '🙈' : '👁️';
-  }
-  const currentUser = JSON.parse(localStorage.getItem('traderUser'));
-  if (!currentUser) {
-    window.location.href = '/index.html';
-  }
+  const traderUser = JSON.parse(localStorage.getItem('traderUser'));
+  if (!traderUser) window.location.href = './login.html';
 
-  document.getElementById('topUsername').textContent = currentUser?.firstName || currentUser?.username || 'Trader';
-  document.getElementById('statBalance').textContent = `$${Number(currentUser?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('statInOrder').textContent = `$${Number(currentUser?.inOrderBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('statWithdraw').textContent = `$${Number(currentUser?.totalWithdrawn || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('statScore').textContent = currentUser?.creditScore ?? 100;
+  const TELEGRAM_SUPPORT_HANDLE = '@Darazhelpdisk';
+  const TELEGRAM_SUPPORT_URL = 'https://t.me/Darazhelpdisk';
 
-  let appState = null;
-  let selectedDuration = 60;
-  let priceHistory = [];
-  let activeErrorId = null;
-  let lockedTradeId = null;
-  let seenSettledTrades = new Set();
-  let hoverX = null;
-
-  const chartEl = document.getElementById('tradeChartCanvas');
-  if (chartEl) {
-    const setHover = (clientX) => {
-      const rect = chartEl.getBoundingClientRect();
-      hoverX = clientX - rect.left;
-      drawChart('tradeChartCanvas');
-    };
-    chartEl.addEventListener('mousemove', e => setHover(e.clientX));
-    chartEl.addEventListener('touchmove', e => { if (e.touches[0]) setHover(e.touches[0].clientX); }, { passive: true });
-    chartEl.addEventListener('mouseleave', () => { hoverX = null; drawChart('tradeChartCanvas'); });
-    chartEl.addEventListener('touchend', () => { hoverX = null; drawChart('tradeChartCanvas'); });
+  function openTelegramSupport(e) {
+    if (e) e.preventDefault();
+    navigator.clipboard?.writeText(TELEGRAM_SUPPORT_HANDLE).catch(() => {});
+    showToast(`Opening Telegram support (${TELEGRAM_SUPPORT_HANDLE})...`);
+    window.open(TELEGRAM_SUPPORT_URL, '_blank', 'noopener,noreferrer');
   }
 
-  function notify(msg, isError = false) {
-    const el = document.getElementById('obsidianToast');
-    el.textContent = msg;
-    el.className = `obsidian-toast ${isError ? 'err' : ''}`;
-    el.style.display = 'block';
-    clearTimeout(el._timer);
-    el._timer = setTimeout(() => { el.style.display = 'none'; }, 3500);
-  }
+  const ALL_TRADING_PAIRS = [
+    'BTC_PKR',
+    'BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'BTS_USDT',
+    'USDC_USDT', 'DOGE_USDT', 'TRX_USDT', 'XRP_USDT', 'ADA_USDT',
+    'PI_USDT', 'TON_USDT', 'AVAX_USDT', 'DOT_USDT', 'LINK_USDT',
+    'MATIC_USDT', 'LTC_USDT', 'BCH_USDT', 'SHIB_USDT', 'PEPE_USDT',
+    'UNI_USDT', 'ATOM_USDT', 'XLM_USDT', 'NEAR_USDT', 'APT_USDT',
+    'SUI_USDT', 'FIL_USDT', 'ETC_USDT', 'ALGO_USDT', 'ARB_USDT',
+    'OP_USDT', 'INJ_USDT', 'TIA_USDT', 'SEI_USDT', 'RENDER_USDT',
+    'FET_USDT', 'AAVE_USDT', 'MKR_USDT', 'VET_USDT', 'HBAR_USDT',
+    'ICP_USDT', 'GRT_USDT', 'SAND_USDT', 'MANA_USDT', 'AXS_USDT',
+    'THETA_USDT', 'EGLD_USDT', 'XTZ_USDT', 'EOS_USDT', 'KAVA_USDT'
+  ];
 
-  function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open');
-  }
-
-  function switchTab(tabName, el, mobEl) {
-    document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-
-    document.querySelectorAll('.nav-item[data-tab]').forEach(n => {
-      n.classList.toggle('active', n.dataset.tab === tabName || n === el);
-    });
-    document.querySelectorAll('.mob-nav-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.tab === tabName || b === mobEl);
-    });
-
-    const titles = {
-      overview: 'Dashboard Overview',
-      trade: 'Live Market Trade',
-      withdraw: 'Withdraw Funds',
-      history: 'Trade History',
-      profile: 'Account Profile',
-      help: 'Help Center'
-    };
-    document.getElementById('pageHeading').textContent = titles[tabName] || 'Dashboard';
-
-    if (window.innerWidth <= 860) document.getElementById('sidebar').classList.remove('open');
-    if (tabName === 'trade') {
-      requestAnimationFrame(() => drawChart('tradeChartCanvas'));
-    }
-  }
-
-  function formatMoney(baseAmount) {
-    return `$${Number(baseAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  }
-
-  function seedHistoryIfEmpty(baseVal) {
-    if (priceHistory.length === 0) {
-      let sim = baseVal * 0.968;
-      const now = Date.now();
-      for (let i = 45; i >= 1; i--) {
-        sim = sim * (1 + (Math.random() - 0.485) * 0.0045);
-        priceHistory.push({ price: sim, vol: Math.floor(Math.random() * 65 + 15), ts: now - i * 3000 });
-      }
-      priceHistory.push({ price: baseVal, vol: 52, ts: now });
-    }
-  }
-
-  function updateChartPair() {
-    priceHistory = [];
-    if (appState) renderDashboard();
-  }
-
-  function openTradeCountdownModal(trade) {
-    lockedTradeId = trade.id;
-    const modal = document.getElementById('tradeLockModal');
-    document.getElementById('tradeLockCountdownPhase').classList.remove('hidden');
-    document.getElementById('tradeLockResultPhase').classList.add('hidden');
-    const rem = Math.max(0, Math.ceil((Number(trade.expiresAt) - Date.now()) / 1000));
-    const dirLabel = trade.direction === 'DOWN' ? '▼ DOWN' : '▲ UP';
-    document.getElementById('lockTimerDisplay').textContent = `${rem}s`;
-    document.getElementById('lockTradeSummary').textContent = `${trade.pair} (${dirLabel}) • Stake: ${formatMoney(trade.stake)} (+${trade.payoutPercent}%)`;
-    modal.classList.add('open');
-  }
-
-  function showTradeOutcomeModal(trade) {
-    lockedTradeId = null;
-    const modal = document.getElementById('tradeLockModal');
-    document.getElementById('tradeLockCountdownPhase').classList.add('hidden');
-    document.getElementById('tradeLockResultPhase').classList.remove('hidden');
-
-    const won = trade.status === 'WON';
-    document.getElementById('resultIcon').textContent = won ? '🏆' : '📉';
-    const badge = document.getElementById('resultBadge');
-    badge.textContent = won ? 'TRADE WON' : 'TRADE LOST';
-    badge.className = `win-badge ${won ? 'badge-won' : 'badge-lost'}`;
-    document.getElementById('resultTitle').textContent = won
-      ? "Congratulations! You've won the trade"
-      : 'Trade Closed — Market Moved Against Position';
-    document.getElementById('resultDesc').textContent = won
-      ? `${trade.pair} settled at ${formatMoney(trade.exitPrice)}. Net profit: +${formatMoney(trade.profit)}`
-      : `${trade.pair} settled at ${formatMoney(trade.exitPrice)}. Stake deducted: -${formatMoney(trade.stake)}`;
-    modal.classList.add('open');
-  }
-
-  function closeTradeLockModal() {
-    document.getElementById('tradeLockModal').classList.remove('open');
-  }
-
-  let isFetching = false;
-  async function fetchDashboard() {
-    if (!currentUser || isFetching) return;
-    isFetching = true;
-    try {
-      const res = await fetch('/api/trader/dashboard', {
-        headers: { 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' }
-      });
-      if (res.status === 401 || res.status === 403) {
-        const err = await res.json();
-        notify(err.error || 'Session expired', true);
-        return logout();
-      }
-      appState = await res.json();
-      localStorage.setItem('traderUser', JSON.stringify(appState.user));
-      renderWithdrawalHistory(appState.withdrawals || []);
-      renderDashboard();
-    } catch (e) {
-    } finally {
-      isFetching = false;
-    }
-  }
-
-  function withdrawalLabel(status) {
-    if (status === 'APPROVED') return { text: 'Approved', cls: 'approved' };
-    if (status === 'REJECTED') return { text: 'Rejected', cls: 'rejected' };
-    return { text: 'Under review', cls: 'pending' };
-  }
-
-  function formatWhen(iso) {
-    if (!iso) return '';
-    return new Date(iso).toLocaleString('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
-  }
-
-  function withdrawalRows(list) {
-    if (!list || !list.length) return '<div class="hist-empty">No withdrawal requests yet.</div>';
-    return list.map(w => {
-      const status = withdrawalLabel(w.status);
-      const detail = [w.method || 'Withdrawal', w.accountDetails].filter(Boolean).join(' · ');
-      const reason = w.status === 'REJECTED' && w.rejectReason
-        ? `<div class="hist-reason">Reason: ${String(w.rejectReason).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>`
-        : '';
-      return `
-        <div class="hist-row">
-          <div>
-            <div class="hist-title">${formatMoney(w.amount)}</div>
-            <div class="hist-meta">${detail}</div>
-            ${reason}
-          </div>
-          <div class="hist-side">
-            <span class="wdr-status ${status.cls}">${status.text}</span>
-            <div class="hist-time">${formatWhen(w.createdAt)}</div>
-          </div>
-        </div>`;
+  function populatePairsDropdown(filterText = '') {
+    const sel = document.getElementById('pairSelector');
+    const currentVal = sel.value || 'BTC_PKR';
+    const q = filterText.trim().toUpperCase();
+    const list = ALL_TRADING_PAIRS.filter(p => !q || p.includes(q) || p.replace('_', '/').includes(q));
+    sel.innerHTML = (list.length ? list : ALL_TRADING_PAIRS).map(pair => {
+      const label = pair === 'BTC_PKR' ? 'BTC / PKR (Default)' : pair.replace('_', ' / ');
+      return `<option value="${pair}" ${pair === currentVal ? 'selected' : ''}>${label}</option>`;
     }).join('');
   }
 
-  function renderWithdrawalHistory(list) {
-    const html = withdrawalRows(list);
-    const onWithdraw = document.getElementById('withdrawStatusList');
-    const onHistory = document.getElementById('withdrawHistoryList');
-    if (onWithdraw) onWithdraw.innerHTML = html;
-    if (onHistory) onHistory.innerHTML = html;
+  function filterPairsDropdown(q) {
+    populatePairsDropdown(q);
+    onPairChange();
   }
+  populatePairsDropdown();
 
-  function renderDashboard() {
-    const { user, settings, prices, trades, transactions, tickets, customErrors, withdrawals = [] } = appState;
+  let dashState = null;
+  let selectedDuration = 60;
+  let selectedPayout = 25;
+  let selectedTimeframe = '1m';
+  let trackedRunningId = null;
 
-    const freezeMsg = user.balanceFreeze?.enabled
-      ? (user.balanceFreeze.message || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.')
-      : '';
-    const withdrawBlock = freezeMsg
-      || (user.withdrawBan?.enabled ? (user.withdrawBan.message || 'Withdrawals are banned on your account. Contact support.') : '');
-    const tradeBlock = user.tradeBan?.enabled ? (user.tradeBan.message || 'Trading is banned on your account. Contact support.') : '';
-    const withdrawNote = document.getElementById('withdrawBlockNote');
-    const tradeNote = document.getElementById('tradeBlockNote');
-    if (withdrawNote) {
-      withdrawNote.textContent = withdrawBlock;
-      withdrawNote.classList.toggle('hidden', !withdrawBlock);
-    }
-    if (tradeNote) {
-      tradeNote.textContent = tradeBlock;
-      tradeNote.classList.toggle('hidden', !tradeBlock);
-    }
-
-    const dashFreeze = document.getElementById('dashFreezeBanner');
-    if (dashFreeze) {
-      dashFreeze.textContent = freezeMsg || '';
-      dashFreeze.classList.toggle('hidden', !freezeMsg);
-    }
-
-    window.__accountBlocks = { withdrawBlock, tradeBlock };
-
-    document.getElementById('topUsername').textContent = user.firstName || user.username;
-    document.getElementById('statBalance').textContent = formatMoney(user.balance);
-    document.getElementById('statInOrder').textContent = formatMoney(user.inOrderBalance);
-    document.getElementById('statWithdraw').textContent = formatMoney(user.totalWithdrawn);
-    document.getElementById('statScore').textContent = user.creditScore;
-    document.getElementById('tradeAvailBal').textContent = formatMoney(user.balance);
-
-    document.getElementById('profStatus').textContent = user.status || 'ACTIVE';
-    document.getElementById('profJoined').textContent = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Today';
-    document.getElementById('profScore').textContent = `${user.creditScore} / 100`;
-
-    document.getElementById('profUserField').value = user.username;
-    document.getElementById('profEmailField').value = user.email;
-    document.getElementById('profCountryField').value = user.country;
-    if (document.activeElement.id !== 'profFirstName') document.getElementById('profFirstName').value = user.firstName || '';
-    if (document.activeElement.id !== 'profLastName') document.getElementById('profLastName').value = user.lastName || '';
-    if (document.activeElement.id !== 'profMobileField') document.getElementById('profMobileField').value = user.mobile || '';
-
-    const tickerPairs = ['BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'XRP_USDT', 'DOGE_USDT', 'TON_USDT'];
-    document.getElementById('tickerBar').innerHTML = tickerPairs
-      .filter(p => prices[p] !== undefined)
-      .map(pair => `<div class="ticker-item">${pair}<span>${formatMoney(prices[pair])}</span></div>`)
-      .join('');
-
-    const pairSel = document.getElementById('tradePair');
-    const serverPairs = Object.keys(prices || {});
-    if (serverPairs.length > 0) {
-      const existing = new Set(Array.from(pairSel.options).map(o => o.value));
-      serverPairs.forEach(p => {
-        if (!existing.has(p)) {
-          const opt = document.createElement('option');
-          opt.value = p;
-          opt.textContent = p;
-          pairSel.appendChild(opt);
-        }
-      });
-    }
-
-const activePair = pairSel.value || 'BTC_USDT';
-const liveVal = Number(prices[activePair]);
-if (!Number.isFinite(liveVal) || liveVal <= 0) return;
-    document.getElementById('chartPairTitle').textContent = activePair;
-    document.getElementById('chartLivePrice').textContent = formatMoney(liveVal);
-
-    seedHistoryIfEmpty(liveVal);
-    priceHistory.push({ price: liveVal, vol: Math.floor(Math.random() * 75 + 20), ts: Date.now() });
-    if (priceHistory.length > 55) priceHistory.shift();
-
-    const openVal = priceHistory[0].price;
-    const highVal = Math.max(...priceHistory.map(p => p.price)) * 1.004;
-    const lowVal = Math.min(...priceHistory.map(p => p.price)) * 0.996;
-    const pct = (((liveVal - openVal) / openVal) * 100 + 3.45).toFixed(2);
-    const isUp = Number(pct) >= 0;
-    const pctText = `${isUp ? '▲ +' : '▼ '}${pct}%`;
-
-    if (settings && settings.payoutPercentages) {
-      ['60', '80', '120'].forEach(sec => {
-        const el = document.getElementById(`pct-${sec}`);
-        if (el && settings.payoutPercentages[sec] !== undefined) {
-          el.textContent = `+${settings.payoutPercentages[sec]}%`;
-        }
-      });
-    }
-
-    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    setTxt('tradeLiveHero', formatMoney(liveVal));
-    setTxt('trOpen', formatMoney(openVal));
-    setTxt('trHigh', formatMoney(highVal));
-    setTxt('trLow', formatMoney(lowVal));
-    const trStat = document.getElementById('trChangeStat');
-    if (trStat) {
-      trStat.textContent = `${isUp ? '+' : ''}${pct}%`;
-      trStat.className = `tele-val ${isUp ? 'tele-green' : 'tele-red'}`;
-    }
-    ['ovChangePct', 'trChangePct'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.innerHTML = `${pctText} <small style="color:var(--text-dim);font-weight:500;">24h</small>`;
-        el.className = isUp ? 'pro-change-up' : 'pro-change-down';
-      }
-    });
-
-    if (customErrors && customErrors.length > 0) {
-      const latestErr = customErrors[0];
-      activeErrorId = latestErr.id;
-      document.getElementById('errBannerTitle').textContent = latestErr.title;
-      document.getElementById('errBannerMsg').textContent = latestErr.message;
-      document.getElementById('customErrorBanner').classList.remove('hidden');
-    }
-
-    const running = trades.find(t => t.status === 'RUNNING');
-    if (running) {
-      openTradeCountdownModal(running);
-    } else if (lockedTradeId) {
-      const finishedTrade = trades.find(t => t.id === lockedTradeId && t.status !== 'RUNNING');
-      if (finishedTrade) {
-        seenSettledTrades.add(finishedTrade.id);
-        showTradeOutcomeModal(finishedTrade);
-      }
-    }
-
-    trades.forEach(t => {
-      if ((t.status === 'WON' || t.status === 'LOST') && !seenSettledTrades.has(t.id)) {
-        seenSettledTrades.add(t.id);
-        if (t.settledAt && Date.now() - new Date(t.settledAt).getTime() < 12000) {
-          showTradeOutcomeModal(t);
-        }
-      }
-    });
-
-    drawChart('tradeChartCanvas', running && running.pair === activePair ? Number(running.entryPrice) : null);
-
-    const renderTradeRow = (t) => {
-      const stCls = t.status === 'WON' ? 'st-won' : t.status === 'LOST' ? 'st-lost' : 'st-run';
-      const dirBadge = t.direction === 'DOWN'
-        ? '<span style="color:#ef4444;font-size:0.74rem;font-weight:700;">▼ DOWN</span>'
-        : '<span style="color:#10b981;font-size:0.74rem;font-weight:700;">▲ UP</span>';
-      const profitTxt = t.status === 'WON'
-        ? `<span style="color:#10b981;font-weight:700;">+${formatMoney(t.profit)}</span>`
-        : t.status === 'LOST'
-          ? `<span style="color:#ef4444;font-weight:700;">-${formatMoney(t.stake)}</span>`
-          : `<span style="color:#f59e0b;font-weight:700;">In Progress</span>`;
-      return `
-        <div class="tx-row">
-          <div>
-            <strong>${t.pair}</strong> ${dirBadge} <span class="status-pill ${stCls}">${t.status}</span><br>
-            <small style="color:var(--text-muted);">${t.durationSeconds}s • Stake: ${formatMoney(t.stake)} • ${new Date(t.createdAt).toLocaleString()}</small>
-          </div>
-          <div style="text-align:right;">
-            ${profitTxt}<br>
-            <small style="color:var(--text-dim);">Entry: ${formatMoney(t.entryPrice)}</small>
-          </div>
-        </div>`;
+  function traderHeaders(json = true) {
+    const h = {
+      'x-user-id': traderUser.id,
+      'x-session-token': localStorage.getItem('traderToken') || ''
     };
-
-    document.getElementById('overviewTradesList').innerHTML = trades.length
-      ? trades.slice(0, 6).map(renderTradeRow).join('')
-      : 'No trades placed yet.';
-
-    renderWithdrawalHistory(withdrawals);
-
-    document.getElementById('txHistoryList').innerHTML = transactions.length
-      ? transactions.map(tx => `
-          <div class="tx-row">
-            <div>
-              <strong>${tx.note}</strong><br>
-              <small>Trx: ${tx.trx} • ${new Date(tx.timestamp).toLocaleString()}</small>
-            </div>
-            <div style="text-align:right;">
-              <strong>${tx.amount >= 0 ? '+' : ''}${formatMoney(tx.amount)}</strong><br>
-              <small>Post: ${formatMoney(tx.postBalance)}</small>
-            </div>
-          </div>`).join('')
-      : 'No transactions yet.';
-
-    document.getElementById('ticketsList').innerHTML = tickets.length
-      ? tickets.map(tk => `
-          <div class="tx-row">
-            <div>
-              <strong>${tk.subject}</strong> (${tk.status})
-              <p>${tk.message}</p>
-              ${tk.reply ? `<p style="color:#34d399;"><strong>Admin Reply:</strong> ${tk.reply}</p>` : ''}
-            </div>
-          </div>`).join('')
-      : 'No messages sent yet.';
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
   }
 
-  function drawChart(canvasId, entryPrice = null) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas || priceHistory.length < 2) return;
-    const dpr = window.devicePixelRatio || 1;
-    const cssW = canvas.offsetWidth || canvas.parentElement?.clientWidth || 640;
-    const cssH = canvas.offsetHeight || 290;
-    canvas.width = cssW * dpr;
-    canvas.height = cssH * dpr;
-
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    const w = cssW;
-    const h = cssH;
-    ctx.clearRect(0, 0, w, h);
-
-    const rightPad = 92;
-    const bottomPad = 68;
-    const topPad = 16;
-    const chartW = w - rightPad - 10;
-    const chartH = h - bottomPad - topPad;
-
-    const vals = priceHistory.map(d => d.price);
-    if (entryPrice) vals.push(entryPrice);
-    const min = Math.min(...vals) * 0.9985;
-    const max = Math.max(...vals) * 1.0015;
-    const range = max - min || 1;
-
-    ctx.font = '10px monospace';
-    ctx.textAlign = 'left';
-    for (let i = 0; i <= 5; i++) {
-      const y = topPad + (chartH / 5) * i;
-      const priceTick = max - (range / 5) * i;
-
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(8, y);
-      ctx.lineTo(w - rightPad, y);
-      ctx.stroke();
-
-      ctx.fillStyle = '#64748b';
-      ctx.fillText(formatMoney(priceTick), w - rightPad + 6, y + 3);
-    }
-
-    const coords = priceHistory.map((d, idx) => ({
-      x: 8 + (idx / (priceHistory.length - 1)) * (chartW - 8),
-      y: topPad + chartH - ((d.price - min) / range) * chartH,
-      vol: d.vol,
-      ts: d.ts
-    }));
-
-    const grad = ctx.createLinearGradient(0, topPad, 0, topPad + chartH);
-    grad.addColorStop(0, 'rgba(16, 185, 129, 0.34)');
-    grad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(coords[0].x, topPad + chartH);
-    coords.forEach(c => ctx.lineTo(c.x, c.y));
-    ctx.lineTo(coords[coords.length - 1].x, topPad + chartH);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    coords.forEach((c, idx) => idx === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-    ctx.stroke();
-
-    if (entryPrice) {
-      const ey = topPad + chartH - ((entryPrice - min) / range) * chartH;
-      ctx.save();
-      ctx.setLineDash([5, 4]);
-      ctx.strokeStyle = '#f97316';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(8, ey);
-      ctx.lineTo(w - rightPad, ey);
-      ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle = '#f97316';
-      ctx.fillText('ENTRY', w - rightPad + 6, ey - 3);
-    }
-
-    ctx.fillStyle = '#64748b';
-    ctx.textAlign = 'center';
-    const step = Math.max(1, Math.floor(coords.length / 4));
-    for (let i = 0; i < coords.length; i += step) {
-      const t = new Date(coords[i].ts);
-      ctx.fillText(t.toTimeString().slice(0, 8), coords[i].x, topPad + chartH + 14);
-    }
-
-    const volTop = topPad + chartH + 24;
-    const volH = 34;
-    const barW = Math.max(2, (chartW / coords.length) * 0.55);
-    coords.forEach((c, idx) => {
-      const barHeight = (c.vol / 100) * volH;
-      const isGreen = idx === 0 || priceHistory[idx].price >= priceHistory[idx - 1].price;
-      ctx.fillStyle = isGreen ? 'rgba(16, 185, 129, 0.55)' : 'rgba(16, 185, 129, 0.25)';
-      ctx.fillRect(c.x - barW / 2, volTop + (volH - barHeight), barW, barHeight);
-    });
-
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#475569';
-    ctx.fillText('80K', w - rightPad + 6, volTop + 8);
-    ctx.fillText('0K', w - rightPad + 6, volTop + volH);
-
-    if (hoverX !== null && coords.length > 1) {
-      const plotStart = 8;
-      const plotWidth = chartW - 8;
-      const ratio = Math.max(0, Math.min(1, (hoverX - plotStart) / plotWidth));
-      const idx = Math.min(coords.length - 1, Math.max(0, Math.round(ratio * (coords.length - 1))));
-      const pt = coords[idx];
-      const raw = priceHistory[idx];
-
-      ctx.save();
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(pt.x, topPad);
-      ctx.lineTo(pt.x, topPad + chartH);
-      ctx.moveTo(8, pt.y);
-      ctx.lineTo(w - rightPad, pt.y);
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      const tipText = `${formatMoney(raw.price)} • ${new Date(raw.ts).toTimeString().slice(0, 8)}`;
-      ctx.font = 'bold 11px sans-serif';
-      const boxW = ctx.measureText(tipText).width + 16;
-      const boxX = Math.min(w - rightPad - boxW, Math.max(10, pt.x - boxW / 2));
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-      ctx.fillRect(boxX, topPad + 4, boxW, 22);
-      ctx.strokeStyle = '#10b981';
-      ctx.strokeRect(boxX, topPad + 4, boxW, 22);
-      ctx.fillStyle = '#f8fafc';
-      ctx.textAlign = 'left';
-      ctx.fillText(tipText, boxX + 8, topPad + 19);
-    }
-
-    const last = coords[coords.length - 1];
-    ctx.fillStyle = 'rgba(16, 185, 129, 0.32)';
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, 9, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#10b981';
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, 4.5, 0, Math.PI * 2);
-    ctx.fill();
+  function showToast(msg, isErr = false) {
+    const el = document.getElementById('traderToast');
+    el.textContent = msg;
+    el.style.background = isErr ? '#ef4444' : '#10b981';
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 3200);
   }
 
-  function selectDuration(el) {
-    document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
-    el.classList.add('active');
-    selectedDuration = Number(el.dataset.sec);
+  function switchTab(tab, btn) {
+    document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+    document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    if (btn) {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    document.getElementById('traderSidebar').classList.remove('open');
   }
 
-  let isSubmittingTrade = false;
-  async function executeTrade(direction) {
-    if (isSubmittingTrade) return;
-    if (window.__accountBlocks?.tradeBlock) return notify(window.__accountBlocks.tradeBlock, true);
-    const stake = Number(document.getElementById('tradeAmount').value);
-    const pair = document.getElementById('tradePair').value;
-    if (!Number.isFinite(stake) || stake < 1) return notify('Enter a valid trade amount (minimum $1).', true);
-    if (appState && stake > appState.user.balance) return notify('Amount exceeds your available balance.', true);
-
-    isSubmittingTrade = true;
-    const upBtn = document.getElementById('btnBuyUp');
-    const downBtn = document.getElementById('btnBuyDown');
-    if (upBtn) upBtn.disabled = true;
-    if (downBtn) downBtn.disabled = true;
-
-    try {
-      const res = await fetch('/api/trades/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
-        body: JSON.stringify({ pair, direction, stake, durationSeconds: selectedDuration })
-      });
-      const data = await res.json();
-      if (!res.ok) return notify(data.error, true);
-
-      document.getElementById('tradeAmount').value = '';
-      if (data.trade) openTradeCountdownModal(data.trade);
-      fetchDashboard();
-    } finally {
-      isSubmittingTrade = false;
-      if (upBtn) upBtn.disabled = false;
-      if (downBtn) downBtn.disabled = false;
+  // ==========================================================================
+  // BINANCE-STYLE RIGHT-ANCHORED CANDLESTICK CHART (500 CANDLES + LIVE KLINES)
+  // ==========================================================================
+  const chartContainer = document.getElementById('tvChart');
+  const chart = LightweightCharts.createChart(chartContainer, {
+    width: chartContainer.clientWidth || 720,
+    height: 430,
+    layout: { background: { color: '#0e131f' }, textColor: '#94a3b8' },
+    grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    timeScale: {
+      timeVisible: true,
+      secondsVisible: false,
+      borderColor: 'rgba(255,255,255,0.08)',
+      rightOffset: 6,
+      barSpacing: 8,
+      minBarSpacing: 3,
+      fixLeftEdge: true,
+      fixRightEdge: true,
+      lockVisibleTimeRangeOnResize: true
+    },
+    rightPriceScale: {
+      borderColor: 'rgba(255,255,255,0.08)',
+      autoScale: true,
+      scaleMargins: { top: 0.12, bottom: 0.12 }
     }
-  }
-
-  function toggleWithdrawFields() {
-    const method = document.getElementById('wdrMethod').value;
-    const isBank = method === 'Bank';
-    document.getElementById('wdrWalletFields').classList.toggle('hidden', isBank);
-    document.getElementById('wdrBankFields').classList.toggle('hidden', !isBank);
-    if (!isBank) {
-      document.getElementById('wdrNumberLabel').textContent = `${method} Account Number`;
-    }
-  }
-
-  document.getElementById('withdrawForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (window.__accountBlocks?.withdrawBlock) return notify(window.__accountBlocks.withdrawBlock, true);
-    const amount = Number(document.getElementById('wdrAmount').value);
-    if (!Number.isFinite(amount) || amount < 100) return notify('Minimum withdrawal amount is $100.', true);
-
-    const method = document.getElementById('wdrMethod').value;
-    let accountDetails = '';
-    if (method === 'Bank') {
-      const bankName = document.getElementById('wdrBankName').value.trim();
-      const holder = document.getElementById('wdrBankHolder').value.trim();
-      const iban = document.getElementById('wdrIban').value.trim();
-      if (bankName.length < 2 || holder.length < 2 || iban.length < 10) {
-        return notify('Enter valid bank name, holder name, and IBAN.', true);
-      }
-      accountDetails = `Bank: ${bankName} | Holder: ${holder} | IBAN: ${iban}`;
-    } else {
-      const holder = document.getElementById('wdrHolder').value.trim();
-      const number = document.getElementById('wdrNumber').value.trim().replace(/[^\d]/g, '');
-      if (holder.length < 2 || number.length < 10 || number.length > 13) {
-        return notify('Enter valid holder name and 11-digit account number (03xxxxxxxxx).', true);
-      }
-      accountDetails = `Holder: ${holder} | Number: ${number}`;
-    }
-
-    const res = await fetch('/api/wallet/withdraw', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
-      body: JSON.stringify({ amount, method, accountDetails })
-    });
-    const data = await res.json();
-    if (!res.ok) return notify(data.error, true);
-    notify('Your withdrawal request is under review.');
-    e.target.reset();
-    toggleWithdrawFields();
-    fetchDashboard();
   });
 
-  document.getElementById('changePassForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const newPass = document.getElementById('newPass').value;
-    if (newPass.length < 6) return notify('New password must be at least 6 characters.', true);
-    const res = await fetch('/api/auth/change-password', {
+  const candleSeries = chart.addCandlestickSeries({
+    upColor: '#10b981',
+    downColor: '#ef4444',
+    borderVisible: false,
+    wickUpColor: '#10b981',
+    wickDownColor: '#ef4444'
+  });
+
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      if (chartContainer.clientWidth > 0) {
+        chart.applyOptions({ width: chartContainer.clientWidth });
+      }
+    }).observe(chartContainer);
+  }
+
+  const TF_SECONDS = {
+    '1m': 60,
+    '5m': 300,
+    '15m': 900,
+    '1h': 3600,
+    '1D': 86400,
+    '1W': 604800,
+    '1M': 2592000
+  };
+
+  const BINANCE_INTERVALS = {
+    '1m': '1m',
+    '5m': '5m',
+    '15m': '15m',
+    '1h': '1h',
+    '1D': '1d',
+    '1W': '1w',
+    '1M': '1M'
+  };
+
+  let lastCandle = null;
+  let candleLoadSeq = 0;
+
+  function snapChartToLive() {
+    chart.timeScale().scrollToRealTime();
+  }
+
+  function applyCandlesToChart(candles) {
+    if (!candles || !candles.length) return;
+    candleSeries.setData(candles);
+    lastCandle = candles[candles.length - 1];
+    // Show the latest ~85 candles anchored cleanly on the right edge, with 500 bars available to scroll left
+    const total = candles.length;
+    chart.timeScale().setVisibleLogicalRange({
+      from: Math.max(0, total - 85),
+      to: total + 5
+    });
+  }
+
+  function generateSyntheticCandles(basePrice, tf, count = 500) {
+    const step = TF_SECONDS[tf] || 60;
+    const now = Math.floor(Date.now() / 1000);
+    const alignedNow = now - (now % step);
+    const decimals = basePrice < 1 ? 6 : 2;
+    const vol = tf === '1M' ? 0.035 : tf === '1W' ? 0.022 : tf === '1D' ? 0.014 : 0.0028;
+
+    // Walk backward from current live price so the chart ends seamlessly at basePrice
+    const raw = new Array(count);
+    let close = Number(basePrice);
+    for (let i = count - 1; i >= 0; i--) {
+      const t = alignedNow - (count - 1 - i) * step;
+      const change = (Math.random() - 0.495) * vol;
+      const open = Number((close / (1 + change)).toFixed(decimals));
+      const spread = Math.abs(close - open) + close * (Math.random() * vol * 0.55);
+      const high = Number((Math.max(open, close) + spread * Math.random()).toFixed(decimals));
+      const low = Number(Math.max(0.000001, Math.min(open, close) - spread * Math.random()).toFixed(decimals));
+      raw[i] = { time: t, open, high, low, close };
+      close = open;
+    }
+    return raw;
+  }
+
+  async function buildHistoricalCandles(basePrice, tf) {
+    const seq = ++candleLoadSeq;
+    const pair = document.getElementById('pairSelector').value;
+
+    // Render 500 candles immediately so there is zero delay
+    const synthetic = generateSyntheticCandles(basePrice, tf, 500);
+    applyCandlesToChart(synthetic);
+
+    // For USDT pairs, enrich with 500 real Binance candles when reachable
+    if (pair.endsWith('_USDT')) {
+      try {
+        const symbol = pair.replace('_', '');
+        const interval = BINANCE_INTERVALS[tf] || '1m';
+        const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=500`);
+        if (res.ok && seq === candleLoadSeq) {
+          const klines = await res.json();
+          if (Array.isArray(klines) && klines.length > 20) {
+            const realCandles = klines.map(k => ({
+              time: Math.floor(Number(k[0]) / 1000),
+              open: Number(k[1]),
+              high: Number(k[2]),
+              low: Number(k[3]),
+              close: Number(k[4])
+            }));
+            applyCandlesToChart(realCandles);
+          }
+        }
+      } catch (_) {
+        // Keep the 500-candle dataset seamlessly
+      }
+    }
+  }
+
+  function setChartTimeframe(tf, btn) {
+    selectedTimeframe = tf;
+    document.querySelectorAll('#tfGroup .tf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const pair = document.getElementById('pairSelector').value;
+    const base = dashState?.prices?.[pair] || 24911895;
+    buildHistoricalCandles(base, tf);
+  }
+
+  function onPairChange() {
+    const pair = document.getElementById('pairSelector').value;
+    const price = dashState?.prices?.[pair] || 24911895;
+    document.getElementById('livePriceDisplay').textContent = Number(price).toLocaleString();
+    buildHistoricalCandles(price, selectedTimeframe);
+  }
+
+  function selectDuration(btn) {
+    document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedDuration = Number(btn.dataset.dur);
+    selectedPayout = Number(btn.dataset.payout);
+    updateEstReturn();
+  }
+
+  function setStake(val) {
+    document.getElementById('tradeStakeInput').value = val;
+    updateEstReturn();
+  }
+
+  async function onCurrencySelectChange(curr) {
+    document.getElementById('tradeCurrencySelect').value = curr;
+    document.getElementById('wdrCurrencySelect').value = curr;
+    document.getElementById('stakeCurrencyLbl').textContent = curr;
+    document.getElementById('wdrCurrLbl').textContent = curr;
+    document.getElementById('orderCurrSummary').textContent = curr;
+    updateEstReturn();
+
+    await fetch('/api/trader/currency', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
+      headers: traderHeaders(),
+      body: JSON.stringify({ currency: curr })
+    }).catch(() => {});
+  }
+
+  function updateEstReturn() {
+    const stake = Number(document.getElementById('tradeStakeInput').value || 0);
+    const curr = document.getElementById('tradeCurrencySelect').value || 'PKR';
+    const ret = stake + (stake * (selectedPayout / 100));
+    document.getElementById('estPayoutDisplay').textContent = `${ret.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${curr}`;
+  }
+
+  async function placeTrade(direction) {
+    const pair = document.getElementById('pairSelector').value;
+    const currency = document.getElementById('tradeCurrencySelect').value || 'PKR';
+    const stake = Number(document.getElementById('tradeStakeInput').value);
+
+    if (!stake || stake < 10) return showToast('Minimum trade amount is 10.', true);
+
+    const res = await fetch('/api/trades/execute', {
+      method: 'POST',
+      headers: traderHeaders(),
       body: JSON.stringify({
-        oldPassword: document.getElementById('oldPass').value,
-        newPassword: newPass
+        pair,
+        currency,
+        direction,
+        stake,
+        durationSeconds: selectedDuration
       })
     });
     const data = await res.json();
-    notify(data.error || data.message, !res.ok);
-    if (res.ok) e.target.reset();
-  });
+    if (!res.ok) return showToast(data.error || 'Could not execute trade', true);
 
-  document.getElementById('updateProfileForm').addEventListener('submit', async (e) => {
+    trackedRunningId = data.trade.id;
+    showToast(`${direction === 'UP' ? 'BUY' : 'SELL'} order placed (${stake} ${currency})!`);
+    await loadDashboard();
+  }
+
+  async function verifyAndShowSettledModal(tradeId) {
+    if (!tradeId) return;
+    await loadDashboard();
+    const settled = (dashState?.trades || []).find(t => t.id === tradeId);
+    if (!settled || settled.status === 'RUNNING') return;
+
+    trackedRunningId = null;
+    const won = settled.status === 'WON';
+    const curr = settled.currency || 'PKR';
+    const pnl = Number(settled.profit || 0);
+    document.getElementById('resModalIcon').textContent = won ? '🎉' : '📉';
+    document.getElementById('resModalTitle').textContent = won ? 'TRADE WON!' : 'TRADE LOST';
+    document.getElementById('resModalTitle').style.color = won ? '#10b981' : '#ef4444';
+    document.getElementById('resModalBody').innerHTML = `
+      Pair: <strong>${settled.pair}</strong> (${settled.direction === 'UP' ? 'BUY' : 'SELL'})<br/>
+      Entry: <strong>${Number(settled.entryPrice).toLocaleString()}</strong> → Exit: <strong>${Number(settled.exitPrice || settled.entryPrice).toLocaleString()}</strong><br/>
+      Result: <strong style="color:${won ? '#10b981' : '#ef4444'};">${won ? '+' : ''}${pnl.toLocaleString()} ${curr}</strong>
+    `;
+    document.getElementById('resultModal').classList.add('open');
+  }
+
+  async function loadDashboard() {
+    try {
+      const res = await fetch('/api/trader/dashboard', { headers: traderHeaders(false) });
+      if (res.status === 401 || res.status === 403) return logoutTrader();
+      dashState = await res.json();
+      renderDashboard();
+    } catch (_) {}
+  }
+
+  function renderDashboard() {
+    if (!dashState) return;
+    const { user, prices, trades, settings, customErrors, withdrawals, tickets } = dashState;
+    const curr = user.currency || 'PKR';
+
+    const availBal = Number(user.availableBalance ?? user.balance ?? 0);
+    const frozenBal = Number(user.frozenBalance || 0);
+    const totalBal = Number(user.totalBalance ?? (availBal + frozenBal));
+    const inOrderBal = Number(user.inOrderBalance || 0);
+
+    document.getElementById('sideUserHandle').textContent = `@${user.username}`;
+    document.getElementById('topGreeting').textContent = `Welcome, ${user.firstName || user.username}`;
+    document.getElementById('topCreditScore').textContent = user.creditScore ?? 100;
+
+    document.getElementById('topAvailBal').textContent = `${availBal.toLocaleString()} ${curr}`;
+    document.getElementById('topFrozenBal').textContent = `${frozenBal.toLocaleString()} ${curr}`;
+    document.getElementById('topInOrderBal').textContent = `${inOrderBal.toLocaleString()} ${curr}`;
+
+    document.getElementById('wAvailBal').textContent = `${availBal.toLocaleString()} ${curr}`;
+    document.getElementById('wFrozenBal').textContent = `${frozenBal.toLocaleString()} ${curr}`;
+    document.getElementById('wTotalBal').textContent = `${totalBal.toLocaleString()} ${curr}`;
+    document.getElementById('wTotalWithdrawn').textContent = `${Number(user.totalWithdrawn || 0).toLocaleString()} ${curr}`;
+
+    document.getElementById('wdrAvailNotice').textContent = `${availBal.toLocaleString()} ${curr}`;
+    document.getElementById('wdrFrozenNotice').textContent = `${frozenBal.toLocaleString()} ${curr}`;
+
+    if (document.activeElement.id !== 'tradeCurrencySelect') {
+      document.getElementById('tradeCurrencySelect').value = curr;
+      document.getElementById('stakeCurrencyLbl').textContent = curr;
+      document.getElementById('orderCurrSummary').textContent = curr;
+    }
+    if (document.activeElement.id !== 'wdrCurrencySelect') {
+      document.getElementById('wdrCurrencySelect').value = curr;
+      document.getElementById('wdrCurrLbl').textContent = curr;
+    }
+
+    // Only show Frozen Balance banner when frozenBal > 0
+    const freezeBox = document.getElementById('frozenNoticeContainer');
+    if (frozenBal > 0) {
+      freezeBox.innerHTML = `<div class="freeze-banner">
+        ❄️ <strong>Frozen Balance Notice:</strong> ${frozenBal.toLocaleString()} ${curr} of your ${totalBal.toLocaleString()} ${curr} total balance is currently frozen (Available: ${availBal.toLocaleString()} ${curr}). ${user.balanceFreeze?.message || ''}
+      </div>`;
+    } else {
+      freezeBox.innerHTML = '';
+    }
+
+    // Custom admin alerts
+    document.getElementById('customAlertsContainer').innerHTML = (customErrors || []).map(err => `
+      <div class="alert-banner">
+        <div><strong>⚠️ ${err.title}:</strong> ${err.message}</div>
+        <button class="tf-btn" onclick="dismissAlert('${err.id}')">Dismiss</button>
+      </div>
+    `).join('');
+
+    // Live price update & candle tick (advances bar time cleanly on new timeframe bucket)
+    const pair = document.getElementById('pairSelector').value;
+    const livePrice = prices?.[pair];
+    if (livePrice) {
+      document.getElementById('livePriceDisplay').textContent = Number(livePrice).toLocaleString();
+      if (!lastCandle) {
+        buildHistoricalCandles(livePrice, selectedTimeframe);
+      } else {
+        const step = TF_SECONDS[selectedTimeframe] || 60;
+        const nowBucket = Math.floor(Date.now() / 1000) - (Math.floor(Date.now() / 1000) % step);
+        if (nowBucket > lastCandle.time) {
+          lastCandle = {
+            time: nowBucket,
+            open: lastCandle.close,
+            high: Math.max(lastCandle.close, livePrice),
+            low: Math.min(lastCandle.close, livePrice),
+            close: livePrice
+          };
+        } else {
+          lastCandle.close = livePrice;
+          lastCandle.high = Math.max(lastCandle.high, livePrice);
+          lastCandle.low = Math.min(lastCandle.low, livePrice);
+        }
+        candleSeries.update(lastCandle);
+      }
+    }
+
+    // Deposit wallets dropdown
+    const depSel = document.getElementById('depCrypto');
+    if (depSel.options.length === 0 && settings?.cryptoWallets) {
+      depSel.innerHTML = Object.keys(settings.cryptoWallets).map(k => `<option value="${k}">${k}</option>`).join('');
+      updateDepositWallet();
+    }
+
+    // Check if tracked trade settled
+    if (trackedRunningId) {
+      const tr = (trades || []).find(t => t.id === trackedRunningId);
+      if (tr && tr.status !== 'RUNNING') {
+        verifyAndShowSettledModal(trackedRunningId);
+      }
+    }
+
+    // Render Trade Tables with Currency Badges
+    const renderTradesHtml = (list) => list.length ? `
+      <table>
+        <thead><tr><th>PAIR &amp; SIDE</th><th>CURRENCY &amp; AMOUNT</th><th>ENTRY / EXIT</th><th>STATUS</th><th>PNL</th></tr></thead>
+        <tbody>
+          ${list.map(t => {
+            const rem = Math.max(0, Math.ceil((Number(t.expiresAt) - Date.now()) / 1000));
+            const isRun = t.status === 'RUNNING';
+            const side = t.direction === 'DOWN' ? 'SELL' : 'BUY';
+            const tCurr = t.currency || 'PKR';
+            return `<tr>
+              <td><strong>${t.pair}</strong> · <span style="color:${side==='BUY'?'#10b981':'#ef4444'};font-weight:700;">${side}</span></td>
+              <td><span class="badge b-curr">${tCurr}</span><strong>${Number(t.stake).toLocaleString()}</strong></td>
+              <td>${Number(t.entryPrice).toLocaleString()} → ${t.exitPrice ? Number(t.exitPrice).toLocaleString() : '...'}</td>
+              <td>${isRun ? `<span class="badge b-run">${rem}s</span>` : `<span class="badge ${t.status==='WON'?'b-win':'b-loss'}">${t.status}</span>`}</td>
+              <td style="font-weight:700;color:${Number(t.profit)>=0?'#10b981':'#ef4444'};">${isRun ? 'Running' : `${Number(t.profit)>=0?'+':''}${Number(t.profit).toLocaleString()} ${tCurr}`}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>` : '<p style="color:#94a3b8;">No trades yet.</p>';
+
+    document.getElementById('recentTradesWrap').innerHTML = renderTradesHtml((trades || []).slice(0, 8));
+    document.getElementById('fullTradeHistoryWrap').innerHTML = renderTradesHtml(trades || []);
+
+    // Render Withdrawal History with Currency
+    document.getElementById('wdrHistoryWrap').innerHTML = (withdrawals || []).length ? `
+      <table>
+        <thead><tr><th>CURRENCY &amp; AMOUNT</th><th>METHOD</th><th>STATUS</th><th>DATE</th></tr></thead>
+        <tbody>
+          ${withdrawals.map(w => `<tr>
+            <td><span class="badge b-curr">${w.currency || 'PKR'}</span><strong>${Number(w.amount).toLocaleString()}</strong></td>
+            <td>${w.method}<div style="font-size:0.74rem;color:#94a3b8;">${w.accountDetails}</div></td>
+            <td>
+              <span class="badge ${w.status==='APPROVED'?'b-win':w.status==='REJECTED'?'b-loss':'b-run'}">${w.status}</span>
+              ${w.status==='REJECTED' && w.rejectReason ? `<div style="color:#fca5a5;font-size:0.74rem;margin-top:4px;">Reason: ${w.rejectReason}</div>` : ''}
+            </td>
+            <td style="font-size:0.76rem;color:#94a3b8;">${new Date(w.createdAt).toLocaleDateString()}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<p style="color:#94a3b8;">No withdrawal requests yet.</p>';
+
+    // Support Tickets
+    document.getElementById('ticketsListWrap').innerHTML = (tickets || []).length ? tickets.map(tk => `
+      <div style="background:#182032;padding:12px;border-radius:10px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;">
+          <strong>${tk.subject}</strong>
+          <span class="badge ${tk.status==='ANSWERED'?'b-win':'b-run'}">${tk.status}</span>
+        </div>
+        <p style="font-size:0.84rem;color:#cbd5e1;margin:6px 0;">${tk.message}</p>
+        ${tk.reply ? `<div style="background:rgba(16,185,129,0.12);padding:8px 10px;border-radius:8px;font-size:0.82rem;color:#34d399;"><strong>Admin Reply:</strong> ${tk.reply}</div>` : ''}
+      </div>
+    `).join('') : '<p style="color:#94a3b8;">No messages yet.</p>';
+
+    updateEstReturn();
+  }
+
+  function updateDepositWallet() {
+    const net = document.getElementById('depCrypto').value;
+    document.getElementById('depWalletAddr').value = dashState?.settings?.cryptoWallets?.[net] || '';
+  }
+
+  async function submitDeposit(e) {
     e.preventDefault();
-    const firstName = document.getElementById('profFirstName').value.trim();
-    const lastName = document.getElementById('profLastName').value.trim();
-    if (firstName.length < 2 || lastName.length < 2) return notify('Enter valid first and last name.', true);
+    const fd = new FormData();
+    fd.append('cryptoCurrency', document.getElementById('depCrypto').value);
+    fd.append('amount', document.getElementById('depAmount').value);
+    fd.append('txHash', document.getElementById('depTxHash').value);
+    fd.append('proof', document.getElementById('depProofFile').files[0]);
 
-    const res = await fetch('/api/auth/complete-profile', {
+    const res = await fetch('/api/wallet/deposit', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
-      body: JSON.stringify({ firstName, lastName })
+      headers: traderHeaders(false),
+      body: fd
     });
     const data = await res.json();
-    if (!res.ok) return notify(data.error || 'Could not update profile.', true);
-    notify('Profile updated!');
-    fetchDashboard();
-  });
+    if (!res.ok) return showToast(data.error || 'Deposit failed', true);
+    document.getElementById('depositForm').reset();
+    updateDepositWallet();
+    showToast('Deposit proof submitted!');
+    loadDashboard();
+  }
 
-  document.getElementById('helpForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const subject = document.getElementById('helpSubject').value.trim();
-    const message = document.getElementById('helpMessage').value.trim();
-    if (subject.length < 3 || message.length < 5) return notify('Enter a valid subject and message.', true);
+  async function submitWithdrawal() {
+    const currency = document.getElementById('wdrCurrencySelect').value || 'PKR';
+    const method = document.getElementById('wdrMethod').value;
+    const amount = Number(document.getElementById('wdrAmount').value);
+    const accountDetails = document.getElementById('wdrDetails').value.trim();
 
+    if (!amount || amount < 100) return showToast('Minimum withdrawal is 100.', true);
+    if (accountDetails.length < 8) return showToast('Enter complete account details.', true);
+
+    const res = await fetch('/api/wallet/withdraw', {
+      method: 'POST',
+      headers: traderHeaders(),
+      body: JSON.stringify({ currency, method, amount, accountDetails })
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Withdrawal failed', true);
+
+    document.getElementById('wdrAmount').value = '';
+    document.getElementById('wdrDetails').value = '';
+    showToast(`Withdrawal request submitted in ${currency}!`);
+    loadDashboard();
+  }
+
+  async function sendSupportTicket() {
+    const subject = document.getElementById('tktSubject').value.trim();
+    const message = document.getElementById('tktMessage').value.trim();
     const res = await fetch('/api/help-center/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' },
+      headers: traderHeaders(),
       body: JSON.stringify({ subject, message })
     });
     const data = await res.json();
-    if (!res.ok) return notify(data.error, true);
-    notify('Message sent to Help Center!');
-    e.target.reset();
-    fetchDashboard();
-  });
-
-  async function dismissErrorBanner() {
-    document.getElementById('customErrorBanner').classList.add('hidden');
-    if (activeErrorId) {
-      await fetch(`/api/trader/errors/${activeErrorId}/dismiss`, {
-        method: 'POST',
-        headers: { 'x-user-id': currentUser.id, 'x-session-token': localStorage.getItem('traderToken') || '' }
-      });
-    }
+    if (!res.ok) return showToast(data.error || 'Error sending message', true);
+    document.getElementById('tktSubject').value = '';
+    document.getElementById('tktMessage').value = '';
+    showToast('Message sent to Help Center!');
+    loadDashboard();
   }
 
-  function installPWA() {
-    notify('Tap browser Menu (⋮) → "Add to Home Screen" to install Daraz Trade.');
+  async function updateTraderPassword() {
+    const oldPassword = document.getElementById('oldPassInput').value;
+    const newPassword = document.getElementById('newPassInput').value;
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: traderHeaders(),
+      body: JSON.stringify({ oldPassword, newPassword })
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Password update failed', true);
+    document.getElementById('oldPassInput').value = '';
+    document.getElementById('newPassInput').value = '';
+    showToast('Password updated!');
   }
 
-  function logout() {
+  async function dismissAlert(id) {
+    await fetch(`/api/trader/errors/${id}/dismiss`, { method: 'POST', headers: traderHeaders() });
+    loadDashboard();
+  }
+
+  function logoutTrader() {
     localStorage.removeItem('traderUser');
     localStorage.removeItem('traderToken');
-    window.location.href = '/index.html';
+    window.location.href = './login.html';
   }
 
-  async function showRandomActivity() {
+  loadDashboard();
+  const stream = new EventSource('/api/stream');
+  stream.onmessage = (ev) => {
     try {
-      const res = await fetch('/api/public/live-activity');
-      const item = await res.json();
-      const toast = document.getElementById('liveSocialToast');
-      const icon = item.action === 'deposited' ? '📥' : item.action === 'withdrew' ? '💸' : '🏆';
-
-      document.getElementById('toastIcon').textContent = icon;
-      document.getElementById('toastText').textContent = item.text;
-      document.getElementById('toastTime').textContent = `● ${item.timeAgo}`;
-
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 4500);
-    } catch (e) {}
-  }
-
-  setTimeout(showRandomActivity, 2500);
-  setInterval(showRandomActivity, 9000);
-
-  function tickLiveChartLocally() {
-    if (!appState || !appState.prices) return;
-const activePair = document.getElementById('tradePair').value || 'BTC_USDT';
-const basePrice = Number(appState.prices[activePair]);
-if (!Number.isFinite(basePrice) || basePrice <= 0) return;
-    const now = Date.now();
-
-    let lastPt = priceHistory.length
-      ? priceHistory[priceHistory.length - 1]
-      : { price: basePrice, vol: 40, ts: now - 1000 };
-
-    // Backfill missed 1-second ticks if the browser throttled a background tab
-    const gapSteps = Math.min(55, Math.max(1, Math.floor((now - lastPt.ts) / 1000)));
-    for (let i = 1; i <= gapSteps; i++) {
-      const stepTs = i === gapSteps ? now : lastPt.ts + i * 1000;
-      const microMove = (basePrice - lastPt.price) * 0.35 + basePrice * ((Math.random() - 0.5) * 0.0006);
-      const nextPrice = Math.max(0.0001, lastPt.price + microMove);
-      lastPt = { price: nextPrice, vol: Math.floor(Math.random() * 75 + 20), ts: stepTs };
-      priceHistory.push(lastPt);
-      if (priceHistory.length > 55) priceHistory.shift();
+      const msg = JSON.parse(ev.data);
+      if (msg.type === 'TRADE_SETTLED' && trackedRunningId) {
+        verifyAndShowSettledModal(trackedRunningId);
+      } else {
+        loadDashboard();
+      }
+    } catch (_) {
+      loadDashboard();
     }
-
-    document.getElementById('chartLivePrice').textContent = formatMoney(lastPt.price);
-    const hero = document.getElementById('tradeLiveHero');
-    if (hero) hero.textContent = formatMoney(lastPt.price);
-
-    const running = (appState.trades || []).find(t => t.status === 'RUNNING');
-    if (running) {
-      const rem = Math.max(0, Math.ceil((Number(running.expiresAt) - now) / 1000));
-      document.getElementById('lockTimerDisplay').textContent = `${rem}s`;
-    }
-    drawChart('tradeChartCanvas', running && running.pair === activePair ? Number(running.entryPrice) : null);
-  }
-
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      tickLiveChartLocally();
-      fetchDashboard();
-    }
-  });
-
-  fetchDashboard();
-  const traderStream = new EventSource('/api/stream');
-  traderStream.onmessage = () => fetchDashboard();
-  setInterval(fetchDashboard, 3000);
-  setInterval(tickLiveChartLocally, 900);
+  };
+  setInterval(loadDashboard, 1500);
 </script>
 </body>
 </html>

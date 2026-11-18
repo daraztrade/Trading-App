@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Daraz Trade</title>
+  <title>Daraz Trade — Admin</title>
   <link rel="stylesheet" href="/shared/theme.css" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
   <style>
@@ -14,7 +14,7 @@
 
     /* SIDEBAR */
     .sidebar {
-      width: 260px;
+      width: 265px;
       background: #111113 !important;
       border-right: 1px solid rgba(255,255,255,0.08) !important;
       padding: 18px 12px;
@@ -61,9 +61,8 @@
     }
     .nav-item:hover { background: rgba(255,255,255,0.05) !important; color: #fff !important; }
     .nav-item.active {
-      background: #1c1c20 !important;
-      color: #f4f4f5 !important;
-      border-left: 3px solid #6366f1 !important;
+      background: linear-gradient(90deg, #4f46e5, #6366f1) !important;
+      color: #ffffff !important;
     }
     .submenu {
       background: #090e1a;
@@ -85,7 +84,7 @@
       margin-bottom: 2px;
     }
     .sub-item:hover { color: #fff; background: rgba(255,255,255,0.04); }
-    .sub-item.active { color: #818cf8; background: rgba(99,102,241,0.12); }
+    .sub-item.active { color: #a5b4fc; background: rgba(99,102,241,0.16); }
     .badge-count {
       background: #3f3f46;
       color: #f4f4f5;
@@ -95,11 +94,12 @@
       font-weight: 700;
     }
     .badge-count.green { background: #10b981; color: #fff; }
+    .badge-count.red { background: #ef4444; color: #fff; }
 
     /* MAIN AREA & TOPBAR */
     .main {
       flex: 1;
-      margin-left: 260px;
+      margin-left: 265px;
       padding: 18px 24px 60px;
       transition: margin-left 0.25s ease;
       min-width: 0;
@@ -269,7 +269,7 @@
 
     .action-pills {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
       gap: 10px;
       margin-bottom: 20px;
     }
@@ -289,15 +289,31 @@
     .pill-green { background: #10b981; }
     .pill-red { background: #ef4444; }
     .pill-blue { background: #3b82f6; }
+    .pill-cyan { background: #0891b2; }
     .pill-purple { background: #6366f1; }
     .pill-orange { background: #f59e0b; }
     .pill-indigo { background: #4f46e5; }
+
+    .bal-breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .bal-box {
+      background: #10131c;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .bal-box span { font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; display: block; }
+    .bal-box strong { font-size: 1.25rem; display: block; margin-top: 4px; }
 
     .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
     .form-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
     .field { margin-bottom: 14px; }
     .field label { display: block; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
-    .field input, .field select {
+    .field input, .field select, .field textarea {
       width: 100%;
       background: #131b2e !important;
       border: 1px solid rgba(255,255,255,0.12) !important;
@@ -337,7 +353,7 @@
     .modal-backdrop.open { display: flex; }
     .modal-box {
       background: #0f172a; border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 14px; padding: 24px; width: 100%; max-width: 420px;
+      border-radius: 14px; padding: 24px; width: 100%; max-width: 440px;
     }
     .hidden { display: none !important; }
     .toast-msg {
@@ -365,12 +381,27 @@
       background: #f4f4f5;
       color: #111;
     }
+    .sound-pill {
+      background: rgba(16,185,129,0.14);
+      border: 1px solid rgba(16,185,129,0.35);
+      color: #34d399;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .sound-pill.muted {
+      background: rgba(239,68,68,0.14);
+      border-color: rgba(239,68,68,0.35);
+      color: #f87171;
+    }
 
     @media (max-width: 900px) {
       .sidebar { transform: translateX(-100%); }
       .sidebar.mobile-open { transform: translateX(0); }
       .main { margin-left: 0; padding: 14px; }
-      .form-grid-2, .form-grid-4 { grid-template-columns: 1fr; }
+      .form-grid-2, .form-grid-4, .bal-breakdown-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -411,14 +442,40 @@
       <span class="badge-count" id="badgeUsers">0</span>
     </div>
 
+    <div class="nav-item" id="nav-invite-members" onclick="showSection('invite-members', this)">
+      <span>🔗 Invite Members</span>
+      <span class="badge-count green" id="badgeInvites">0</span>
+    </div>
+
     <div class="nav-item" id="nav-deposits" onclick="showSection('deposits', this)">
       <span>💰 Deposit Proofs</span>
       <span class="badge-count" id="badgeDep">0</span>
     </div>
 
-    <div class="nav-item" id="nav-withdrawals" onclick="showSection('withdrawals', this)">
-      <span>🏦 Withdrawals</span>
-      <span class="badge-count" id="badgeWdr">0</span>
+    <!-- COLLAPSIBLE WITHDRAWALS MENU (PENDING / APPROVED / REJECTED / ALL) -->
+    <div class="nav-item" id="nav-withdrawals" onclick="toggleWithdrawMenu()">
+      <span>🏛️ Withdrawals</span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="badge-count red" id="badgeWdrAlert" style="display:none;">!</span>
+        <span id="wdrArrow">▼</span>
+      </div>
+    </div>
+    <div class="submenu" id="withdrawSubmenu">
+      <div class="sub-item" id="sub-wdr-pending" onclick="openWithdrawalsTab('PENDING', this)">
+        <span>⊙ Pending Withdrawals</span>
+        <span class="badge-count red" id="badgeWdrPending">0</span>
+      </div>
+      <div class="sub-item" id="sub-wdr-approved" onclick="openWithdrawalsTab('APPROVED', this)">
+        <span>⊙ Approved Withdrawals</span>
+        <span class="badge-count green" id="badgeWdrApproved">0</span>
+      </div>
+      <div class="sub-item" id="sub-wdr-rejected" onclick="openWithdrawalsTab('REJECTED', this)">
+        <span>⊙ Rejected Withdrawals</span>
+        <span class="badge-count" id="badgeWdrRejected">0</span>
+      </div>
+      <div class="sub-item" id="sub-wdr-all" onclick="openWithdrawalsTab('ALL', this)">
+        <span>⊙ All Withdrawals</span>
+      </div>
     </div>
 
     <div class="nav-item" id="nav-tickets" onclick="showSection('tickets', this)">
@@ -450,29 +507,14 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button type="button" id="soundToggleBtn" class="sound-pill" onclick="toggleAdminSound()">🔔 Sound Alerts: ON</button>
         <button class="btn-details" onclick="showSection('running-trades')">⚡ Running Trades (<span id="topRunningCount">0</span>)</button>
-        <button class="btn-details" onclick="showSection('trade-history')">📜 Trade History</button>
-        <button class="btn-details" onclick="showSection('users')">👥 All Users</button>
+        <button class="btn-details" onclick="openWithdrawalsTab('PENDING')">🏛️ Pending Withdrawals (<span id="topPendingWdrCount">0</span>)</button>
       </div>
     </div>
 
-    <!-- SECTION 1: DASHBOARD -->
+    <!-- SECTION 1: DASHBOARD (INVITE CARD REMOVED — HANDLED IN INVITE MEMBERS TAB) -->
     <section id="sec-dashboard">
-      <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-left:4px solid #6366f1 !important;">
-        <div style="flex:1;min-width:240px;">
-          <div style="font-size:0.74rem;text-transform:uppercase;letter-spacing:0.6px;color:#818cf8;font-weight:700;">🔗 Your Admin Invitation Link</div>
-          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-            <input type="text" id="adminInviteUrlInput" class="input-dark" style="flex:1;min-width:220px;" readonly />
-            <button type="button" class="pill-btn pill-indigo" onclick="copyAdminInviteLink()">📋 Copy Link</button>
-            <button type="button" class="btn-details" onclick="openEditInviteCodeModal()">✏️ Customize Code</button>
-          </div>
-        </div>
-        <div style="text-align:right;background:#131b2e;padding:12px 18px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);">
-          <div style="font-size:1.5rem;font-weight:800;color:#10b981;" id="adminInvitedCount">0</div>
-          <div style="font-size:0.72rem;color:#94a3b8;text-transform:uppercase;font-weight:700;">Users Joined via Link</div>
-        </div>
-      </div>
-
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-left">
@@ -506,13 +548,13 @@
         </div>
         <div class="stat-card">
           <div class="stat-left">
-            <div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#3b82f6;">📈</div>
+            <div class="stat-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;">🏛️</div>
             <div>
-              <div class="stat-val" id="stTotalTrades">0</div>
-              <div class="stat-lbl">Total Trades</div>
+              <div class="stat-val" id="stPendingWdr">0</div>
+              <div class="stat-lbl">Pending Withdrawals</div>
             </div>
           </div>
-          <button class="view-all-btn" onclick="showSection('trade-history')">View All</button>
+          <button class="view-all-btn" onclick="openWithdrawalsTab('PENDING')">Review</button>
         </div>
       </div>
 
@@ -536,7 +578,7 @@
       </div>
     </section>
 
-    <!-- SECTION 3: CONSOLIDATED TRADE HISTORY (ALL OR PER USER) -->
+    <!-- SECTION 3: CONSOLIDATED TRADE HISTORY -->
     <section id="sec-trade-history" class="hidden">
       <div class="card">
         <div class="toolbar">
@@ -555,11 +597,47 @@
               <option value="LOST">Lost</option>
               <option value="VOIDED">Voided</option>
             </select>
-            <input type="text" id="tradeHistorySearchInput" class="input-dark" placeholder="Search ID, @user, or pair..." oninput="renderTradeHistorySection()" />
+            <input type="text" id="tradeHistorySearchInput" class="input-dark" placeholder="Search ID, @user, pair, currency..." oninput="renderTradeHistorySection()" />
           </div>
         </div>
         <div class="trade-summary-bar" id="tradeHistorySummary"></div>
         <div class="table-wrap" id="tradeHistoryTable"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: INVITE MEMBERS (1 USER REGISTRATION LIMIT PER LINK) -->
+    <section id="sec-invite-members" class="hidden">
+      <div class="card">
+        <div class="toolbar">
+          <div>
+            <h3 style="margin:0;">🔗 Invite Members — Single-Use Links (Max 1 User Per Link)</h3>
+            <span style="font-size:0.8rem;color:#94a3b8;">Each generated link allows strictly 1 trader registration and automatically expires once used.</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:0.82rem;color:#94a3b8;">Total Invited: <strong style="color:#10b981;" id="adminInvitedCount">0</strong></span>
+            <button type="button" class="btn-details" onclick="openEditInviteCodeModal()">✏️ Master Code</button>
+          </div>
+        </div>
+
+        <div class="form-grid-2" style="max-width:720px;align-items:end;margin-bottom:18px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Member Note / Label (Optional)</label>
+            <input type="text" id="newInviteLabel" placeholder="e.g. For Ali Khan (WhatsApp)" />
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button type="button" id="btnGenInviteLink" class="pill-btn pill-indigo" style="flex:1;padding:11px;" onclick="generateSingleUseInvite()">➕ Generate Unique 1-User Link</button>
+          </div>
+        </div>
+
+        <div id="latestInviteBox" class="hidden" style="background:#0f172a;border:1px solid rgba(99,102,241,0.45);padding:14px;border-radius:10px;margin-bottom:16px;">
+          <div style="font-size:0.74rem;color:#a5b4fc;font-weight:700;text-transform:uppercase;margin-bottom:6px;">New Single-Use Link Ready (1 Registration Limit)</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="text" id="latestInviteUrl" class="input-dark" style="flex:1;min-width:240px;" readonly />
+            <button type="button" class="pill-btn pill-green" onclick="copyTextValue(document.getElementById('latestInviteUrl').value)">📋 Copy Link</button>
+          </div>
+        </div>
+
+        <div class="table-wrap" id="inviteLinksTableWrap"></div>
       </div>
     </section>
 
@@ -587,7 +665,7 @@
                 <th>USER</th>
                 <th>EMAIL-PHONE</th>
                 <th>COUNTRY</th>
-                <th>BALANCE</th>
+                <th>AVAILABLE / FROZEN / TOTAL</th>
                 <th>TRADE MODE</th>
                 <th>JOINED AT</th>
                 <th>ACTION</th>
@@ -640,14 +718,30 @@
       <div class="action-pills">
         <button class="pill-btn pill-green" onclick="openBalanceModal('ADD')">⊕ + Balance</button>
         <button class="pill-btn pill-red" onclick="openBalanceModal('SUB')">⊖ - Balance</button>
+        <button class="pill-btn pill-cyan" onclick="openFreezeBalanceModal()">❄️ Freeze Balance</button>
         <button class="pill-btn pill-purple" onclick="impersonateSelectedUser()">🔑 Login as User</button>
         <button class="pill-btn pill-orange" id="udBanPillBtn" onclick="toggleBanSelectedUser()">🚫 Ban User</button>
         <button class="pill-btn pill-indigo" onclick="openPasswordModal()">🔒 Change Password</button>
       </div>
 
       <div class="card">
-        <h4 style="margin-top:0;">Account Controls</h4>
-        <p style="color:#94a3b8;font-size:0.84rem;margin-top:0;">Ban withdraw, ban trade, or freeze balance. Freeze balance keeps the account open and the amount visible, but blocks withdrawals.</p>
+        <h4 style="margin-top:0;">Balance Breakdown &amp; Freeze Controls</h4>
+        <div class="bal-breakdown-grid">
+          <div class="bal-box">
+            <span>Total Balance</span>
+            <strong id="udTotalBalanceBox" style="color:#fff;">0.00</strong>
+          </div>
+          <div class="bal-box">
+            <span>Frozen Balance (Total - Available)</span>
+            <strong id="udFrozenBalanceBox" style="color:#38bdf8;">0.00</strong>
+          </div>
+          <div class="bal-box">
+            <span>Available Balance</span>
+            <strong id="udAvailableBalanceBox" style="color:#10b981;">0.00</strong>
+          </div>
+        </div>
+
+        <p style="color:#94a3b8;font-size:0.84rem;margin-top:0;">Ban withdraw, ban trade, or freeze balance. Frozen balance stays visible to the trader separately from available balance and cannot be withdrawn or traded.</p>
         <div class="form-grid-2">
           <div class="field">
             <label>Withdraw</label>
@@ -670,7 +764,7 @@
         </div>
         <div class="form-grid-2">
           <div class="field">
-            <label>Balance</label>
+            <label>Balance Freeze Status</label>
             <button type="button" class="toggle-pill toggle-on" id="togFreeze" onclick="flipToggle('togFreeze','OPEN','FROZEN')">OPEN</button>
           </div>
           <div class="field">
@@ -754,13 +848,13 @@
       </div>
 
       <div class="card">
-        <div style="font-size:0.75rem;color:#f59e0b;font-weight:700;">● TOTAL BALANCE</div>
+        <div style="font-size:0.75rem;color:#f59e0b;font-weight:700;">● AVAILABLE BALANCE</div>
         <div style="font-size:1.65rem;font-weight:800;margin:4px 0 16px;" id="udWalletBalance">$0.00</div>
         <h4 style="margin:0 0 10px;">User Trade History</h4>
         <div class="table-wrap" id="udTradesWrap"></div>
         <h4 style="margin:20px 0 10px;">Recent Login History</h4>
         <div class="table-wrap" id="udLoginsWrap"></div>
-        <h4 style="margin:20px 0 10px;">Sent Alerts & Notifications</h4>
+        <h4 style="margin:20px 0 10px;">Sent Alerts &amp; Notifications</h4>
         <div class="table-wrap" id="udAlertsWrap"></div>
       </div>
     </section>
@@ -773,10 +867,24 @@
       </div>
     </section>
 
-    <!-- SECTION 8: WITHDRAWALS -->
+    <!-- SECTION 8: WITHDRAWALS (PENDING / APPROVED / REJECTED / ALL) -->
     <section id="sec-withdrawals" class="hidden">
       <div class="card">
-        <h3 style="margin-top:0;">🏦 Withdrawal Requests</h3>
+        <div class="toolbar">
+          <div>
+            <h3 style="margin:0;" id="withdrawSectionHeading">🏛️ Pending Withdrawals</h3>
+            <span style="font-size:0.8rem;color:#94a3b8;">Review withdrawal requests, currency selections, and rejection reasons</span>
+          </div>
+          <div class="search-group">
+            <select id="wdrStatusFilter" class="select-dark" onchange="renderWithdrawalsTable()">
+              <option value="PENDING">Pending Withdrawals</option>
+              <option value="APPROVED">Approved Withdrawals</option>
+              <option value="REJECTED">Rejected Withdrawals</option>
+              <option value="ALL">All Withdrawals</option>
+            </select>
+            <input type="text" id="wdrSearchInput" class="input-dark" placeholder="Search @user, method, currency..." oninput="renderWithdrawalsTable()" />
+          </div>
+        </div>
         <div class="table-wrap" id="withdrawalsTable"></div>
       </div>
     </section>
@@ -858,13 +966,59 @@
 
   let adminData = null;
   let selectedUserId = null;
+  let adminSoundEnabled = localStorage.getItem('adminSoundEnabled') !== '0';
+  let prevStateSnapshot = null;
+
+  function playAdminChime(type = 'INFO') {
+    if (!adminSoundEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const notes = type === 'REJECT'
+        ? [440, 330]
+        : type === 'WITHDRAW'
+          ? [587.33, 880, 1046.5]
+          : [523.25, 659.25, 783.99];
+
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+        gain.gain.setValueAtTime(0.001, now + idx * 0.11);
+        gain.gain.exponentialRampToValueAtTime(0.16, now + idx * 0.11 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.11 + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.11);
+        osc.stop(now + idx * 0.11 + 0.24);
+      });
+    } catch (_) {}
+  }
+
+  function updateSoundBtnUI() {
+    const btn = document.getElementById('soundToggleBtn');
+    if (!btn) return;
+    btn.textContent = adminSoundEnabled ? '🔔 Sound Alerts: ON' : '🔕 Sound Alerts: OFF';
+    btn.classList.toggle('muted', !adminSoundEnabled);
+  }
+
+  function toggleAdminSound() {
+    adminSoundEnabled = !adminSoundEnabled;
+    localStorage.setItem('adminSoundEnabled', adminSoundEnabled ? '1' : '0');
+    updateSoundBtnUI();
+    if (adminSoundEnabled) playAdminChime('INFO');
+  }
+  updateSoundBtnUI();
 
   function showToast(msg, isErr = false) {
     const t = document.getElementById('adminToast');
     t.textContent = msg;
     t.style.background = isErr ? '#ef4444' : '#10b981';
     t.style.display = 'block';
-    setTimeout(() => { t.style.display = 'none'; }, 3000);
+    setTimeout(() => { t.style.display = 'none'; }, 3500);
   }
 
   function adminHeaders() {
@@ -884,13 +1038,25 @@
       sb.classList.toggle('collapsed');
       main.classList.toggle('expanded');
     }
-    document.getElementById('orderSubmenu').classList.remove('hidden');
   }
 
   function toggleOrderMenu() {
     const sub = document.getElementById('orderSubmenu');
     const hidden = sub.classList.toggle('hidden');
     document.getElementById('orderArrow').textContent = hidden ? '▶' : '▼';
+  }
+
+  function toggleWithdrawMenu() {
+    const sub = document.getElementById('withdrawSubmenu');
+    const hidden = sub.classList.toggle('hidden');
+    document.getElementById('wdrArrow').textContent = hidden ? '▶' : '▼';
+  }
+
+  function openWithdrawalsTab(statusFilter = 'PENDING', el = null) {
+    const sel = document.getElementById('wdrStatusFilter');
+    if (sel) sel.value = statusFilter;
+    showSection('withdrawals', el);
+    renderWithdrawalsTable();
   }
 
   function showSection(sec, el) {
@@ -905,9 +1071,10 @@
       'running-trades': 'Running Trades',
       'trade-history': 'Trade History',
       'users': 'All Users',
+      'invite-members': 'Invite Members (1 User Limit Per Link)',
       'user-detail': 'User Detail',
       'deposits': 'Deposit Proofs',
-      'withdrawals': 'Withdrawals',
+      'withdrawals': 'Withdrawals Management',
       'tickets': 'Help Center',
       'errors': 'Error Sender',
       'settings': 'Settings & Profile'
@@ -929,14 +1096,42 @@
     try {
       const res = await fetch('/api/admin/overview', { headers: adminHeaders() });
       if (res.status === 401 || res.status === 403) return adminLogout();
-      adminData = await res.json();
+      const nextData = await res.json();
+
+      if (prevStateSnapshot) {
+        const prevTrades = prevStateSnapshot.totalTrades || 0;
+        const prevPendingWdr = prevStateSnapshot.pendingWithdrawals || 0;
+        const prevRejectedWdr = prevStateSnapshot.rejectedWithdrawals || 0;
+
+        const currTrades = nextData.stats?.totalTrades || 0;
+        const currPendingWdr = nextData.stats?.pendingWithdrawals || 0;
+        const currRejectedWdr = (nextData.withdrawals || []).filter(w => w.status === 'REJECTED').length;
+
+        if (currPendingWdr > prevPendingWdr) {
+          playAdminChime('WITHDRAW');
+          showToast('🔔 New withdrawal request received!');
+        } else if (currTrades > prevTrades) {
+          playAdminChime('TRADE');
+          showToast('⚡ New trade placed by a user!');
+        } else if (currRejectedWdr > prevRejectedWdr) {
+          playAdminChime('REJECT');
+        }
+      }
+
+      prevStateSnapshot = {
+        totalTrades: nextData.stats?.totalTrades || 0,
+        pendingWithdrawals: nextData.stats?.pendingWithdrawals || 0,
+        rejectedWithdrawals: (nextData.withdrawals || []).filter(w => w.status === 'REJECTED').length
+      };
+
+      adminData = nextData;
       renderAdminUI();
     } catch (_) {}
   }
 
   function renderAdminUI() {
     if (!adminData) return;
-    const { actor, stats, traders, trades, deposits, withdrawals, tickets, settings, invitedCount } = adminData;
+    const { actor, stats, traders, trades, deposits, withdrawals, tickets, settings, invitedCount, inviteLinks = [] } = adminData;
 
     const fullName = `${actor.firstName || ''} ${actor.lastName || ''}`.trim();
     document.getElementById('actorFullName').textContent = fullName || actor.username;
@@ -945,26 +1140,28 @@
     document.getElementById('actorRoleLabel').textContent = 'Admin';
     document.getElementById('actorRoleBadge').textContent = actor.role === 'MAIN_ADMIN' ? 'MAIN_ADMIN' : 'ADMIN';
 
-    const myCode = (actor.invitationCode || actor.username || '').toUpperCase();
-    const traderBase = window.location.origin.includes('admin-trading-nine.vercel.app')
-      ? 'https://trading-app-o5l9.vercel.app'
-      : window.location.origin;
-    const inviteInp = document.getElementById('adminInviteUrlInput');
-    if (inviteInp && document.activeElement !== inviteInp) {
-      inviteInp.value = `${traderBase}/?ref=${encodeURIComponent(myCode)}`;
-    }
-    document.getElementById('adminInvitedCount').textContent = invitedCount ?? 0;
+    const invCountEl = document.getElementById('adminInvitedCount');
+    if (invCountEl) invCountEl.textContent = invitedCount ?? 0;
+
+    const pendingWdr = withdrawals.filter(w => w.status === 'PENDING').length;
+    const approvedWdr = withdrawals.filter(w => w.status === 'APPROVED').length;
+    const rejectedWdr = withdrawals.filter(w => w.status === 'REJECTED').length;
 
     document.getElementById('stTotalUsers').textContent = stats.totalUsers;
     document.getElementById('stActiveUsers').textContent = stats.activeUsers;
     document.getElementById('stRunningTrades').textContent = stats.runningTrades;
-    document.getElementById('stTotalTrades').textContent = stats.totalTrades;
+    document.getElementById('stPendingWdr').textContent = pendingWdr;
 
     document.getElementById('badgeRunning').textContent = stats.runningTrades;
     document.getElementById('topRunningCount').textContent = stats.runningTrades;
+    document.getElementById('topPendingWdrCount').textContent = pendingWdr;
     document.getElementById('badgeUsers').textContent = stats.totalUsers;
+    document.getElementById('badgeInvites').textContent = inviteLinks.filter(l => l.status === 'ACTIVE').length;
     document.getElementById('badgeDep').textContent = stats.pendingDeposits;
-    document.getElementById('badgeWdr').textContent = stats.pendingWithdrawals;
+    document.getElementById('badgeWdrPending').textContent = pendingWdr;
+    document.getElementById('badgeWdrApproved').textContent = approvedWdr;
+    document.getElementById('badgeWdrRejected').textContent = rejectedWdr;
+    document.getElementById('badgeWdrAlert').style.display = pendingWdr > 0 ? 'inline-block' : 'none';
     document.getElementById('badgeTkt').textContent = stats.openTickets;
 
     const running = trades.filter(t => t.status === 'RUNNING');
@@ -983,8 +1180,9 @@
       thUserSel.value = prevUserVal;
     }
     renderTradeHistorySection();
-
     renderUsersTable();
+    renderInviteLinksTable();
+    renderWithdrawalsTable();
 
     const errSel = document.getElementById('errTargetUser');
     if (errSel.options.length <= 1) {
@@ -1000,26 +1198,12 @@
       ${deposits.map(d => `<tr>
         <td><strong>${d.username}</strong></td>
         <td>${d.cryptoCurrency}</td>
-        <td>$${Number(d.amount).toLocaleString()}</td>
+        <td>${Number(d.amount).toLocaleString()}</td>
         <td><a href="${d.proofUrl}" target="_blank" style="color:#818cf8;">View Receipt</a></td>
         <td><span class="tag ${d.status==='APPROVED'?'tag-win':d.status==='REJECTED'?'tag-loss':'tag-run'}">${d.status}</span></td>
         <td>${d.status==='PENDING' ? `<button class="btn-sm btn-win" onclick="reviewDeposit('${d.id}','APPROVE')">Approve</button><button class="btn-sm btn-loss" onclick="reviewDeposit('${d.id}','REJECT')">Reject</button>` : '-'}</td>
       </tr>`).join('')}
       </tbody></table>` : '<p style="color:#94a3b8;">No deposit proofs submitted.</p>';
-
-    document.getElementById('withdrawalsTable').innerHTML = withdrawals.length ? `
-      <table><thead><tr><th>USER</th><th>AMOUNT</th><th>ACCOUNT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
-      ${withdrawals.map(w => `<tr>
-        <td><strong>${w.username}</strong></td>
-        <td>$${Number(w.amount).toLocaleString()}</td>
-        <td>${w.accountDetails}</td>
-        <td>
-          <span class="tag ${w.status==='APPROVED'?'tag-win':w.status==='REJECTED'?'tag-loss':'tag-run'}">${w.status}</span>
-          ${w.status==='REJECTED' && w.rejectReason ? `<div style="color:#a1a1aa;font-size:0.75rem;margin-top:6px;max-width:240px;">${String(w.rejectReason).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>` : ''}
-        </td>
-        <td>${w.status==='PENDING' ? `<button class="btn-sm btn-win" onclick="reviewWithdrawal('${w.id}','APPROVE')">Approve</button><button class="btn-sm btn-loss" onclick="reviewWithdrawal('${w.id}','REJECT')">Reject</button>` : '-'}</td>
-      </tr>`).join('')}
-      </tbody></table>` : '<p style="color:#94a3b8;">No withdrawal requests.</p>';
 
     document.getElementById('ticketsTable').innerHTML = tickets.length ? `
       <table><thead><tr><th>USER</th><th>SUBJECT</th><th>MESSAGE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
@@ -1033,6 +1217,126 @@
       </tbody></table>` : '<p style="color:#94a3b8;">No support tickets.</p>';
   }
 
+  function renderWithdrawalsTable() {
+    if (!adminData) return;
+    const statusFilter = document.getElementById('wdrStatusFilter')?.value || 'PENDING';
+    const q = (document.getElementById('wdrSearchInput')?.value || '').toLowerCase().trim();
+
+    const headingMap = {
+      'PENDING': '🏛️ Pending Withdrawals',
+      'APPROVED': '✅ Approved Withdrawals',
+      'REJECTED': '❌ Rejected Withdrawals',
+      'ALL': '🏛️ All Withdrawals'
+    };
+    const hEl = document.getElementById('withdrawSectionHeading');
+    if (hEl) hEl.textContent = headingMap[statusFilter] || 'Withdrawals';
+
+    const list = (adminData.withdrawals || []).filter(w => {
+      if (statusFilter !== 'ALL' && w.status !== statusFilter) return false;
+      if (q) {
+        const hay = `${w.id} ${w.username} ${w.method} ${w.currency || ''} ${w.accountDetails}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    document.getElementById('withdrawalsTable').innerHTML = list.length ? `
+      <table><thead><tr><th>ID / TIME</th><th>USER</th><th>CURRENCY &amp; AMOUNT</th><th>METHOD &amp; ACCOUNT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
+      ${list.map(w => `<tr>
+        <td><strong>${w.id}</strong><div style="font-size:0.72rem;color:#64748b;">${new Date(w.createdAt).toLocaleString()}</div></td>
+        <td><strong>@${w.username}</strong></td>
+        <td><span class="invite-pill" style="margin-top:0;margin-right:6px;">${w.currency || 'PKR'}</span><strong>${Number(w.amount).toLocaleString()}</strong></td>
+        <td><div><strong>${w.method || '-'}</strong></div><small style="color:#94a3b8;">${w.accountDetails}</small></td>
+        <td>
+          <span class="tag ${w.status==='APPROVED'?'tag-win':w.status==='REJECTED'?'tag-loss':'tag-run'}">${w.status}</span>
+          ${w.status==='REJECTED' && w.rejectReason ? `<div style="color:#fca5a5;font-size:0.75rem;margin-top:6px;max-width:240px;">Reason: ${String(w.rejectReason).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>` : ''}
+        </td>
+        <td>${w.status==='PENDING' ? `<button class="btn-sm btn-win" onclick="reviewWithdrawal('${w.id}','APPROVE')">Approve</button><button class="btn-sm btn-loss" onclick="reviewWithdrawal('${w.id}','REJECT')">Reject</button>` : '-'}</td>
+      </tr>`).join('')}
+      </tbody></table>` : `<p style="color:#94a3b8;">No ${statusFilter === 'ALL' ? '' : statusFilter.toLowerCase()} withdrawals found.</p>`;
+  }
+
+  function renderInviteLinksTable() {
+    if (!adminData) return;
+    const links = adminData.inviteLinks || [];
+    const traderBase = window.location.origin.includes('admin-trading-nine.vercel.app')
+      ? 'https://trading-app-o5l9.vercel.app'
+      : window.location.origin;
+
+    document.getElementById('inviteLinksTableWrap').innerHTML = links.length ? `
+      <table>
+        <thead><tr><th>CODE</th><th>LABEL</th><th>REGISTRATION LINK</th><th>LIMIT / STATUS</th><th>USED BY</th><th>ACTION</th></tr></thead>
+        <tbody>
+          ${links.map(l => {
+            const fullUrl = `${traderBase}/?ref=${encodeURIComponent(l.code)}`;
+            const isUsed = l.status !== 'ACTIVE' || Number(l.useCount) >= Number(l.maxUses || 1);
+            return `<tr>
+              <td><strong>${l.code}</strong></td>
+              <td>${l.label || '-'}</td>
+              <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;color:#94a3b8;">${fullUrl}</td>
+              <td>
+                <span class="tag ${isUsed ? 'tag-loss' : 'tag-win'}">${isUsed ? 'USED (1/1)' : 'ACTIVE (0/1)'}</span>
+              </td>
+              <td>${l.usedByUsername ? `<strong>@${l.usedByUsername}</strong><div style="font-size:0.7rem;color:#64748b;">${l.usedAt ? new Date(l.usedAt).toLocaleString() : ''}</div>` : '<span style="color:#64748b;">Not yet claimed</span>'}</td>
+              <td>
+                ${!isUsed ? `<button class="btn-sm btn-win" onclick="copyTextValue('${fullUrl}')">Copy Link</button>` : ''}
+                <button class="btn-sm btn-loss" onclick="deleteInviteLink('${l.code}')">Delete</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>` : '<p style="color:#94a3b8;">No single-use invitation links created yet. Click "Generate Unique 1-User Link" above.</p>';
+  }
+
+  async function generateSingleUseInvite() {
+    const btn = document.getElementById('btnGenInviteLink');
+    const label = document.getElementById('newInviteLabel').value.trim();
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+
+    try {
+      const res = await fetch('/api/admin/invite-links', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ label })
+      });
+      const data = await res.json();
+      if (!res.ok) return showToast(data.error || 'Could not generate invite link', true);
+
+      const traderBase = window.location.origin.includes('admin-trading-nine.vercel.app')
+        ? 'https://trading-app-o5l9.vercel.app'
+        : window.location.origin;
+      const url = `${traderBase}/?ref=${encodeURIComponent(data.code)}`;
+      document.getElementById('latestInviteUrl').value = url;
+      document.getElementById('latestInviteBox').classList.remove('hidden');
+      document.getElementById('newInviteLabel').value = '';
+      copyTextValue(url);
+      showToast('Single-use invite link generated & copied!');
+      fetchAdminOverview();
+    } catch (err) {
+      showToast('Server offline. Start backend with: node backend/server.js', true);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '➕ Generate Unique 1-User Link'; }
+    }
+  }
+
+  async function deleteInviteLink(code) {
+    try {
+      await fetch(`/api/admin/invite-links/${encodeURIComponent(code)}`, {
+        method: 'DELETE',
+        headers: adminHeaders()
+      });
+      showToast('Invite link removed.');
+      fetchAdminOverview();
+    } catch (_) {
+      showToast('Server connection error.', true);
+    }
+  }
+
+  function copyTextValue(val) {
+    navigator.clipboard?.writeText(val);
+    showToast('Copied to clipboard!');
+  }
+
   function renderTradeHistorySection() {
     if (!adminData) return;
     const selectedTrader = document.getElementById('tradeHistoryUserFilter').value;
@@ -1043,7 +1347,7 @@
       if (selectedTrader !== 'ALL' && t.userId !== selectedTrader) return false;
       if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
       if (q) {
-        const hay = `${t.id} ${t.username} ${t.pair} ${t.direction}`.toLowerCase();
+        const hay = `${t.id} ${t.username} ${t.pair} ${t.currency || ''} ${t.direction}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -1057,8 +1361,8 @@
     document.getElementById('tradeHistorySummary').innerHTML = `
       <div class="ts-item">Matching Trades<strong>${filtered.length}</strong></div>
       <div class="ts-item">Won / Lost<strong><span style="color:#34d399;">${wins}W</span> / <span style="color:#f87171;">${losses}L</span></strong></div>
-      <div class="ts-item">Total Staked<strong>$${totalStaked.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
-      <div class="ts-item">Net Trader PnL<strong style="color:${netPnl >= 0 ? '#34d399' : '#f87171'};">${netPnl >= 0 ? '+' : ''}$${netPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
+      <div class="ts-item">Total Staked<strong>${totalStaked.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
+      <div class="ts-item">Net Trader PnL<strong style="color:${netPnl >= 0 ? '#34d399' : '#f87171'};">${netPnl >= 0 ? '+' : ''}${netPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
     `;
 
     document.getElementById('tradeHistoryTable').innerHTML = buildTradesTable(filtered, false, true);
@@ -1067,7 +1371,7 @@
   function buildTradesTable(list, isRunning, allowLiveControls = false) {
     if (!list.length) return '<p style="color:#94a3b8;margin:8px 0;">No trades found.</p>';
     return `<table>
-      <thead><tr><th>ID</th><th>TRADER</th><th>PAIR</th><th>STAKE</th><th>PAYOUT</th><th>TIME / STATUS</th><th>ADMIN CONTROL</th></tr></thead>
+      <thead><tr><th>ID</th><th>TRADER</th><th>PAIR &amp; SIDE</th><th>CURRENCY &amp; STAKE</th><th>PAYOUT</th><th>TIME / STATUS</th><th>ADMIN CONTROL</th></tr></thead>
       <tbody>
         ${list.map(t => {
           const active = t.status === 'RUNNING';
@@ -1075,18 +1379,19 @@
           const tagCls = t.status === 'WON' ? 'tag-win' : t.status === 'LOST' ? 'tag-loss' : 'tag-run';
           const showControls = isRunning || (allowLiveControls && active);
           const createdTxt = t.createdAt ? new Date(Number(t.createdAt)).toLocaleString() : '';
+          const sideLabel = t.direction === 'DOWN' ? 'SELL' : 'BUY';
           return `<tr>
             <td><strong>${t.id}</strong><div style="font-size:0.72rem;color:#64748b;">${createdTxt}</div></td>
             <td><a href="javascript:void(0)" onclick="openUserDetail('${t.userId}')" style="color:#818cf8;text-decoration:none;font-weight:700;">@${t.username}</a></td>
-            <td>${t.pair} (${t.direction})</td>
-            <td>$${Number(t.stake).toLocaleString()}</td>
+            <td>${t.pair} (<strong>${sideLabel}</strong>)</td>
+            <td><span class="invite-pill" style="margin-top:0;margin-right:6px;">${t.currency || 'PKR'}</span><strong>${Number(t.stake).toLocaleString()}</strong></td>
             <td>+${t.payoutPercent}%</td>
             <td>${active ? `<span class="tag tag-run">${rem}s left</span>` : `<span class="tag ${tagCls}">${t.status}</span>`}</td>
             <td>${showControls ? `
               <button class="btn-sm btn-win" onclick="setTradeOutcome('${t.id}','WIN')">Force Win</button>
               <button class="btn-sm btn-loss" onclick="setTradeOutcome('${t.id}','LOSS')">Force Loss</button>
               <button class="btn-sm btn-void" onclick="voidTrade('${t.id}')">Void</button>
-            ` : `Profit: $${Number(t.profit || 0).toLocaleString()}`}</td>
+            ` : `Profit: ${Number(t.profit || 0) >= 0 ? '+' : ''}${Number(t.profit || 0).toLocaleString()} ${t.currency || 'PKR'}`}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -1107,7 +1412,7 @@
 
       if (!matchesText) return false;
       if (filter === 'ACTIVE') return u.status === 'ACTIVE';
-      if (filter === 'BANNED') return u.status !== 'ACTIVE';
+      if (filter === 'BANNED') return u.status !== 'ACTIVE' || Number(u.frozenBalance || 0) > 0;
       if (filter === 'WIN_DEFAULT') return (u.tradeOutcome || 'WIN_DEFAULT') === 'WIN_DEFAULT';
       if (filter === 'FORCE_WIN') return u.tradeOutcome === 'FORCE_WIN';
       if (filter === 'FORCE_LOSS') return u.tradeOutcome === 'FORCE_LOSS';
@@ -1126,6 +1431,10 @@
         ? `<span class="invite-pill">Invited: ${u.invitationCode}</span>`
         : '';
 
+      const avail = Number(u.availableBalance ?? u.balance ?? 0);
+      const frozen = Number(u.frozenBalance || 0);
+      const total = Number(u.totalBalance ?? (avail + frozen));
+
       return `<tr>
         <td>
           <strong>${fullName}</strong>
@@ -1137,13 +1446,20 @@
           <small style="color:#94a3b8;">${u.mobile || '-'}</small>
         </td>
         <td><strong>${u.country || 'PK'}</strong></td>
-        <td><strong>$${Number(u.balance).toLocaleString()}</strong></td>
+        <td>
+          <div style="color:#10b981;font-weight:700;">Avail: ${avail.toLocaleString()}</div>
+          ${frozen > 0 ? `<div style="color:#38bdf8;font-size:0.76rem;font-weight:700;">❄️ Frozen: ${frozen.toLocaleString()}</div>` : ''}
+          <small style="color:#94a3b8;">Total: ${total.toLocaleString()}</small>
+        </td>
         <td>${modeSwitch}</td>
         <td>
           <div>${new Date(u.createdAt).toLocaleDateString()}</div>
           <small style="color:#94a3b8;">${timeAgo(u.createdAt)}</small>
         </td>
-        <td><button class="btn-details" onclick="openUserDetail('${u.id}')">🖥 Details</button></td>
+        <td style="white-space:nowrap;">
+          <button class="btn-sm" style="background:#0891b2;" onclick="selectedUserId='${u.id}'; openFreezeBalanceModal();">❄️ Freeze</button>
+          <button class="btn-details" onclick="openUserDetail('${u.id}')">🖥 Details</button>
+        </td>
       </tr>`;
     }).join('') : `<tr><td colspan="7" style="text-align:center;color:#94a3b8;">No matching users found.</td></tr>`;
   }
@@ -1163,6 +1479,10 @@
   }
 
   function populateUserDetailFields(user) {
+    const totalBal = Number(user.totalBalance ?? user.balance ?? 0);
+    const frozenBal = Number(user.frozenBalance || 0);
+    const availBal = Math.max(0, Number((totalBal - frozenBal).toFixed(2)));
+
     document.getElementById('detailHeading').textContent = `User Detail - @${user.username}`;
     document.getElementById('udFormTitle').textContent = `Information of ${user.firstName || user.username} ${user.lastName || ''}`;
     document.getElementById('udFirstName').value = user.firstName || '';
@@ -1178,7 +1498,11 @@
     document.getElementById('udCountry').value = user.country || 'Pakistan';
     document.getElementById('udWithdrawMsg').value = user.withdrawBan?.message || '';
     document.getElementById('udTradeMsg').value = user.tradeBan?.message || '';
-    document.getElementById('udWalletBalance').textContent = `$${Number(user.balance).toLocaleString()}`;
+    document.getElementById('udWalletBalance').textContent = `${availBal.toLocaleString()} ${user.currency || 'PKR'}`;
+
+    document.getElementById('udTotalBalanceBox').textContent = `${totalBal.toLocaleString()} ${user.currency || 'PKR'}`;
+    document.getElementById('udFrozenBalanceBox').textContent = `${frozenBal.toLocaleString()} ${user.currency || 'PKR'}`;
+    document.getElementById('udAvailableBalanceBox').textContent = `${availBal.toLocaleString()} ${user.currency || 'PKR'}`;
 
     setToggleState('togEmail', user.emailVerified, 'VERIFIED', 'UNVERIFIED');
     setToggleState('togMobile', user.mobileVerified, 'VERIFIED', 'UNVERIFIED');
@@ -1186,7 +1510,7 @@
     setToggleState('togStatus', user.status === 'ACTIVE', 'ACTIVE', 'BANNED');
     setToggleState('togWithdraw', !user.withdrawBan?.enabled, 'ALLOWED', 'BANNED');
     setToggleState('togTrade', !user.tradeBan?.enabled, 'ALLOWED', 'BANNED');
-    setToggleState('togFreeze', !user.balanceFreeze?.enabled, 'OPEN', 'FROZEN');
+    setToggleState('togFreeze', !(user.balanceFreeze?.enabled || frozenBal > 0), 'OPEN', 'FROZEN');
     document.getElementById('ctrlWithdrawMsg').value = user.withdrawBan?.message || '';
     document.getElementById('ctrlTradeMsg').value = user.tradeBan?.message || '';
     document.getElementById('ctrlFreezeMsg').value = user.balanceFreeze?.message || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.';
@@ -1298,8 +1622,69 @@
     document.getElementById('customModal').classList.remove('open');
   }
 
+  function openFreezeBalanceModal() {
+    const trader = adminData?.traders?.find(u => u.id === selectedUserId);
+    const totalBal = Number(trader?.totalBalance ?? trader?.balance ?? 0);
+    const currentFrozen = Number(trader?.frozenBalance || 0);
+
+    openCustomModal(
+      '❄️ Freeze / Unfreeze Trader Balance',
+      `
+        <p style="color:#94a3b8;font-size:0.82rem;margin-top:0;">
+          <strong>Formula:</strong> Frozen Balance = Total Balance − Available Balance.<br/>
+          Total Balance: <strong style="color:#fff;">${totalBal.toLocaleString()}</strong> · Currently Frozen: <strong style="color:#38bdf8;">${currentFrozen.toLocaleString()}</strong>
+        </p>
+<div class="field">
+          <label>Amount to Freeze (Leave blank to freeze full balance)</label>
+          <input type="number" id="modalFreezeAmt" value="${currentFrozen > 0 ? currentFrozen : totalBal}" min="0" max="${totalBal}" step="any" />
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button type="button" class="btn-sm btn-void" onclick="document.getElementById('modalFreezeAmt').value=${(totalBal * 0.25).toFixed(2)}">25%</button>
+            <button type="button" class="btn-sm btn-void" onclick="document.getElementById('modalFreezeAmt').value=${(totalBal * 0.5).toFixed(2)}">50%</button>
+            <button type="button" class="btn-sm" style="background:#0891b2;" onclick="document.getElementById('modalFreezeAmt').value=${totalBal}">100% (Full Freeze)</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Message shown to trader</label>
+          <input type="text" id="modalFreezeMsg" value="${document.getElementById('ctrlFreezeMsg').value || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.'}" />
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button type="button" class="btn-sm btn-win" onclick="unfreezeSelectedUserBalance()">Unfreeze All (Set 0)</button>
+        </div>
+      `,
+      async () => {
+        const amtVal = document.getElementById('modalFreezeAmt').value;
+        const message = document.getElementById('modalFreezeMsg').value.trim();
+        const res = await fetch(`/api/admin/users/${selectedUserId}/freeze-balance`, {
+          method: 'POST',
+          headers: adminHeaders(),
+          body: JSON.stringify({ action: 'FREEZE', amount: amtVal, message })
+        });
+        const data = await res.json();
+        if (!res.ok) return showToast(data.error || 'Could not freeze balance', true);
+        closeCustomModal();
+        showToast(data.message);
+        fetchAdminOverview();
+        openUserDetail(selectedUserId);
+      }
+    );
+  }
+
+  async function unfreezeSelectedUserBalance() {
+    const res = await fetch(`/api/admin/users/${selectedUserId}/freeze-balance`, {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify({ action: 'UNFREEZE' })
+    });
+    if (res.ok) {
+      closeCustomModal();
+      showToast('Trader balance unfrozen!');
+      fetchAdminOverview();
+      openUserDetail(selectedUserId);
+    }
+  }
+
   function openBalanceModal(mode) {
-    const label = mode === 'ADD' ? 'Amount to Add ($)' : 'Amount to Subtract ($)';
+    const label = mode === 'ADD' ? 'Amount to Add' : 'Amount to Subtract';
     openCustomModal(
       mode === 'ADD' ? '➕ Add Balance' : '➖ Subtract Balance',
       `<div class="field"><label>${label}</label><input type="number" id="modalBalAmt" placeholder="e.g. 500" min="1" /></div>`,
@@ -1338,8 +1723,8 @@
 
   function openReplyModal(ticketId) {
     openCustomModal(
-      '💬 Reply to Support Ticket',
-      `<div class="field"><label>Reply Message</label><input type="text" id="modalReplyTxt" placeholder="Write reply..." /></div>`,
+      '💬 Reply to Support Ticket (Press Enter to Send)',
+      `<div class="field"><label>Reply Message</label><textarea id="modalReplyTxt" rows="3" placeholder="Write reply and press Enter to send..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); document.getElementById('modalConfirmBtn').click(); }"></textarea></div>`,
       async () => {
         const reply = document.getElementById('modalReplyTxt').value.trim();
         if (!reply) return showToast('Enter a reply', true);
@@ -1351,6 +1736,7 @@
         fetchAdminOverview();
       }
     );
+    setTimeout(() => document.getElementById('modalReplyTxt')?.focus(), 50);
   }
 
   async function toggleBanSelectedUser() {
@@ -1407,7 +1793,12 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return showToast(data.error || 'Could not update withdrawal', true);
     closeCustomModal();
-    showToast(action === 'APPROVE' ? 'Withdrawal approved' : 'Withdrawal rejected');
+    if (action === 'REJECT') {
+      playAdminChime('REJECT');
+      showToast('Withdrawal rejected');
+    } else {
+      showToast('Withdrawal approved');
+    }
     fetchAdminOverview();
   }
 
@@ -1473,18 +1864,11 @@
     showToast('Admin password updated!');
   }
 
-  function copyAdminInviteLink() {
-    const inp = document.getElementById('adminInviteUrlInput');
-    inp.select();
-    navigator.clipboard?.writeText(inp.value);
-    showToast('Invitation link copied to clipboard!');
-  }
-
   function openEditInviteCodeModal() {
     const currentCode = (adminData?.actor?.invitationCode || adminData?.actor?.username || '').toUpperCase();
     openCustomModal(
-      '✏️ Customize Your Invitation Code',
-      `<div class="field"><label>Invitation Code</label><input type="text" id="modalInviteCode" value="${currentCode}" placeholder="e.g. AJMANZOOR" /></div>`,
+      '✏️ Customize Master Invitation Code',
+      `<div class="field"><label>Master Invitation Code</label><input type="text" id="modalInviteCode" value="${currentCode}" placeholder="e.g. AJMANZOOR" /></div>`,
       async () => {
         const invitationCode = document.getElementById('modalInviteCode').value.trim();
         if (!invitationCode) return showToast('Enter a valid code', true);
@@ -1494,7 +1878,7 @@
         const data = await res.json();
         if (!res.ok) return showToast(data.error || 'Could not update code', true);
         closeCustomModal();
-        showToast('Invitation link updated!');
+        showToast('Master invitation code updated!');
         fetchAdminOverview();
       }
     );
