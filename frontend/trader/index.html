@@ -127,8 +127,8 @@
         <div class="field">
           <label>Preferred Currency</label>
           <select id="regCurrency">
-            <option value="USDT" selected>USDT ($)</option>
-            <option value="PKR">PKR (Rs)</option>
+            <option value="PKR" selected>PKR (Rs)</option>
+            <option value="USDT">USDT ($)</option>
             <option value="BTC">BTC (₿)</option>
             <option value="ETH">ETH (Ξ)</option>
           </select>
@@ -235,16 +235,33 @@
     }
 
     async function loadCurrencies() {
+      const fallback = [
+        { code: 'PKR', symbol: 'Rs' },
+        { code: 'USDT', symbol: '$' },
+        { code: 'BTC', symbol: '₿' },
+        { code: 'ETH', symbol: 'Ξ' }
+      ];
+      let list = fallback;
       try {
         const res = await fetch('/api/public/config');
         const data = await res.json();
-        if (data.currencies) {
-          const sel = document.getElementById('regCurrency');
-          sel.innerHTML = data.currencies.map(c =>
-            `<option value="${c.code}" ${c.code === 'USDT' ? 'selected' : ''}>${c.code} (${c.symbol})</option>`
-          ).join('');
+        if (Array.isArray(data.currencies) && data.currencies.length) {
+          list = data.currencies;
         }
       } catch (e) {}
+
+      // Always ensure PKR exists and is selected by default.
+      if (!list.some((c) => String(c.code).toUpperCase() === 'PKR')) {
+        list = [{ code: 'PKR', symbol: 'Rs' }, ...list];
+      }
+      const preferred = String((list.find((c) => String(c.code).toUpperCase() === 'PKR') || list[0]).code).toUpperCase();
+      const sel = document.getElementById('regCurrency');
+      sel.innerHTML = list.map((c) => {
+        const code = String(c.code || '').toUpperCase();
+        const symbol = c.symbol || code;
+        return `<option value="${code}">${code} (${symbol})</option>`;
+      }).join('');
+      sel.value = preferred;
     }
     loadCurrencies();
 

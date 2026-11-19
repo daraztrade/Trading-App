@@ -544,6 +544,31 @@ async function getSettings() {
   for (const r of rows) {
     result[r.key] = JSON.parse(r.value);
   }
+  // Preferred/account currencies must always include PKR (and stay usable for signup).
+  const defaults = defaultSettings.currencies;
+  const incoming = Array.isArray(result.currencies) ? result.currencies : [];
+  const byCode = new Map();
+  for (const c of [...defaults, ...incoming]) {
+    if (!c || !c.code) continue;
+    byCode.set(String(c.code).toUpperCase(), {
+      code: String(c.code).toUpperCase(),
+      symbol: c.symbol || c.code,
+      name: c.name || c.code,
+      rateToBase: Number(c.rateToBase) || 1
+    });
+  }
+  // Keep core account currencies first: PKR, USDT, BTC, ETH
+  const core = ['PKR', 'USDT', 'BTC', 'ETH'];
+  const ordered = [];
+  for (const code of core) {
+    if (byCode.has(code)) {
+      ordered.push(byCode.get(code));
+      byCode.delete(code);
+    }
+  }
+  for (const c of byCode.values()) ordered.push(c);
+  result.currencies = ordered;
+  result.defaultCurrency = 'PKR';
   return result;
 }
 
@@ -971,9 +996,10 @@ app.use('/api/auth/register', rateLimitAuth);
 // ==========================================================================
 app.get('/api/public/config', async (req, res) => {
   const s = await getSettings();
+  // Full currency list (PKR first via getSettings), always default to PKR.
   res.json({
-    currencies: s.currencies,
-    defaultCurrency: s.defaultCurrency,
+    currencies: (s.currencies && s.currencies.length) ? s.currencies : defaultSettings.currencies,
+    defaultCurrency: 'PKR',
     payoutPercentages: s.payoutPercentages
   });
 });
@@ -1122,7 +1148,10 @@ app.post('/api/auth/change-password', requireAuth(['TRADER', 'SUB_ADMIN', 'MAIN_
 
 app.post('/api/trader/currency', requireAuth(['TRADER']), async (req, res) => {
   const currency = cleanStr(req.body.currency, 10).toUpperCase();
-  if (!['PKR', 'USDT', 'BTC', 'ETH'].includes(currency)) {
+  const settings = await getSettings();
+  const allowed = new Set((settings.currencies || []).map((c) => String(c.code || '').toUpperCase()));
+  ['PKR', 'USDT', 'BTC', 'ETH'].forEach((c) => allowed.add(c));
+  if (!allowed.has(currency)) {
     return res.status(400).json({ error: 'Unsupported currency.' });
   }
   await dbRun('UPDATE users SET currency = ? WHERE id = ?', [currency, req.user.id]);

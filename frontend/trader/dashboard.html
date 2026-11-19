@@ -12,8 +12,23 @@
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; background: #0b0e14; color: #f1f5f9; font-family: system-ui, -apple-system, sans-serif; }
-    .app-shell { display: flex; min-height: 100vh; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      background: #0b0e14;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, sans-serif;
+      -webkit-text-size-adjust: 100%;
+    }
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
 
     /* SIDEBAR */
     .sidebar {
@@ -61,7 +76,16 @@
     .telegram-btn:hover { filter: brightness(1.08); }
 
     /* MAIN */
-    .main { flex: 1; margin-left: 245px; padding: 16px 22px 60px; min-width: 0; }
+    .main {
+      flex: 1;
+      margin-left: 245px;
+      padding: 16px 22px 60px;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    main > section { max-width: 100%; overflow-x: hidden; }
     .topbar {
       display: flex; justify-content: space-between; align-items: center;
       background: #111622; border: 1px solid rgba(255,255,255,0.08);
@@ -88,16 +112,28 @@
       border-radius: 14px;
       padding: 16px;
       margin-bottom: 16px;
+      max-width: 100%;
+      overflow: hidden;
     }
     .chart-header {
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; justify-content: space-between; align-items: flex-start;
       gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+      max-width: 100%;
     }
     .pair-controls {
       display: flex;
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .pair-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
     }
     .pair-search {
       background: #182032;
@@ -107,13 +143,20 @@
       border-radius: 9px;
       font-size: 0.84rem;
       width: 135px;
+      min-width: 0;
       outline: none;
     }
     .pair-select {
       background: #182032; color: #fff; border: 1px solid rgba(255,255,255,0.14);
       padding: 9px 14px; border-radius: 9px; font-weight: 700; font-size: 0.95rem;
+      min-width: 0; max-width: 100%;
     }
-    .tf-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .pair-price-block { min-width: 0; max-width: 100%; }
+    #livePriceDisplay {
+      font-size: 1.3rem; font-weight: 800; color: #10b981;
+      word-break: break-all; line-height: 1.2;
+    }
+    .tf-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; max-width: 100%; }
     .tf-btn {
       background: #182032; border: 1px solid rgba(255,255,255,0.1);
       color: #94a3b8; padding: 6px 11px; border-radius: 7px;
@@ -131,7 +174,28 @@
       cursor: pointer;
     }
     .snap-live-btn:hover { background: #10b981; color: #fff; }
-    #tvChart { width: 100%; height: 430px; border-radius: 10px; overflow: hidden; }
+    .chart-card { padding-bottom: 10px; }
+    #tvChart {
+      width: 100%;
+      max-width: 100%;
+      height: 430px;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    #tvChart > * { max-width: 100% !important; }
+    .order-panel h3 { margin: 0 0 14px; font-size: 1.05rem; }
+    .order-summary {
+      background: #182032; padding: 12px; border-radius: 10px;
+      margin-bottom: 12px; font-size: 0.84rem;
+    }
+    .order-summary-row {
+      display: flex; justify-content: space-between; gap: 10px; align-items: baseline;
+      margin-bottom: 4px;
+    }
+    .order-summary-row:last-child { margin-bottom: 0; }
+    .order-summary-row span { color: #94a3b8; flex-shrink: 0; }
+    .order-summary-row strong { text-align: right; word-break: break-word; }
 
     /* ORDER PANEL */
     .field { margin-bottom: 13px; }
@@ -409,21 +473,80 @@
       }
       .sidebar.open { transform: translateX(0); }
       .main {
-        margin-left: 0;
-        padding: 12px 12px calc(18px + env(safe-area-inset-bottom));
+        margin-left: 0 !important;
+        padding: 10px 10px calc(20px + env(safe-area-inset-bottom));
+        width: 100%;
+        max-width: 100vw;
       }
-      .terminal-grid { grid-template-columns: 1fr; }
-      .topbar { padding: 10px 12px; border-radius: 10px; }
-      .card { padding: 14px; border-radius: 12px; }
-      #tvChart { height: 280px !important; }
-      .pair-search { width: 100%; min-width: 0; flex: 1; }
-      .pair-select { width: 100%; }
-      .pair-controls { width: 100%; }
-      .pair-controls > div { width: 100%; }
-      .tf-group { width: 100%; }
-      .tf-btn, .snap-live-btn { flex: 1 1 auto; text-align: center; min-height: 36px; }
-      .trade-actions { position: sticky; bottom: 8px; z-index: 5; }
-      .btn-buy, .btn-sell { min-height: 48px; font-size: 0.95rem; }
+      .terminal-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        width: 100%;
+        max-width: 100%;
+      }
+      .terminal-grid > * { min-width: 0; max-width: 100%; }
+      .topbar {
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+      }
+      .card {
+        padding: 12px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+      }
+      .chart-card { padding: 12px 10px 10px; }
+      #tvChart { height: 260px !important; }
+      .pair-row { flex-direction: column; }
+      .pair-search, .pair-select { width: 100%; flex: none; }
+      .pair-price-block { width: 100%; margin-top: 2px; }
+      #livePriceDisplay { font-size: 1.15rem; }
+      .tf-group {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .tf-btn, .snap-live-btn {
+        width: 100%;
+        min-height: 36px;
+        padding: 8px 4px;
+        text-align: center;
+        font-size: 0.72rem;
+      }
+      .snap-live-btn { grid-column: span 4; }
+      .order-panel h3 { font-size: 1rem; margin-bottom: 12px; }
+      .field { margin-bottom: 12px; }
+      .field label { font-size: 0.7rem; letter-spacing: 0.2px; }
+      .field input, .field select {
+        font-size: 16px; /* prevents iOS zoom */
+        min-height: 44px;
+      }
+      .dur-grid { gap: 6px; }
+      .dur-btn {
+        padding: 10px 4px;
+        font-size: 0.78rem;
+        min-height: 52px;
+      }
+      .quick-stakes { gap: 6px; }
+      .qs-btn {
+        min-height: 40px;
+        font-size: 0.78rem;
+        padding: 8px 4px;
+      }
+      .trade-actions {
+        position: sticky;
+        bottom: calc(6px + env(safe-area-inset-bottom));
+        z-index: 5;
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 4px;
+      }
+      .btn-buy, .btn-sell {
+        min-height: 48px;
+        font-size: 0.95rem;
+        padding: 12px 8px;
+      }
       .nav-btn { min-height: 44px; font-size: 0.95rem; }
       .modal-backdrop { padding: 12px; align-items: flex-end; }
       .modal-backdrop.open { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
@@ -501,10 +624,14 @@
     }
 
     @media (max-width: 480px) {
-      #tvChart { height: 240px !important; }
-      .dur-btn { font-size: 0.78rem; padding: 10px 4px; }
-      .countdown-number-mobile { font-size: 3.2rem !important; }
+      .main { padding: 8px 8px calc(18px + env(safe-area-inset-bottom)); }
+      .card, .chart-card { padding: 10px 8px; }
+      #tvChart { height: 220px !important; }
+      .dur-btn { font-size: 0.74rem; padding: 9px 2px; }
+      .qs-btn { font-size: 0.72rem; }
       #countdownNumber { font-size: 3.2rem !important; }
+      .order-summary { font-size: 0.8rem; padding: 10px; }
+      .tf-group { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
   </style>
 </head>
@@ -601,47 +728,42 @@
     <!-- TAB: LIVE TRADING (trading only) -->
     <section id="tab-trade" class="hidden">
       <div class="terminal-grid">
-        <div>
-          <div class="card">
-            <div class="chart-header">
-              <div class="pair-controls">
-                <input type="text" id="pairSearchInput" class="pair-search" placeholder="🔍 Filter pair..." oninput="filterPairsDropdown(this.value)" />
+        <div class="card chart-card">
+          <div class="chart-header">
+            <div class="pair-controls">
+              <div class="pair-row">
+                <input type="text" id="pairSearchInput" class="pair-search" placeholder="Filter pair..." oninput="filterPairsDropdown(this.value)" />
                 <select id="pairSelector" class="pair-select" onchange="onPairChange()"></select>
-                <div>
-                  <div style="font-size:1.3rem;font-weight:800;color:#10b981;" id="livePriceDisplay">24,911,895</div>
-                  <small style="color:#94a3b8;font-size:0.72rem;">Live Market Tick (50 Pairs)</small>
-                </div>
               </div>
-
-              <!-- TIMEFRAMES INCLUDING 1D, 1W, 1M + LIVE SNAP -->
-              <div class="tf-group" id="tfGroup">
-                <button type="button" class="tf-btn active" onclick="setChartTimeframe('1m', this)">1m</button>
-                <button type="button" class="tf-btn" onclick="setChartTimeframe('5m', this)">5m</button>
-                <button type="button" class="tf-btn" onclick="setChartTimeframe('15m', this)">15m</button>
-                <button type="button" class="tf-btn" onclick="setChartTimeframe('1h', this)">1h</button>
-                <button type="button" class="tf-btn" onclick="setChartTimeframe('1D', this)">1D</button>
-                <button type="button" class="tf-btn" onclick="setChartTimeframe('1W', this)">1W</button>
-                <button type="button" class="tf-btn" onclick="setChartTimeframe('1M', this)">1M</button>
-                <button type="button" class="snap-live-btn" title="Anchor latest candle to right edge" onclick="snapChartToLive()">⇥ Live</button>
+              <div class="pair-price-block">
+                <div id="livePriceDisplay">24,911,895</div>
+                <small style="color:#94a3b8;font-size:0.72rem;">Live Market Tick (50 Pairs)</small>
               </div>
             </div>
 
-            <div id="tvChart"></div>
+            <div class="tf-group" id="tfGroup">
+              <button type="button" class="tf-btn active" onclick="setChartTimeframe('1m', this)">1m</button>
+              <button type="button" class="tf-btn" onclick="setChartTimeframe('5m', this)">5m</button>
+              <button type="button" class="tf-btn" onclick="setChartTimeframe('15m', this)">15m</button>
+              <button type="button" class="tf-btn" onclick="setChartTimeframe('1h', this)">1h</button>
+              <button type="button" class="tf-btn" onclick="setChartTimeframe('1D', this)">1D</button>
+              <button type="button" class="tf-btn" onclick="setChartTimeframe('1W', this)">1W</button>
+              <button type="button" class="tf-btn" onclick="setChartTimeframe('1M', this)">1M</button>
+              <button type="button" class="snap-live-btn" title="Anchor latest candle to right edge" onclick="snapChartToLive()">⇥ Live</button>
+            </div>
           </div>
+
+          <div id="tvChart"></div>
         </div>
 
         <!-- ORDER PANEL -->
-        <div class="card">
-          <h3 style="margin:0 0 14px;">Place Trade Order</h3>
+        <div class="card order-panel">
+          <h3>Place Trade Order</h3>
 
-          <!-- SELECT CURRENCY BEFORE TRADING -->
           <div class="field">
             <label>Select Trading Currency</label>
             <select id="tradeCurrencySelect" onchange="onCurrencySelectChange(this.value)">
               <option value="PKR" selected>PKR — Pakistani Rupee</option>
-              <option value="USDT">USDT — Tether USD</option>
-              <option value="BTC">BTC — Bitcoin</option>
-              <option value="ETH">ETH — Ethereum</option>
             </select>
           </div>
 
@@ -656,7 +778,7 @@
 
           <div class="field">
             <label>Trade Amount (<span id="stakeCurrencyLbl">PKR</span>)</label>
-            <input type="number" id="tradeStakeInput" value="500" min="10" step="any" oninput="updateEstReturn()" />
+            <input type="number" id="tradeStakeInput" value="500" min="10" step="any" inputmode="decimal" oninput="updateEstReturn()" />
             <div class="quick-stakes">
               <button type="button" class="qs-btn" onclick="setStake(100)">100</button>
               <button type="button" class="qs-btn" onclick="setStake(500)">500</button>
@@ -665,18 +787,17 @@
             </div>
           </div>
 
-          <div style="background:#182032;padding:12px;border-radius:10px;margin-bottom:12px;font-size:0.84rem;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:#94a3b8;">Selected Currency:</span>
+          <div class="order-summary">
+            <div class="order-summary-row">
+              <span>Selected Currency:</span>
               <strong id="orderCurrSummary" style="color:#a5b4fc;">PKR</strong>
             </div>
-            <div style="display:flex;justify-content:space-between;">
-              <span style="color:#94a3b8;">Estimated Payout:</span>
+            <div class="order-summary-row">
+              <span>Estimated Payout:</span>
               <strong id="estPayoutDisplay" style="color:#10b981;">625.00 PKR</strong>
             </div>
           </div>
 
-          <!-- BUY & SELL BUTTONS -->
           <div class="trade-actions">
             <button type="button" class="btn-buy" id="btnBuyOrder" onclick="placeTrade('UP')">▲ BUY</button>
             <button type="button" class="btn-sell" id="btnSellOrder" onclick="placeTrade('DOWN')">▼ SELL</button>
@@ -706,9 +827,6 @@
           <label>Select Withdrawal Currency</label>
           <select id="wdrCurrencySelect" onchange="onCurrencySelectChange(this.value)">
             <option value="PKR" selected>PKR — Pakistani Rupee</option>
-            <option value="USDT">USDT — Tether USD</option>
-            <option value="BTC">BTC — Bitcoin</option>
-            <option value="ETH">ETH — Ethereum</option>
           </select>
         </div>
 
@@ -893,8 +1011,10 @@
     const currentVal = sel.value || 'BTC_PKR';
     const q = filterText.trim().toUpperCase();
     const list = ALL_TRADING_PAIRS.filter(p => !q || p.includes(q) || p.replace('_', '/').includes(q));
+    const compact = window.innerWidth <= 960;
     sel.innerHTML = (list.length ? list : ALL_TRADING_PAIRS).map(pair => {
-      const label = pair === 'BTC_PKR' ? 'BTC / PKR (Default)' : pair.replace('_', ' / ');
+      let label = pair.replace('_', '/');
+      if (pair === 'BTC_PKR') label = compact ? 'BTC/PKR' : 'BTC / PKR (Default)';
       return `<option value="${pair}" ${pair === currentVal ? 'selected' : ''}>${label}</option>`;
     }).join('');
   }
@@ -1034,7 +1154,7 @@
     if (tab === 'trade') {
       requestAnimationFrame(() => {
         try {
-          chart.applyOptions({ width: chartContainer.clientWidth || 720 });
+          applyChartViewport();
           chart.timeScale().scrollToRealTime();
         } catch (_) {}
       });
@@ -1044,26 +1164,51 @@
   // ==========================================================================
   // BINANCE-STYLE RIGHT-ANCHORED CANDLESTICK CHART (500 CANDLES + LIVE KLINES)
   // ==========================================================================
+  const chartContainer = document.getElementById('tvChart');
+
   function chartHeightForViewport() {
-    if (window.innerWidth <= 480) return 240;
-    if (window.innerWidth <= 960) return 280;
+    if (window.innerWidth <= 480) return 220;
+    if (window.innerWidth <= 960) return 260;
     return 430;
   }
 
-  const chartContainer = document.getElementById('tvChart');
+  function chartWidthForViewport() {
+    const w = Math.floor(chartContainer.getBoundingClientRect().width || chartContainer.clientWidth || 0);
+    return Math.max(260, w);
+  }
+
+  function applyChartViewport() {
+    if (!chartContainer || typeof chart === 'undefined') return;
+    const mobile = window.innerWidth <= 960;
+    chart.applyOptions({
+      width: chartWidthForViewport(),
+      height: chartHeightForViewport(),
+      timeScale: {
+        rightOffset: mobile ? 2 : 6,
+        barSpacing: mobile ? 6 : 8,
+        minBarSpacing: mobile ? 2 : 3
+      },
+      rightPriceScale: {
+        minimumWidth: mobile ? 56 : 72,
+        scaleMargins: { top: 0.1, bottom: 0.12 }
+      }
+    });
+  }
+
   const chart = LightweightCharts.createChart(chartContainer, {
-    width: chartContainer.clientWidth || 720,
+    width: Math.max(260, chartContainer.clientWidth || 320),
     height: chartHeightForViewport(),
     layout: { background: { color: '#0e131f' }, textColor: '#94a3b8' },
     grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    handleScroll: { vertTouchDrag: false },
     timeScale: {
       timeVisible: true,
       secondsVisible: false,
       borderColor: 'rgba(255,255,255,0.08)',
-      rightOffset: 6,
-      barSpacing: 8,
-      minBarSpacing: 3,
+      rightOffset: window.innerWidth <= 960 ? 2 : 6,
+      barSpacing: window.innerWidth <= 960 ? 6 : 8,
+      minBarSpacing: window.innerWidth <= 960 ? 2 : 3,
       fixLeftEdge: true,
       fixRightEdge: true,
       lockVisibleTimeRangeOnResize: true
@@ -1071,7 +1216,8 @@
     rightPriceScale: {
       borderColor: 'rgba(255,255,255,0.08)',
       autoScale: true,
-      scaleMargins: { top: 0.12, bottom: 0.12 }
+      minimumWidth: window.innerWidth <= 960 ? 56 : 72,
+      scaleMargins: { top: 0.1, bottom: 0.12 }
     }
   });
 
@@ -1084,25 +1230,10 @@
   });
 
   if (typeof ResizeObserver !== 'undefined') {
-    new ResizeObserver(() => {
-      if (chartContainer.clientWidth > 0) {
-        chart.applyOptions({
-          width: chartContainer.clientWidth,
-          height: chartHeightForViewport()
-        });
-      }
-    }).observe(chartContainer);
+    new ResizeObserver(() => applyChartViewport()).observe(chartContainer);
   }
-  window.addEventListener('orientationchange', () => {
-    setTimeout(() => {
-      if (chartContainer.clientWidth > 0) {
-        chart.applyOptions({
-          width: chartContainer.clientWidth,
-          height: chartHeightForViewport()
-        });
-      }
-    }, 250);
-  });
+  window.addEventListener('orientationchange', () => setTimeout(applyChartViewport, 250));
+  window.addEventListener('resize', () => applyChartViewport());
 
   const TF_SECONDS = {
     '1m': 60,
@@ -1219,6 +1350,58 @@
 
   function setStake(val) {
     document.getElementById('tradeStakeInput').value = val;
+    updateEstReturn();
+  }
+
+  function currencyOptionLabel(c) {
+    const code = String(c.code || c).toUpperCase();
+    const name = c.name || '';
+    const symbol = c.symbol || '';
+    if (name && symbol) return `${code} — ${name}`;
+    if (name) return `${code} — ${name}`;
+    if (symbol) return `${code} (${symbol})`;
+    return code;
+  }
+
+  function fillCurrencySelect(sel, list, preferred) {
+    if (!sel) return;
+    const current = preferred || sel.value || 'PKR';
+    const codes = new Set();
+    const opts = [];
+    (list || []).forEach((c) => {
+      const code = String(c.code || '').toUpperCase();
+      if (!code || codes.has(code)) return;
+      codes.add(code);
+      opts.push({ code, label: currencyOptionLabel(c) });
+    });
+    if (!codes.has('PKR')) opts.unshift({ code: 'PKR', label: 'PKR — Pakistani Rupee' });
+    sel.innerHTML = opts.map((o) =>
+      `<option value="${o.code}">${o.label}</option>`
+    ).join('');
+    sel.value = codes.has(String(current).toUpperCase()) ? String(current).toUpperCase() : 'PKR';
+  }
+
+  async function loadTraderCurrencies() {
+    const fallback = [
+      { code: 'PKR', symbol: 'Rs', name: 'Pakistani Rupee' },
+      { code: 'USDT', symbol: '$', name: 'Tether USD' },
+      { code: 'BTC', symbol: '₿', name: 'Bitcoin' },
+      { code: 'ETH', symbol: 'Ξ', name: 'Ethereum' }
+    ];
+    let list = fallback;
+    try {
+      const res = await fetch('/api/public/config');
+      const data = await res.json();
+      if (Array.isArray(data.currencies) && data.currencies.length) list = data.currencies;
+    } catch (_) {}
+
+    const preferred = dashState?.user?.currency || 'PKR';
+    fillCurrencySelect(document.getElementById('tradeCurrencySelect'), list, preferred);
+    fillCurrencySelect(document.getElementById('wdrCurrencySelect'), list, preferred);
+    const curr = document.getElementById('tradeCurrencySelect').value || 'PKR';
+    document.getElementById('stakeCurrencyLbl').textContent = curr;
+    document.getElementById('wdrCurrLbl').textContent = curr;
+    document.getElementById('orderCurrSummary').textContent = curr;
     updateEstReturn();
   }
 
@@ -1921,7 +2104,7 @@
   }
 
   onWithdrawMethodChange();
-  loadDashboard();
+  loadTraderCurrencies().finally(() => loadDashboard());
   const stream = new EventSource('/api/stream');
   stream.onmessage = () => {
     // Countdown owns the result modal — SSE only refreshes balances/tables.
