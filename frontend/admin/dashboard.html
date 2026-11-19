@@ -2,15 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#0c0c0e" />
   <title>Daraz Trade — Admin</title>
   <link rel="stylesheet" href="/shared/theme.css" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; background: #0c0c0e !important; background-image: none !important; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
-    .admin-shell { display: flex; min-height: 100vh; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
+      background: #0c0c0e !important;
+      background-image: none !important;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .admin-shell { display: flex; min-height: 100vh; width: 100%; max-width: 100%; overflow-x: hidden; }
+    .admin-sidebar-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 190;
+    }
+    .admin-sidebar-backdrop.show { display: block; }
 
     /* SIDEBAR */
     .sidebar {
@@ -38,8 +56,9 @@
     }
     .role-badge {
       font-size: 0.68rem;
-      background: #27272a;
-      color: #d4d4d8;
+      background: rgba(238,77,7,0.18);
+      color: #fdba74;
+      border: 1px solid rgba(238,77,7,0.35);
       padding: 3px 8px;
       border-radius: 5px;
       display: inline-block;
@@ -61,15 +80,15 @@
     }
     .nav-item:hover { background: rgba(255,255,255,0.05) !important; color: #fff !important; }
     .nav-item.active {
-      background: linear-gradient(90deg, #4f46e5, #6366f1) !important;
+      background: linear-gradient(90deg, #ee4d07, #f97316) !important;
       color: #ffffff !important;
     }
     .submenu {
-      background: #090e1a;
+      background: #0b0e14;
       border-radius: 8px;
       padding: 6px 4px;
       margin: 2px 0 8px;
-      border-left: 2px solid #4f46e5;
+      border-left: 2px solid #ee4d07;
     }
     .sub-item {
       display: flex;
@@ -84,7 +103,7 @@
       margin-bottom: 2px;
     }
     .sub-item:hover { color: #fff; background: rgba(255,255,255,0.04); }
-    .sub-item.active { color: #a5b4fc; background: rgba(99,102,241,0.16); }
+    .sub-item.active { color: #fdba74; background: rgba(238,77,7,0.16); }
     .badge-count {
       background: #3f3f46;
       color: #f4f4f5;
@@ -104,7 +123,7 @@
     .msg-count-pill {
       display: inline-flex; align-items: center; justify-content: center;
       min-width: 28px; height: 28px; padding: 0 8px; border-radius: 999px;
-      background: rgba(99,102,241,0.22); color: #a5b4fc; font-weight: 800; font-size: 0.82rem;
+      background: rgba(238,77,7,0.22); color: #fdba74; font-weight: 800; font-size: 0.82rem;
     }
     .admin-help-chat {
       display: flex; flex-direction: column;
@@ -117,7 +136,7 @@
     }
     .admin-help-avatar {
       width: 42px; height: 42px; border-radius: 50%;
-      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      background: linear-gradient(135deg, #ee4d07, #f97316);
       display: flex; align-items: center; justify-content: center;
       font-weight: 800; color: #fff; flex-shrink: 0;
     }
@@ -136,7 +155,7 @@
       background: #1c1c22; border: 1px solid rgba(255,255,255,0.08); border-bottom-left-radius: 4px;
     }
     .ah-row.admin .ah-bubble {
-      background: linear-gradient(135deg, #4f46e5, #6366f1); color: #fff; border-bottom-right-radius: 4px;
+      background: linear-gradient(135deg, #ee4d07, #f97316); color: #fff; border-bottom-right-radius: 4px;
     }
     .ah-mini {
       width: 28px; height: 28px; border-radius: 50%;
@@ -144,7 +163,7 @@
       font-size: 0.72rem; font-weight: 800; color: #fff; flex-shrink: 0;
     }
     .ah-mini.user { background: linear-gradient(135deg, #ee4d07, #f97316); }
-    .ah-mini.admin { background: linear-gradient(135deg, #229ed9, #0ea5e9); }
+    .ah-mini.admin { background: linear-gradient(135deg, #ee4d07, #f97316); }
     .admin-help-footer {
       display: flex; gap: 10px; padding: 12px 14px;
       background: #141416; border-top: 1px solid rgba(255,255,255,0.08);
@@ -155,7 +174,7 @@
     }
     .admin-help-send {
       width: 46px; height: 46px; border: none; border-radius: 10px;
-      background: linear-gradient(135deg, #4f46e5, #6366f1); color: #fff;
+      background: linear-gradient(135deg, #ee4d07, #f97316); color: #fff;
       font-size: 1.1rem; cursor: pointer;
     }
     .admin-help-send:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -182,7 +201,7 @@
       flex-wrap: wrap;
     }
     .hamburger-btn {
-      background: #161f35;
+      background: #182032;
       border: 1px solid rgba(255,255,255,0.12);
       color: #fff;
       width: 40px;
@@ -194,7 +213,7 @@
       align-items: center;
       justify-content: center;
     }
-    .hamburger-btn:hover { border-color: #6366f1; }
+    .hamburger-btn:hover { border-color: #f97316; }
 
     /* CARDS & GRIDS */
     .card {
@@ -242,7 +261,7 @@
       font-weight: 600;
       cursor: pointer;
     }
-    .view-all-btn:hover, .btn-details:hover { background: #4f46e5 !important; border-color: #4f46e5 !important; color: #fff !important; }
+    .view-all-btn:hover, .btn-details:hover { background: #ee4d07 !important; border-color: #ee4d07 !important; color: #fff !important; }
 
     /* TABLE & TOOLBAR */
     .toolbar {
@@ -255,7 +274,7 @@
     }
     .search-group { display: flex; gap: 10px; flex-wrap: wrap; }
     .input-dark, .select-dark {
-      background: #131b2e !important;
+      background: #182032 !important;
       border: 1px solid rgba(255,255,255,0.12) !important;
       color: #fff !important;
       padding: 9px 13px;
@@ -269,7 +288,7 @@
       gap: 10px;
       margin-bottom: 16px;
       padding: 12px;
-      background: #10131c;
+      background: #111622;
       border: 1px solid rgba(255,255,255,0.07);
       border-radius: 10px;
     }
@@ -326,9 +345,9 @@
       justify-content: space-between;
       align-items: center;
     }
-    .d-blue { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
-    .d-indigo { background: linear-gradient(135deg, #3730a3, #4f46e5); }
-    .d-plum { background: linear-gradient(135deg, #581c87, #7e22ce); }
+    .d-blue { background: linear-gradient(145deg, #9a3412, #ee4d07); }
+    .d-indigo { background: linear-gradient(145deg, #1c1917, #292524); border: 1px solid rgba(238,77,7,0.35); }
+    .d-plum { background: linear-gradient(145deg, #7c2d12, #c2410c); }
 
     .action-pills {
       display: grid;
@@ -349,13 +368,13 @@
       justify-content: center;
       gap: 6px;
     }
-    .pill-green { background: #10b981; }
-    .pill-red { background: #ef4444; }
-    .pill-blue { background: #3b82f6; }
-    .pill-cyan { background: #0891b2; }
-    .pill-purple { background: #6366f1; }
-    .pill-orange { background: #f59e0b; }
-    .pill-indigo { background: #4f46e5; }
+    .pill-green { background: #059669; }
+    .pill-red { background: #dc2626; }
+    .pill-blue { background: #9a3412; }
+    .pill-cyan { background: #334155; }
+    .pill-purple { background: #c2410c; }
+    .pill-orange { background: #ea580c; }
+    .pill-indigo { background: linear-gradient(135deg, #ee4d07, #f97316); }
 
     .bal-breakdown-grid {
       display: grid;
@@ -364,7 +383,7 @@
       margin-bottom: 16px;
     }
     .bal-box {
-      background: #10131c;
+      background: #111622;
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 10px;
       padding: 14px;
@@ -378,7 +397,7 @@
     .field label { display: block; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
     .field input, .field select, .field textarea {
       width: 100%;
-      background: #131b2e !important;
+      background: #182032 !important;
       border: 1px solid rgba(255,255,255,0.12) !important;
       color: #fff !important;
       padding: 10px 12px;
@@ -415,7 +434,7 @@
     }
     .modal-backdrop.open { display: flex; }
     .modal-box {
-      background: #0f172a; border: 1px solid rgba(255,255,255,0.14);
+      background: #111622; border: 1px solid rgba(255,255,255,0.14);
       border-radius: 14px; padding: 24px; width: 100%; max-width: 440px;
     }
     .hidden { display: none !important; }
@@ -460,6 +479,11 @@
       color: #f87171;
     }
 
+    @media (max-width: 1100px) {
+      .settings-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
     @media (max-width: 900px) {
       .sidebar {
         transform: translateX(-100%);
@@ -467,14 +491,36 @@
         box-shadow: 8px 0 24px rgba(0,0,0,0.4);
       }
       .sidebar.mobile-open { transform: translateX(0); }
-      .main { margin-left: 0; padding: 12px 12px calc(18px + env(safe-area-inset-bottom)); }
+      .main {
+        margin-left: 0;
+        padding: 12px 12px calc(18px + env(safe-area-inset-bottom));
+        width: 100%;
+        max-width: 100vw;
+        min-width: 0;
+      }
       .form-grid-2, .form-grid-4, .bal-breakdown-grid { grid-template-columns: 1fr; }
-      .topbar { padding: 10px 12px; }
+      .detail-cards { grid-template-columns: 1fr; }
+      .action-pills { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .pill-btn { min-height: 44px; font-size: 0.8rem; padding: 10px 8px; }
+      .stats-grid { grid-template-columns: 1fr; gap: 10px; }
+      .stat-card { padding: 14px; }
+      .stat-val { font-size: 1.25rem; }
+      .toolbar { flex-direction: column; align-items: stretch; }
+      .search-group { width: 100%; }
+      .search-group .input-dark,
+      .search-group .select-dark { width: 100%; min-height: 44px; font-size: 16px; }
+      .field input, .field select, .field textarea,
+      .input-dark, .select-dark { min-height: 44px; font-size: 16px; }
+      .topbar { padding: 10px 12px; gap: 8px; }
+      .topbar > div { min-width: 0; flex: 1; }
+      .topbar .sound-pill { font-size: 0.72rem; padding: 6px 8px; }
       .card { padding: 14px; }
+      .nav-item, .sub-item { min-height: 44px; }
       .admin-help-chat { min-height: calc(100dvh - 140px); }
       .admin-help-body { max-height: none; min-height: 260px; }
       .admin-help-footer { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
       .admin-help-header { flex-wrap: wrap; }
+      .admin-help-footer input { min-height: 44px; font-size: 16px; }
       .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .mobile-stack thead { display: none; }
       .mobile-stack, .mobile-stack tbody, .mobile-stack tr, .mobile-stack td {
@@ -494,12 +540,48 @@
         color: #94a3b8; font-size: 0.72rem; font-weight: 700;
         text-transform: uppercase; text-align: left; max-width: 42%;
       }
-      .btn-details { min-height: 40px; }
+      .btn-details { min-height: 40px; width: 100%; }
+      .mobile-stack td[data-label="Action"],
+      .mobile-stack td[data-label="Admin Control"] {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .mobile-stack td[data-label="Action"] .btn-sm,
+      .mobile-stack td[data-label="Action"] .btn-details,
+      .mobile-stack td[data-label="Admin Control"] .btn-sm {
+        width: 100%;
+        margin: 0;
+        min-height: 40px;
+      }
+      .mobile-stack td[data-label="Trade Mode"] .mode-switch { width: 100%; }
+      .mobile-stack td[data-label="Trade Mode"] .mode-switch button { flex: 1; min-height: 40px; }
+      .modal-backdrop { padding: 12px; align-items: flex-end; }
+      .modal-box {
+        max-width: 100%; width: 100%;
+        border-radius: 16px 16px 12px 12px;
+        max-height: min(88vh, 720px); overflow-y: auto;
+      }
+      .toast-msg {
+        left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+        text-align: center;
+      }
+      .trade-summary-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 480px) {
+      .main { padding: 8px 8px calc(16px + env(safe-area-inset-bottom)); }
+      .action-pills { grid-template-columns: 1fr; }
+      .d-card { padding: 14px; }
+      .bal-box strong { font-size: 1.05rem; word-break: break-word; }
+      .trade-summary-bar { grid-template-columns: 1fr; }
+      .help-list-head { align-items: stretch; }
     }
   </style>
 </head>
 <body>
 
+<div class="admin-sidebar-backdrop" id="adminSidebarBackdrop" onclick="closeAdminSidebar()"></div>
 <div class="admin-shell">
   <!-- SIDEBAR -->
   <aside class="sidebar" id="adminSidebar">
@@ -591,7 +673,7 @@
         <button class="hamburger-btn" title="Toggle Menu" onclick="toggleAdminSidebar()">☰</button>
         <div>
           <strong style="font-size:1.1rem;" id="pageHeaderTitle">Dashboard Overview</strong>
-          <div style="font-size:0.78rem;color:#94a3b8;">Logged in as <strong id="actorFullName" style="color:#fff;"></strong> <span id="actorName" style="color:#a5b4fc;"></span> · <span id="actorRoleLabel"></span></div>
+          <div style="font-size:0.78rem;color:#94a3b8;">Logged in as <strong id="actorFullName" style="color:#fff;"></strong> <span id="actorName" style="color:#fdba74;"></span> · <span id="actorRoleLabel"></span></div>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -717,8 +799,8 @@
           </div>
         </div>
 
-        <div id="latestInviteBox" class="hidden" style="background:#0f172a;border:1px solid rgba(99,102,241,0.45);padding:14px;border-radius:10px;margin-bottom:16px;">
-          <div style="font-size:0.74rem;color:#a5b4fc;font-weight:700;text-transform:uppercase;margin-bottom:6px;">New Single-Use Link Ready (1 Registration Limit)</div>
+        <div id="latestInviteBox" class="hidden" style="background:#111622;border:1px solid rgba(238,77,7,0.45);padding:14px;border-radius:10px;margin-bottom:16px;">
+          <div style="font-size:0.74rem;color:#fdba74;font-weight:700;text-transform:uppercase;margin-bottom:6px;">New Single-Use Link Ready (1 Registration Limit)</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <input type="text" id="latestInviteUrl" class="input-dark" style="flex:1;min-width:240px;" readonly />
             <button type="button" class="pill-btn pill-green" onclick="copyTextValue(document.getElementById('latestInviteUrl').value)">📋 Copy Link</button>
@@ -747,7 +829,7 @@
           </div>
         </div>
         <div class="table-wrap">
-          <table>
+          <table class="mobile-stack">
             <thead>
               <tr>
                 <th>USER</th>
@@ -1122,14 +1204,22 @@
     };
   }
 
+  function closeAdminSidebar() {
+    document.getElementById('adminSidebar')?.classList.remove('mobile-open');
+    document.getElementById('adminSidebarBackdrop')?.classList.remove('show');
+  }
+
   function toggleAdminSidebar() {
     const sb = document.getElementById('adminSidebar');
     const main = document.getElementById('adminMain');
+    const backdrop = document.getElementById('adminSidebarBackdrop');
     if (window.innerWidth <= 900) {
-      sb.classList.toggle('mobile-open');
+      const open = sb.classList.toggle('mobile-open');
+      backdrop?.classList.toggle('show', open);
     } else {
       sb.classList.toggle('collapsed');
       main.classList.toggle('expanded');
+      backdrop?.classList.remove('show');
     }
   }
 
@@ -1160,6 +1250,7 @@
       document.querySelectorAll('.nav-item, .sub-item').forEach(n => n.classList.remove('active'));
       el.classList.add('active');
     }
+    if (window.innerWidth <= 900) closeAdminSidebar();
     if (sec !== 'tickets') {
       activeHelpChatUserId = null;
       const listCard = document.getElementById('helpChatsListCard');
@@ -1492,17 +1583,17 @@
     });
 
     document.getElementById('withdrawalsTable').innerHTML = list.length ? `
-      <table><thead><tr><th>ID / TIME</th><th>USER</th><th>CURRENCY &amp; AMOUNT</th><th>METHOD &amp; ACCOUNT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
+      <table class="mobile-stack"><thead><tr><th>ID / TIME</th><th>USER</th><th>CURRENCY &amp; AMOUNT</th><th>METHOD &amp; ACCOUNT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
       ${list.map(w => `<tr>
-        <td><strong>${w.id}</strong><div style="font-size:0.72rem;color:#64748b;">${new Date(w.createdAt).toLocaleString()}</div></td>
-        <td><strong>@${w.username}</strong></td>
-        <td><span class="invite-pill" style="margin-top:0;margin-right:6px;">${w.currency || 'PKR'}</span><strong>${Number(w.amount).toLocaleString()}</strong></td>
-        <td><div><strong>${w.method || '-'}</strong></div><small style="color:#94a3b8;">${w.accountDetails}</small></td>
-        <td>
+        <td data-label="ID / Time"><strong>${w.id}</strong><div style="font-size:0.72rem;color:#64748b;">${new Date(w.createdAt).toLocaleString()}</div></td>
+        <td data-label="User"><strong>@${w.username}</strong></td>
+        <td data-label="Amount"><span class="invite-pill" style="margin-top:0;margin-right:6px;">${w.currency || 'PKR'}</span><strong>${Number(w.amount).toLocaleString()}</strong></td>
+        <td data-label="Method"><div><strong>${w.method || '-'}</strong></div><small style="color:#94a3b8;">${w.accountDetails}</small></td>
+        <td data-label="Status">
           <span class="tag ${w.status==='APPROVED'?'tag-win':w.status==='REJECTED'?'tag-loss':'tag-run'}">${w.status}</span>
           ${w.status==='REJECTED' && w.rejectReason ? `<div style="color:#fca5a5;font-size:0.75rem;margin-top:6px;max-width:240px;">Reason: ${String(w.rejectReason).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>` : ''}
         </td>
-        <td>${w.status==='PENDING' ? `<button class="btn-sm btn-win" onclick="reviewWithdrawal('${w.id}','APPROVE')">Approve</button><button class="btn-sm btn-loss" onclick="reviewWithdrawal('${w.id}','REJECT')">Reject</button>` : '-'}</td>
+        <td data-label="Action">${w.status==='PENDING' ? `<button class="btn-sm btn-win" onclick="reviewWithdrawal('${w.id}','APPROVE')">Approve</button><button class="btn-sm btn-loss" onclick="reviewWithdrawal('${w.id}','REJECT')">Reject</button>` : '-'}</td>
       </tr>`).join('')}
       </tbody></table>` : `<p style="color:#94a3b8;">No ${statusFilter === 'ALL' ? '' : statusFilter.toLowerCase()} withdrawals found.</p>`;
   }
@@ -1515,21 +1606,21 @@
       : window.location.origin;
 
     document.getElementById('inviteLinksTableWrap').innerHTML = links.length ? `
-      <table>
+      <table class="mobile-stack">
         <thead><tr><th>CODE</th><th>LABEL</th><th>REGISTRATION LINK</th><th>LIMIT / STATUS</th><th>USED BY</th><th>ACTION</th></tr></thead>
         <tbody>
           ${links.map(l => {
             const fullUrl = `${traderBase}/?ref=${encodeURIComponent(l.code)}`;
             const isUsed = l.status !== 'ACTIVE' || Number(l.useCount) >= Number(l.maxUses || 1);
             return `<tr>
-              <td><strong>${l.code}</strong></td>
-              <td>${l.label || '-'}</td>
-              <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;color:#94a3b8;">${fullUrl}</td>
-              <td>
+              <td data-label="Code"><strong>${l.code}</strong></td>
+              <td data-label="Label">${l.label || '-'}</td>
+              <td data-label="Link" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:normal;font-size:0.78rem;color:#94a3b8;word-break:break-all;">${fullUrl}</td>
+              <td data-label="Status">
                 <span class="tag ${isUsed ? 'tag-loss' : 'tag-win'}">${isUsed ? 'USED (1/1)' : 'ACTIVE (0/1)'}</span>
               </td>
-              <td>${l.usedByUsername ? `<strong>@${l.usedByUsername}</strong><div style="font-size:0.7rem;color:#64748b;">${l.usedAt ? new Date(l.usedAt).toLocaleString() : ''}</div>` : '<span style="color:#64748b;">Not yet claimed</span>'}</td>
-              <td>
+              <td data-label="Used By">${l.usedByUsername ? `<strong>@${l.usedByUsername}</strong><div style="font-size:0.7rem;color:#64748b;">${l.usedAt ? new Date(l.usedAt).toLocaleString() : ''}</div>` : '<span style="color:#64748b;">Not yet claimed</span>'}</td>
+              <td data-label="Action">
                 ${!isUsed ? `<button class="btn-sm btn-win" onclick="copyTextValue('${fullUrl}')">Copy Link</button>` : ''}
                 <button class="btn-sm btn-loss" onclick="deleteInviteLink('${l.code}')">Delete</button>
               </td>
@@ -1621,7 +1712,7 @@
 
   function buildTradesTable(list, isRunning, allowLiveControls = false) {
     if (!list.length) return '<p style="color:#94a3b8;margin:8px 0;">No trades found.</p>';
-    return `<table>
+    return `<table class="mobile-stack">
       <thead><tr><th>ID</th><th>TRADER</th><th>PAIR &amp; SIDE</th><th>CURRENCY &amp; STAKE</th><th>PAYOUT</th><th>TIME / STATUS</th><th>ADMIN CONTROL</th></tr></thead>
       <tbody>
         ${list.map(t => {
@@ -1632,13 +1723,13 @@
           const createdTxt = t.createdAt ? new Date(Number(t.createdAt)).toLocaleString() : '';
           const sideLabel = t.direction === 'DOWN' ? 'SELL' : 'BUY';
           return `<tr>
-            <td><strong>${t.id}</strong><div style="font-size:0.72rem;color:#64748b;">${createdTxt}</div></td>
-            <td><a href="javascript:void(0)" onclick="openUserDetail('${t.userId}')" style="color:#818cf8;text-decoration:none;font-weight:700;">@${t.username}</a></td>
-            <td>${t.pair} (<strong>${sideLabel}</strong>)</td>
-            <td><span class="invite-pill" style="margin-top:0;margin-right:6px;">${t.currency || 'PKR'}</span><strong>${Number(t.stake).toLocaleString()}</strong></td>
-            <td>+${t.payoutPercent}%</td>
-            <td>${active ? `<span class="tag tag-run">${rem}s left</span>` : `<span class="tag ${tagCls}">${t.status}</span>`}</td>
-            <td>${showControls ? `
+            <td data-label="ID"><strong>${t.id}</strong><div style="font-size:0.72rem;color:#64748b;">${createdTxt}</div></td>
+            <td data-label="Trader"><a href="javascript:void(0)" onclick="openUserDetail('${t.userId}')" style="color:#fb923c;text-decoration:none;font-weight:700;">@${t.username}</a></td>
+            <td data-label="Pair & Side">${t.pair} (<strong>${sideLabel}</strong>)</td>
+            <td data-label="Currency & Stake"><span class="invite-pill" style="margin-top:0;margin-right:6px;">${t.currency || 'PKR'}</span><strong>${Number(t.stake).toLocaleString()}</strong></td>
+            <td data-label="Payout">+${t.payoutPercent}%</td>
+            <td data-label="Status">${active ? `<span class="tag tag-run">${rem}s left</span>` : `<span class="tag ${tagCls}">${t.status}</span>`}</td>
+            <td data-label="Admin Control">${showControls ? `
               <button class="btn-sm btn-win" onclick="setTradeOutcome('${t.id}','WIN')">Force Win</button>
               <button class="btn-sm btn-loss" onclick="setTradeOutcome('${t.id}','LOSS')">Force Loss</button>
               <button class="btn-sm btn-void" onclick="voidTrade('${t.id}')">Void</button>
@@ -1687,28 +1778,28 @@
       const total = Number(u.totalBalance ?? (avail + frozen));
 
       return `<tr>
-        <td>
+        <td data-label="User">
           <strong>${fullName}</strong>
           <span class="user-handle">@${u.username}</span>
           ${inviteBadge}
         </td>
-        <td>
+        <td data-label="Email / Phone">
           <div>${u.email}</div>
           <small style="color:#94a3b8;">${u.mobile || '-'}</small>
         </td>
-        <td><strong>${u.country || 'PK'}</strong></td>
-        <td>
+        <td data-label="Country"><strong>${u.country || 'PK'}</strong></td>
+        <td data-label="Balances">
           <div style="color:#10b981;font-weight:700;">Avail: ${avail.toLocaleString()}</div>
           ${frozen > 0 ? `<div style="color:#38bdf8;font-size:0.76rem;font-weight:700;">❄️ Frozen: ${frozen.toLocaleString()}</div>` : ''}
           <small style="color:#94a3b8;">Total: ${total.toLocaleString()}</small>
         </td>
-        <td>${modeSwitch}</td>
-        <td>
+        <td data-label="Trade Mode">${modeSwitch}</td>
+        <td data-label="Joined">
           <div>${new Date(u.createdAt).toLocaleDateString()}</div>
           <small style="color:#94a3b8;">${timeAgo(u.createdAt)}</small>
         </td>
-        <td style="white-space:nowrap;">
-          <button class="btn-sm" style="background:#0891b2;" onclick="selectedUserId='${u.id}'; openFreezeBalanceModal();">❄️ Freeze</button>
+        <td data-label="Action" style="white-space:normal;">
+          <button class="btn-sm" style="background:#9a3412;" onclick="selectedUserId='${u.id}'; openFreezeBalanceModal();">❄️ Freeze</button>
           <button class="btn-details" onclick="openUserDetail('${u.id}')">🖥 Details</button>
         </td>
       </tr>`;

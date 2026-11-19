@@ -244,7 +244,7 @@ select:-webkit-autofill {
 @media (max-width: 768px) {
   .card, .stat-card, .metric-card { padding: 15px; }
   .stats-grid, .metrics-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
   }
   .stat-val { font-size: 1.25rem !important; }
@@ -257,6 +257,17 @@ select:-webkit-autofill {
   }
   table.mobile-stack {
     white-space: normal;
+  }
+  input, select, textarea, button {
+    max-width: 100%;
+  }
+  .dt-alert-backdrop {
+    padding: 12px;
+    align-items: flex-end;
+  }
+  .dt-alert-box {
+    max-width: 100%;
+    border-radius: 16px 16px 12px 12px;
   }
 }
 

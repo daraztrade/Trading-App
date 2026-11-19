@@ -75,7 +75,11 @@ const upload = multer({
 // VALIDATION HELPERS
 // ==========================================================================
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || '').trim());
-const isValidUsername = (u) => /^[a-zA-Z0-9_]{3,24}$/.test(String(u || '').trim());
+// Letters required; numbers / spaces / . _ - optional — no forced mix of types
+const isValidUsername = (u) => {
+  const s = String(u || '').trim().replace(/\s+/g, ' ');
+  return s.length >= 3 && s.length <= 24 && /^[a-zA-Z][a-zA-Z0-9._\- ]*$/.test(s);
+};
 const cleanStr = (v, max = 200) => String(v || '').trim().slice(0, max);
 
 // ==========================================================================
@@ -1021,7 +1025,7 @@ app.get('/api/public/live-activity', (req, res) => {
 });
 
 app.post('/api/auth/register', async (req, res) => {
-  const username = cleanStr(req.body.username, 24);
+  const username = cleanStr(req.body.username, 24).replace(/\s+/g, ' ');
   const email = cleanStr(req.body.email, 120).toLowerCase();
   const country = cleanStr(req.body.country || 'Pakistan', 60);
   const mobile = cleanStr(req.body.mobile, 25);
@@ -1030,7 +1034,7 @@ app.post('/api/auth/register', async (req, res) => {
   const invitationCode = cleanStr(req.body.invitationCode, 40).toUpperCase();
 
   if (!isValidUsername(username)) {
-    return res.status(400).json({ error: 'Username must be 3–24 characters (letters, numbers, or underscore).' });
+    return res.status(400).json({ error: 'Username must be 3–24 characters. Letters are enough — numbers or symbols are optional.' });
   }
   if (!isValidEmail(email)) {
     return res.status(400).json({ error: 'Please enter a valid email address.' });
@@ -1365,19 +1369,37 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
 });
 
 app.post('/api/help-center/send', requireAuth(['TRADER']), async (req, res) => {
-  const message = cleanStr(req.body.message, 1000);
-  if (message.length < 2) return res.status(400).json({ error: 'Please type a message.' });
-  const subject = cleanStr(req.body.subject, 120) || (message.length > 48 ? message.slice(0, 48) + '…' : message);
+  try {
+    const message = cleanStr(req.body.message, 1000);
+    if (message.length < 2) return res.status(400).json({ error: 'Please type a message.' });
+    const subject = cleanStr(req.body.subject, 120) || (message.length > 48 ? message.slice(0, 48) + '…' : message);
+    const createdAt = new Date().toISOString();
 
-  const id = 'TKT-' + generateTrx();
-  await dbRun(
-    `INSERT INTO tickets (id, userId, username, subject, message, status, createdAt)
-     VALUES (?, ?, ?, ?, ?, 'OPEN', ?)`,
-    [id, req.user.id, req.user.username, subject, message, new Date().toISOString()]
-  );
+    const id = 'TKT-' + generateTrx();
+    await dbRun(
+      `INSERT INTO tickets (id, userId, username, subject, message, status, createdAt)
+       VALUES (?, ?, ?, ?, ?, 'OPEN', ?)`,
+      [id, req.user.id, req.user.username, subject, message, createdAt]
+    );
 
-  broadcastEvent('NEW_TICKET', { id, username: req.user.username });
-  res.json({ message: 'Message sent to Help Center.', ticket: { id, subject, message, status: 'OPEN' } });
+    broadcastEvent('NEW_TICKET', { id, username: req.user.username });
+    res.json({
+      message: 'Message sent to Help Center.',
+      ticket: {
+        id,
+        userId: req.user.id,
+        username: req.user.username,
+        subject,
+        message,
+        reply: '',
+        status: 'OPEN',
+        createdAt
+      }
+    });
+  } catch (err) {
+    console.error('help-center/send failed:', err?.message || err);
+    res.status(500).json({ error: 'Could not send message. Please try again.' });
+  }
 });
 
 // ==========================================================================
