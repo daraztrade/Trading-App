@@ -1,8 +1,8 @@
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env'), override: true });
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const { Pool } = require('pg');
@@ -29,7 +29,14 @@ app.use('/shared', express.static(SHARED_DIR));
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 const PORTAL_MODE = process.env.PORTAL_MODE || 'ALL';
-const staticOpts = { extensions: ['html'] };
+const staticOpts = {
+  extensions: ['html'],
+  setHeaders(res, filePath) {
+    if (String(filePath).endsWith('.html') || String(filePath).endsWith('.js')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
+  }
+};
 
 if (PORTAL_MODE === 'ADMIN') {
   app.get('/', (req, res) => res.redirect('/login'));
@@ -39,6 +46,8 @@ if (PORTAL_MODE === 'ADMIN') {
   app.use('/', express.static(TRADER_DIR, staticOpts));
 } else {
   app.get('/admin', (req, res) => res.redirect('/admin/login'));
+  app.get('/login.html', (req, res) => res.redirect(302, '/index.html'));
+  app.get('/login', (req, res) => res.redirect(302, '/index.html'));
   app.use('/admin', express.static(ADMIN_DIR, staticOpts));
   app.use('/', express.static(TRADER_DIR, staticOpts));
 }
@@ -116,11 +125,20 @@ function broadcastEvent(type, payload = {}) {
 // ==========================================================================
 // SUPABASE (POSTGRES) DATABASE CLIENT & QUERY HELPERS
 // ==========================================================================
-const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  process.env.SUPABASE_DB_URL ||
-  process.env.SUPABASE_DATABASE_URL ||
-  '';
+function resolveDatabaseUrl() {
+  let url =
+    process.env.DATABASE_URL ||
+    process.env.SUPABASE_DB_URL ||
+    process.env.SUPABASE_DATABASE_URL ||
+    '';
+  // Session pooler (:5432) hits max clients quickly; prefer Transaction mode (:6543).
+  if (url.includes('.pooler.supabase.com:5432/')) {
+    url = url.replace('.pooler.supabase.com:5432/', '.pooler.supabase.com:6543/');
+  }
+  return url;
+}
+
+const DATABASE_URL = resolveDatabaseUrl();
 
 if (!DATABASE_URL) {
   console.error(
@@ -129,11 +147,12 @@ if (!DATABASE_URL) {
 }
 
 const pool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-  max: 3,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 10000
+  connectionString: DATABASE_URL || undefined,
+  ssl: DATABASE_URL ? { rejectUnauthorized: false } : undefined,
+  max: process.env.VERCEL ? 1 : 3,
+  idleTimeoutMillis: 5000,
+  connectionTimeoutMillis: 15000,
+  allowExitOnIdle: true
 });
 pool.on('error', (err) => {
   console.error('Unexpected Postgres pool error:', err.message);
@@ -767,90 +786,101 @@ setInterval(() => {
   settleExpiredTrades().catch(() => {});
 }, 1000);
 
+async function settleOneTrade(trade, settings) {
+  const user = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
+  if (!user) return null;
+
+  let exitPrice = getPairPrice(trade.pair) || Number(trade.entryPrice);
+  let mode = settings.tradeOutcomeMode || 'WIN_DEFAULT';
+  if (user.tradeOutcome === 'FORCE_WIN') mode = 'WIN_DEFAULT';
+  if (user.tradeOutcome === 'FORCE_LOSS') mode = 'LOSS_DEFAULT';
+  if (trade.outcomeOverride === 'WIN') mode = 'WIN_DEFAULT';
+  if (trade.outcomeOverride === 'LOSS') mode = 'LOSS_DEFAULT';
+
+  let won = false;
+  const decimals = Number(trade.entryPrice) < 0.01 ? 6 : Number(trade.entryPrice) < 1 ? 4 : 2;
+  if (mode === 'WIN_DEFAULT') {
+    won = true;
+    exitPrice = trade.direction === 'UP'
+      ? Number((Number(trade.entryPrice) * 1.0015).toFixed(decimals))
+      : Number((Number(trade.entryPrice) * 0.9985).toFixed(decimals));
+  } else if (mode === 'LOSS_DEFAULT') {
+    won = false;
+    exitPrice = trade.direction === 'UP'
+      ? Number((Number(trade.entryPrice) * 0.9985).toFixed(decimals))
+      : Number((Number(trade.entryPrice) * 1.0015).toFixed(decimals));
+  } else {
+    won = (trade.direction === 'UP' && exitPrice > Number(trade.entryPrice)) ||
+          (trade.direction === 'DOWN' && exitPrice < Number(trade.entryPrice));
+  }
+
+  const settledAt = new Date().toISOString();
+  const stake = Number(trade.stake);
+  const payoutPercent = Number(trade.payoutPercent);
+  const tradeCurr = trade.currency || user.currency || 'PKR';
+  const newInOrder = Math.max(0, Number((Number(user.inOrderBalance) - stake).toFixed(2)));
+  let profit = -stake;
+
+  if (won) {
+    profit = Number((stake * (payoutPercent / 100)).toFixed(2));
+    const totalReturn = Number((stake + profit).toFixed(2));
+    const newBalance = Number((Number(user.balance) + totalReturn).toFixed(2));
+    const newScore = Math.min(100, Number(user.creditScore) + 5);
+
+    const claimed = await dbRun(
+      "UPDATE trades SET status = 'WON', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ? AND status = 'RUNNING'",
+      [exitPrice, profit, settledAt, trade.id]
+    );
+    if (!claimed.rowCount) return null;
+
+    await dbBatch([
+      {
+        sql: 'UPDATE users SET balance = ?, inOrderBalance = ?, creditScore = ? WHERE id = ?',
+        args: [newBalance, newInOrder, newScore, user.id]
+      },
+      {
+        sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [generateTrx(), user.id, user.username, 'TRADE_WIN', totalReturn, newBalance, `Trade Win (${trade.pair} [${tradeCurr}] +${payoutPercent}%)`, settledAt]
+      }
+    ]);
+  } else {
+    const newScore = Math.max(0, Number(user.creditScore) - 15);
+    const claimed = await dbRun(
+      "UPDATE trades SET status = 'LOST', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ? AND status = 'RUNNING'",
+      [exitPrice, -stake, settledAt, trade.id]
+    );
+    if (!claimed.rowCount) return null;
+
+    await dbBatch([
+      {
+        sql: 'UPDATE users SET inOrderBalance = ?, creditScore = ? WHERE id = ?',
+        args: [newInOrder, newScore, user.id]
+      },
+      {
+        sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [generateTrx(), user.id, user.username, 'TRADE_LOSS', -stake, Number(user.balance), `Trade Loss (${trade.pair} [${tradeCurr}])`, settledAt]
+      }
+    ]);
+  }
+
+  return {
+    ...trade,
+    status: won ? 'WON' : 'LOST',
+    exitPrice,
+    profit,
+    settledAt
+  };
+}
+
 async function settleExpiredTrades() {
   const now = Date.now();
   const expired = await dbAll("SELECT * FROM trades WHERE status = 'RUNNING' AND expiresAt <= ?", [now]);
   if (!expired.length) return;
 
   const settings = await getSettings();
-
   for (const trade of expired) {
-    const user = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
-    if (!user) continue;
-
-    let exitPrice = getPairPrice(trade.pair) || Number(trade.entryPrice);
-    let mode = settings.tradeOutcomeMode || 'WIN_DEFAULT';
-    if (user.tradeOutcome === 'FORCE_WIN') mode = 'WIN_DEFAULT';
-    if (user.tradeOutcome === 'FORCE_LOSS') mode = 'LOSS_DEFAULT';
-    if (trade.outcomeOverride === 'WIN') mode = 'WIN_DEFAULT';
-    if (trade.outcomeOverride === 'LOSS') mode = 'LOSS_DEFAULT';
-
-    let won = false;
-    const decimals = Number(trade.entryPrice) < 0.01 ? 6 : Number(trade.entryPrice) < 1 ? 4 : 2;
-    if (mode === 'WIN_DEFAULT') {
-      won = true;
-      exitPrice = trade.direction === 'UP'
-        ? Number((Number(trade.entryPrice) * 1.0015).toFixed(decimals))
-        : Number((Number(trade.entryPrice) * 0.9985).toFixed(decimals));
-    } else if (mode === 'LOSS_DEFAULT') {
-      won = false;
-      exitPrice = trade.direction === 'UP'
-        ? Number((Number(trade.entryPrice) * 0.9985).toFixed(decimals))
-        : Number((Number(trade.entryPrice) * 1.0015).toFixed(decimals));
-    } else {
-      won = (trade.direction === 'UP' && exitPrice > Number(trade.entryPrice)) ||
-            (trade.direction === 'DOWN' && exitPrice < Number(trade.entryPrice));
-    }
-
-    const settledAt = new Date().toISOString();
-    const stake = Number(trade.stake);
-    const payoutPercent = Number(trade.payoutPercent);
-    const tradeCurr = trade.currency || user.currency || 'PKR';
-    const newInOrder = Math.max(0, Number((Number(user.inOrderBalance) - stake).toFixed(2)));
-
-    if (won) {
-      const profit = Number((stake * (payoutPercent / 100)).toFixed(2));
-      const totalReturn = Number((stake + profit).toFixed(2));
-      const newBalance = Number((Number(user.balance) + totalReturn).toFixed(2));
-      const newScore = Math.min(100, Number(user.creditScore) + 5);
-
-      const claimed = await dbRun(
-        "UPDATE trades SET status = 'WON', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ? AND status = 'RUNNING'",
-        [exitPrice, profit, settledAt, trade.id]
-      );
-      if (!claimed.rowCount) continue;
-
-      await dbBatch([
-        {
-          sql: 'UPDATE users SET balance = ?, inOrderBalance = ?, creditScore = ? WHERE id = ?',
-          args: [newBalance, newInOrder, newScore, user.id]
-        },
-        {
-          sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          args: [generateTrx(), user.id, user.username, 'TRADE_WIN', totalReturn, newBalance, `Trade Win (${trade.pair} [${tradeCurr}] +${payoutPercent}%)`, settledAt]
-        }
-      ]);
-    } else {
-      const newScore = Math.max(0, Number(user.creditScore) - 15);
-      const claimed = await dbRun(
-        "UPDATE trades SET status = 'LOST', exitPrice = ?, profit = ?, settledAt = ? WHERE id = ? AND status = 'RUNNING'",
-        [exitPrice, -stake, settledAt, trade.id]
-      );
-      if (!claimed.rowCount) continue;
-
-      await dbBatch([
-        {
-          sql: 'UPDATE users SET inOrderBalance = ?, creditScore = ? WHERE id = ?',
-          args: [newInOrder, newScore, user.id]
-        },
-        {
-          sql: 'INSERT INTO transactions (trx, userId, username, type, amount, postBalance, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          args: [generateTrx(), user.id, user.username, 'TRADE_LOSS', -stake, Number(user.balance), `Trade Loss (${trade.pair} [${tradeCurr}])`, settledAt]
-        }
-      ]);
-    }
+    await settleOneTrade(trade, settings);
   }
-
   broadcastEvent('TRADE_SETTLED');
 }
 
@@ -1132,6 +1162,31 @@ app.post('/api/trader/errors/:id/dismiss', requireAuth(['TRADER']), async (req, 
   res.json({ ok: true });
 });
 
+// Instant settle when countdown ends (avoids 1s interval + poll delay)
+app.post('/api/trades/:id/settle', requireAuth(['TRADER']), async (req, res) => {
+  const trade = await dbGet('SELECT * FROM trades WHERE id = ? AND userId = ?', [req.params.id, req.user.id]);
+  if (!trade) return res.status(404).json({ error: 'Trade not found.' });
+
+  if (trade.status !== 'RUNNING') {
+    return res.json({ trade });
+  }
+
+  // Allow small early settle so result is ready as countdown hits 0
+  if (Number(trade.expiresAt) > Date.now() + 1500) {
+    return res.status(400).json({ error: 'Trade has not expired yet.' });
+  }
+
+  const settings = await getSettings();
+  const settled = await settleOneTrade(trade, settings);
+  if (!settled) {
+    const latest = await dbGet('SELECT * FROM trades WHERE id = ?', [trade.id]);
+    return res.json({ trade: latest || trade });
+  }
+
+  broadcastEvent('TRADE_SETTLED', { id: trade.id });
+  res.json({ trade: settled });
+});
+
 app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
   const settings = await getSettings();
   if (settings.globalTradeBan?.enabled) return res.status(403).json({ error: settings.globalTradeBan.message });
@@ -1281,9 +1336,9 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
 });
 
 app.post('/api/help-center/send', requireAuth(['TRADER']), async (req, res) => {
-  const subject = cleanStr(req.body.subject, 120);
   const message = cleanStr(req.body.message, 1000);
-  if (!subject || message.length < 4) return res.status(400).json({ error: 'Please enter a subject and message.' });
+  if (message.length < 2) return res.status(400).json({ error: 'Please type a message.' });
+  const subject = cleanStr(req.body.subject, 120) || (message.length > 48 ? message.slice(0, 48) + '…' : message);
 
   const id = 'TKT-' + generateTrx();
   await dbRun(
@@ -1293,7 +1348,7 @@ app.post('/api/help-center/send', requireAuth(['TRADER']), async (req, res) => {
   );
 
   broadcastEvent('NEW_TICKET', { id, username: req.user.username });
-  res.json({ message: 'Message sent to Help Center.' });
+  res.json({ message: 'Message sent to Help Center.', ticket: { id, subject, message, status: 'OPEN' } });
 });
 
 // ==========================================================================
@@ -1326,7 +1381,7 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
     dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60'),
     dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 100'),
     dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 100'),
-    dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 50'),
+    dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 300'),
     dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60'),
     dbAll('SELECT * FROM invite_links ORDER BY createdAt DESC LIMIT 100'),
     getSettings()
@@ -1639,6 +1694,41 @@ app.post('/api/admin/tickets/:id/reply', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
   await logAudit(req.user, 'REPLY_TICKET', ticket.username, `Replied to ${ticket.id}`);
   broadcastEvent('TICKET_UPDATED');
   res.json({ message: 'Reply sent.' });
+});
+
+// Reply inside a user's help chat (latest OPEN ticket, or new admin follow-up)
+app.post('/api/admin/help-chats/:userId/reply', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const userId = cleanStr(req.params.userId, 60);
+  const reply = cleanStr(req.body.reply, 1000);
+  if (!reply) return res.status(400).json({ error: 'Reply cannot be empty.' });
+
+  const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+
+  const openTicket = await dbGet(
+    "SELECT * FROM tickets WHERE userId = ? AND status = 'OPEN' ORDER BY createdAt ASC LIMIT 1",
+    [userId]
+  );
+
+  if (openTicket) {
+    await dbRun(
+      "UPDATE tickets SET reply = ?, repliedBy = ?, status = 'ANSWERED' WHERE id = ?",
+      [reply, req.user.username, openTicket.id]
+    );
+    await logAudit(req.user, 'REPLY_TICKET', user.username, `Replied to ${openTicket.id}`);
+    broadcastEvent('TICKET_UPDATED');
+    return res.json({ message: 'Reply sent.', ticketId: openTicket.id });
+  }
+
+  const id = 'TKT-' + generateTrx();
+  await dbRun(
+    `INSERT INTO tickets (id, userId, username, subject, message, reply, repliedBy, status, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'ANSWERED', ?)`,
+    [id, userId, user.username, 'Admin follow-up', '', reply, req.user.username, new Date().toISOString()]
+  );
+  await logAudit(req.user, 'REPLY_TICKET', user.username, `Admin chat message ${id}`);
+  broadcastEvent('TICKET_UPDATED');
+  res.json({ message: 'Reply sent.', ticketId: id });
 });
 
 app.post('/api/admin/error-sender', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {

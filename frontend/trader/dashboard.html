@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta name="theme-color" content="#0b0e14" />
   <title>Daraz Trade — Live Trading Terminal</title>
   <link rel="stylesheet" href="/shared/theme.css" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ee4d07'/><path d='M22 72 L44 50 L58 62 L78 34' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='64,34 78,34 78,48' stroke='%23ffffff' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
@@ -185,6 +188,35 @@
       background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.4);
       color: #bae6fd; padding: 12px 16px; border-radius: 10px; margin-bottom: 14px;
     }
+    .dash-hero {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .dash-profile {
+      display: flex; align-items: center; gap: 16px;
+    }
+    .dash-avatar {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: linear-gradient(135deg, #ee4d07, #f97316);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; font-weight: 800; color: #fff; flex-shrink: 0;
+    }
+    .dash-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .dash-stat {
+      background: #182032; border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 12px; padding: 14px 16px;
+    }
+    .dash-stat small { display: block; font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+    .dash-stat strong { font-size: 1.15rem; font-weight: 800; }
+    @media (max-width: 960px) {
+      .dash-hero, .dash-stats { grid-template-columns: 1fr; }
+    }
 
     /* MODAL */
     .modal-backdrop {
@@ -202,16 +234,283 @@
       z-index: 1000; display: none;
     }
 
+    /* HELP CENTER CHAT */
+    .help-chat {
+      display: flex;
+      flex-direction: column;
+      background: #0b0e14;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      min-height: calc(100vh - 40px);
+      overflow: hidden;
+    }
+    .help-chat-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: #111622;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .help-back-btn {
+      background: #182032;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #cbd5e1;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .help-back-btn:hover { color: #fff; border-color: rgba(255,255,255,0.25); }
+    .help-avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: linear-gradient(135deg, #229ed9, #0ea5e9);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.25rem; flex-shrink: 0;
+    }
+    .help-chat-title { font-size: 1.05rem; font-weight: 800; color: #fff; line-height: 1.2; }
+    .help-chat-status { font-size: 0.78rem; color: #34d399; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+    .help-chat-status::before {
+      content: ''; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; display: inline-block;
+    }
+    .help-chat-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: #0b0e14;
+      min-height: 420px;
+      max-height: calc(100vh - 220px);
+    }
+    .help-row { display: flex; align-items: flex-end; gap: 8px; max-width: 88%; }
+    .help-row.bot { align-self: flex-start; }
+    .help-row.user { align-self: flex-end; flex-direction: row-reverse; }
+    .help-bubble {
+      padding: 11px 14px;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+    }
+    .help-row.bot .help-bubble {
+      background: #182032;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-bottom-left-radius: 4px;
+    }
+    .help-row.user .help-bubble {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .help-mini-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg, #229ed9, #0ea5e9);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; flex-shrink: 0;
+    }
+    .help-user-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg, #ee4d07, #f97316);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 800; color: #fff; flex-shrink: 0;
+    }
+    .help-chat-footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      background: #111622;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .help-chat-footer input {
+      flex: 1;
+      background: #182032;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      outline: none;
+    }
+    .help-send-btn {
+      width: 46px; height: 46px;
+      border: none; border-radius: 10px;
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: #fff; font-size: 1.15rem;
+      cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .help-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .help-telegram-link {
+      font-size: 0.75rem; color: #38bdf8; text-decoration: none; margin-left: auto;
+    }
+    .help-telegram-link:hover { text-decoration: underline; }
+    body.help-mode .topbar,
+    body.help-mode #customAlertsContainer,
+    body.help-mode #frozenNoticeContainer { display: none !important; }
+    body.help-mode .main { padding-top: 12px; }
+
+    /* WITHDRAW HISTORY LOG */
+    .wdr-log-head {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+    }
+    .wdr-log-head h3 { margin: 0; font-size: 1.15rem; }
+    .wdr-search-wrap {
+      display: flex; align-items: center; gap: 0;
+      background: #182032; border: 1px solid rgba(255,255,255,0.12); border-radius: 9px; overflow: hidden;
+    }
+    .wdr-search-wrap input {
+      background: transparent; border: none; color: #fff; padding: 10px 12px;
+      min-width: 220px; outline: none; font-size: 0.86rem;
+    }
+    .wdr-search-wrap button {
+      background: transparent; border: none; color: #94a3b8; padding: 10px 12px; cursor: pointer;
+    }
+    .wdr-gateway { color: #60a5fa; font-weight: 700; }
+    .wdr-sub { font-size: 0.74rem; color: #94a3b8; margin-top: 3px; }
+    .wdr-amount-fee { color: #f87171; font-size: 0.84rem; }
+    .wdr-details-btn {
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      border: none; color: #fff; padding: 8px 12px; border-radius: 8px;
+      font-size: 0.78rem; font-weight: 700; cursor: pointer;
+    }
+    .wdr-details-btn:hover { filter: brightness(1.08); }
+    .wdr-detail-row {
+      display: flex; justify-content: space-between; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.9rem; text-align: left;
+    }
+    .wdr-detail-row:last-child { border-bottom: none; }
+    .wdr-detail-row span { color: #94a3b8; }
+    .wdr-detail-row strong { color: #fff; text-align: right; }
+    .wdr-feedback {
+      margin-top: 12px; padding: 12px; border-radius: 10px;
+      background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35);
+      color: #fecaca; font-size: 0.88rem; text-align: left;
+    }
+    .sidebar-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 190;
+    }
+    .sidebar-backdrop.show { display: block; }
+
     @media (max-width: 960px) {
-      .sidebar { transform: translateX(-100%); }
+      .sidebar {
+        transform: translateX(-100%);
+        width: min(280px, 86vw);
+        box-shadow: 8px 0 24px rgba(0,0,0,0.35);
+      }
       .sidebar.open { transform: translateX(0); }
-      .main { margin-left: 0; padding: 12px; }
+      .main {
+        margin-left: 0;
+        padding: 12px 12px calc(18px + env(safe-area-inset-bottom));
+      }
       .terminal-grid { grid-template-columns: 1fr; }
+      .topbar { padding: 10px 12px; border-radius: 10px; }
+      .card { padding: 14px; border-radius: 12px; }
+      #tvChart { height: 280px !important; }
+      .pair-search { width: 100%; min-width: 0; flex: 1; }
+      .pair-select { width: 100%; }
+      .pair-controls { width: 100%; }
+      .pair-controls > div { width: 100%; }
+      .tf-group { width: 100%; }
+      .tf-btn, .snap-live-btn { flex: 1 1 auto; text-align: center; min-height: 36px; }
+      .trade-actions { position: sticky; bottom: 8px; z-index: 5; }
+      .btn-buy, .btn-sell { min-height: 48px; font-size: 0.95rem; }
+      .nav-btn { min-height: 44px; font-size: 0.95rem; }
+      .modal-backdrop { padding: 12px; align-items: flex-end; }
+      .modal-backdrop.open { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+      .modal-box {
+        max-width: 100% !important;
+        width: 100%;
+        border-radius: 16px 16px 12px 12px;
+        padding: 20px 16px;
+        max-height: min(88vh, 720px);
+        overflow-y: auto;
+      }
+      .help-chat {
+        min-height: calc(100dvh - 24px);
+        border-radius: 12px;
+      }
+      .help-chat-header { flex-wrap: wrap; gap: 10px; padding: 12px; }
+      .help-telegram-link { margin-left: 0; width: 100%; text-align: right; }
+      .help-chat-body {
+        min-height: 280px;
+        max-height: none;
+        flex: 1;
+      }
+      .help-chat-footer {
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      }
+      .help-row { max-width: 92%; }
+      .wdr-log-head { align-items: stretch; }
+      .wdr-search-wrap { width: 100%; }
+      .wdr-search-wrap input { min-width: 0; width: 100%; }
+      body.help-mode .main { padding: 8px; }
+
+      /* Stack wide tables into mobile cards */
+      .table-wrap { overflow: visible; }
+      .mobile-stack thead { display: none; }
+      .mobile-stack,
+      .mobile-stack tbody,
+      .mobile-stack tr,
+      .mobile-stack td {
+        display: block;
+        width: 100%;
+      }
+      .mobile-stack tr {
+        background: #182032;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .mobile-stack td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        text-align: right;
+      }
+      .mobile-stack td:last-child { border-bottom: none; }
+      .mobile-stack td::before {
+        content: attr(data-label);
+        color: #94a3b8;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        text-align: left;
+        flex-shrink: 0;
+        max-width: 42%;
+      }
+      .wdr-details-btn { width: 100%; min-height: 42px; }
+      .toast {
+        left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+        text-align: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #tvChart { height: 240px !important; }
+      .dur-btn { font-size: 0.78rem; padding: 10px 4px; }
+      .countdown-number-mobile { font-size: 3.2rem !important; }
+      #countdownNumber { font-size: 3.2rem !important; }
     }
   </style>
 </head>
 <body>
 
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeTraderSidebar()"></div>
 <div class="app-shell">
   <!-- SIDEBAR -->
   <aside class="sidebar" id="traderSidebar">
@@ -224,11 +523,13 @@
         </div>
       </div>
 
-      <button class="nav-btn active" onclick="switchTab('trade', this)">📊 Live Trading</button>
-      <button class="nav-btn" onclick="switchTab('history', this)">📜 Trade History</button>
-      <button class="nav-btn" onclick="switchTab('withdraw', this)">🏛️ Withdraw Funds</button>
-      <button class="nav-btn" onclick="switchTab('support', this)">🎧 Help Center</button>
-      <button class="nav-btn" onclick="switchTab('profile', this)">👤 Profile &amp; Security</button>
+      <button class="nav-btn active" data-tab="home" onclick="switchTab('home', this)">🏠 Dashboard</button>
+      <button class="nav-btn" data-tab="trade" onclick="switchTab('trade', this)">📊 New trade</button>
+      <button class="nav-btn" data-tab="history" onclick="switchTab('history', this)">📜 Trade History</button>
+      <button class="nav-btn" data-tab="withdraw" onclick="switchTab('withdraw', this)">🏛️ Withdraw Funds</button>
+      <button class="nav-btn" data-tab="withdraw-history" onclick="switchTab('withdraw-history', this)">📄 Withdraw history</button>
+      <button class="nav-btn" data-tab="support" onclick="switchTab('support', this)">🎧 Help Center</button>
+      <button class="nav-btn" data-tab="profile" onclick="switchTab('profile', this)">👤 Profile &amp; Security</button>
     </div>
 
     <div>
@@ -240,25 +541,10 @@
   <main class="main">
     <div class="topbar">
       <div style="display:flex;align-items:center;gap:10px;">
-        <button class="tf-btn" onclick="document.getElementById('traderSidebar').classList.toggle('open')">☰</button>
+        <button class="tf-btn" type="button" onclick="toggleTraderSidebar()" aria-label="Open menu">☰</button>
         <div>
           <strong style="font-size:1.05rem;" id="topGreeting">Welcome Trader</strong>
-          <div style="font-size:0.75rem;color:#94a3b8;">Credit Score: <strong id="topCreditScore" style="color:#10b981;">100</strong>/100</div>
-        </div>
-      </div>
-
-      <div class="bal-strip">
-        <div class="bal-pill">
-          <small>Available Balance</small>
-          <strong style="color:#10b981;" id="topAvailBal">0.00 PKR</strong>
-        </div>
-        <div class="bal-pill">
-          <small>❄️ Frozen Balance</small>
-          <strong style="color:#38bdf8;" id="topFrozenBal">0.00 PKR</strong>
-        </div>
-        <div class="bal-pill">
-          <small>In Order</small>
-          <strong style="color:#fbbf24;" id="topInOrderBal">0.00 PKR</strong>
+          <div style="font-size:0.75rem;color:#94a3b8;" id="topbarSubline">Account overview</div>
         </div>
       </div>
     </div>
@@ -266,8 +552,54 @@
     <div id="customAlertsContainer"></div>
     <div id="frozenNoticeContainer"></div>
 
-    <!-- TAB 1: LIVE TRADING -->
-    <section id="tab-trade">
+    <!-- TAB: DASHBOARD (profile / balances / score) -->
+    <section id="tab-home">
+      <div class="dash-hero">
+        <div class="card">
+          <div class="dash-profile">
+            <div class="dash-avatar" id="dashAvatar">N</div>
+            <div>
+              <div style="font-size:0.75rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Trader Profile</div>
+              <strong style="font-size:1.35rem;" id="dashFullName">Trader</strong>
+              <div style="font-size:0.85rem;color:#94a3b8;margin-top:4px;" id="dashUsername">@trader</div>
+              <div style="font-size:0.82rem;color:#94a3b8;margin-top:6px;" id="dashEmail">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div style="font-size:0.75rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Credit Score</div>
+          <strong style="font-size:2rem;color:#10b981;" id="dashCreditScore">100</strong>
+          <span style="color:#94a3b8;font-size:0.95rem;"> / 100</span>
+          <div style="font-size:0.8rem;color:#94a3b8;margin-top:8px;" id="dashAccountStatus">Status: ACTIVE</div>
+        </div>
+      </div>
+
+      <div class="dash-stats">
+        <div class="dash-stat">
+          <small>Available Balance</small>
+          <strong style="color:#10b981;" id="topAvailBal">0 PKR</strong>
+        </div>
+        <div class="dash-stat">
+          <small>❄️ Frozen Balance</small>
+          <strong style="color:#38bdf8;" id="topFrozenBal">0 PKR</strong>
+        </div>
+        <div class="dash-stat">
+          <small>In Order</small>
+          <strong style="color:#fbbf24;" id="topInOrderBal">0 PKR</strong>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+          <h4 style="margin:0;">⚡ Recent Orders</h4>
+          <button type="button" class="btn-buy" style="width:auto;padding:10px 16px;font-size:0.85rem;" onclick="switchTab('trade', document.querySelector('[data-tab=trade]'))">Go to New trade →</button>
+        </div>
+        <div class="table-wrap" id="recentTradesWrap"></div>
+      </div>
+    </section>
+
+    <!-- TAB: LIVE TRADING (trading only) -->
+    <section id="tab-trade" class="hidden">
       <div class="terminal-grid">
         <div>
           <div class="card">
@@ -295,11 +627,6 @@
             </div>
 
             <div id="tvChart"></div>
-          </div>
-
-          <div class="card">
-            <h4 style="margin:0 0 12px;">⚡ Active / Recent Orders</h4>
-            <div class="table-wrap" id="recentTradesWrap"></div>
           </div>
         </div>
 
@@ -366,78 +693,91 @@
       </div>
     </section>
 
-    <!-- TAB 3: WITHDRAW FUNDS -->
+    <!-- TAB 3: WITHDRAW FUNDS (request only) -->
     <section id="tab-withdraw" class="hidden">
-      <div class="terminal-grid">
-        <div class="card">
-          <h3 style="margin-top:0;">🏛️ Apply for Withdrawal</h3>
-          <p style="font-size:0.82rem;color:#94a3b8;margin-top:0;">
-            Available to withdraw: <strong style="color:#10b981;" id="wdrAvailNotice">0.00</strong>
-            (Frozen balance: <strong style="color:#38bdf8;" id="wdrFrozenNotice">0.00</strong> cannot be withdrawn).
-          </p>
+      <div class="card" style="max-width:520px;">
+        <h3 style="margin-top:0;">🏛️ Apply for Withdrawal</h3>
+        <p style="font-size:0.82rem;color:#94a3b8;margin-top:0;">
+          Available to withdraw: <strong style="color:#10b981;" id="wdrAvailNotice">0.00</strong>
+          (Frozen balance: <strong style="color:#38bdf8;" id="wdrFrozenNotice">0.00</strong> cannot be withdrawn).
+        </p>
 
-          <!-- SELECT CURRENCY BEFORE APPLYING FOR WITHDRAWAL -->
-          <div class="field">
-            <label>Select Withdrawal Currency</label>
-            <select id="wdrCurrencySelect" onchange="onCurrencySelectChange(this.value)">
-              <option value="PKR" selected>PKR — Pakistani Rupee</option>
-              <option value="USDT">USDT — Tether USD</option>
-              <option value="BTC">BTC — Bitcoin</option>
-              <option value="ETH">ETH — Ethereum</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Withdrawal Method</label>
-            <select id="wdrMethod">
-              <option value="JazzCash">JazzCash</option>
-              <option value="EasyPaisa">EasyPaisa</option>
-              <option value="Bank">Bank Transfer</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Amount (<span id="wdrCurrLbl">PKR</span>)</label>
-            <input type="number" id="wdrAmount" min="100" step="any" placeholder="Minimum 100" />
-          </div>
-
-          <div class="field">
-            <label>Account Title &amp; Account / IBAN Number</label>
-            <input type="text" id="wdrDetails" placeholder="e.g. Muhammad Ali - 03001234567" />
-          </div>
-
-          <button type="button" class="btn-buy" style="width:100%;" onclick="submitWithdrawal()">Submit Withdrawal Request</button>
+        <div class="field">
+          <label>Select Withdrawal Currency</label>
+          <select id="wdrCurrencySelect" onchange="onCurrencySelectChange(this.value)">
+            <option value="PKR" selected>PKR — Pakistani Rupee</option>
+            <option value="USDT">USDT — Tether USD</option>
+            <option value="BTC">BTC — Bitcoin</option>
+            <option value="ETH">ETH — Ethereum</option>
+          </select>
         </div>
 
-        <div class="card">
-          <h3 style="margin-top:0;">📋 My Withdrawal Requests</h3>
-          <div class="table-wrap" id="wdrHistoryWrap"></div>
+        <div class="field">
+          <label>Withdrawal Method</label>
+          <select id="wdrMethod" onchange="onWithdrawMethodChange()">
+            <option value="JazzCash">JazzCash</option>
+            <option value="EasyPaisa">EasyPaisa</option>
+            <option value="Bank">Bank Transfer</option>
+          </select>
         </div>
+
+        <div class="field">
+          <label>Amount (<span id="wdrCurrLbl">PKR</span>)</label>
+          <input type="number" id="wdrAmount" min="100" step="any" placeholder="Minimum 100" />
+        </div>
+
+        <div class="field" id="wdrBankNameField" style="display:none;">
+          <label>Bank Name</label>
+          <input type="text" id="wdrBankName" placeholder="e.g. HBL, Meezan Bank, UBL" />
+        </div>
+
+        <div class="field">
+          <label>Account Title</label>
+          <input type="text" id="wdrAccountTitle" placeholder="e.g. Muhammad Ali" />
+        </div>
+
+        <div class="field">
+          <label id="wdrAccountNumberLbl">Account Number</label>
+          <input type="text" id="wdrAccountNumber" placeholder="e.g. 03001234567" />
+        </div>
+
+        <button type="button" class="btn-buy" style="width:100%;" onclick="submitWithdrawal()">Submit Withdrawal Request</button>
+        <p style="font-size:0.78rem;color:#94a3b8;margin:12px 0 0;">
+          Track status anytime in <a href="#" style="color:#60a5fa;font-weight:700;" onclick="event.preventDefault();switchTab('withdraw-history', document.querySelector('[data-tab=withdraw-history]'))">Withdraw history</a>.
+        </p>
       </div>
     </section>
 
-    <!-- TAB 4: HELP CENTER + TELEGRAM SUPPORT (@Darazhelpdisk) -->
-    <section id="tab-support" class="hidden">
-      <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-left:4px solid #229ed9;">
-        <div>
-          <strong style="font-size:1rem;color:#fff;">✈️ Live Telegram Support Chat — <span style="color:#38bdf8;">@Darazhelpdisk</span></strong>
-          <div style="font-size:0.82rem;color:#94a3b8;margin-top:4px;">Need instant assistance? Connect directly with our official support desk on Telegram (<strong>@Darazhelpdisk</strong>).</div>
+    <!-- TAB 3b: WITHDRAW HISTORY (log) -->
+    <section id="tab-withdraw-history" class="hidden">
+      <div class="card">
+        <div class="wdr-log-head">
+          <h3>Withdraw Log</h3>
+          <div class="wdr-search-wrap">
+            <input type="text" id="wdrHistorySearch" placeholder="Search by transactions" oninput="renderWithdrawHistory()" />
+            <button type="button" onclick="renderWithdrawHistory()" title="Search">🔍</button>
+          </div>
         </div>
-        <a href="https://t.me/Darazhelpdisk" target="_blank" rel="noopener noreferrer" class="nav-btn telegram-btn" style="width:auto;padding:11px 18px;" onclick="openTelegramSupport(event)">
-          ✈️ Message @Darazhelpdisk on Telegram ↗
-        </a>
+        <div class="table-wrap" id="wdrHistoryWrap"></div>
       </div>
+    </section>
 
-      <div class="terminal-grid">
-        <div class="card">
-          <h3 style="margin-top:0;">🎧 Contact Help Center</h3>
-          <div class="field"><label>Subject</label><input type="text" id="tktSubject" placeholder="e.g. Withdrawal / Account Query" /></div>
-          <div class="field"><label>Message</label><textarea id="tktMessage" rows="4" placeholder="Describe your issue..."></textarea></div>
-          <button type="button" class="btn-buy" style="width:100%;" onclick="sendSupportTicket()">Send Message</button>
+    <!-- TAB 4: DARAZ HELP CENTER (CHAT) -->
+    <section id="tab-support" class="hidden">
+      <div class="help-chat">
+        <div class="help-chat-header">
+          <button type="button" class="help-back-btn" onclick="switchTab('home', document.querySelector('[data-tab=home]'))">← Back</button>
+          <div class="help-avatar">🤖</div>
+          <div style="min-width:0;flex:1;">
+            <div class="help-chat-title">Daraz Help Center</div>
+            <div class="help-chat-status">Online — typically replies in minutes</div>
+          </div>
+          <a href="https://t.me/Darazhelpdisk" class="help-telegram-link" target="_blank" rel="noopener noreferrer" onclick="openTelegramSupport(event)">@Darazhelpdisk ↗</a>
         </div>
-        <div class="card">
-          <h3 style="margin-top:0;">My Support Tickets</h3>
-          <div id="ticketsListWrap"></div>
+        <div class="help-chat-body" id="helpChatBody"></div>
+        <div class="help-chat-footer">
+          <input type="text" id="helpChatInput" placeholder="Type your message..." maxlength="1000" onkeydown="if(event.key==='Enter'){event.preventDefault();sendHelpChatMessage();}" />
+          <button type="button" class="help-send-btn" id="helpSendBtn" onclick="sendHelpChatMessage()" title="Send">➤</button>
         </div>
       </div>
     </section>
@@ -454,13 +794,67 @@
   </main>
 </div>
 
+<!-- CONFIRM ORDER MODAL -->
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal-box">
+    <div style="font-size:2.2rem;margin-bottom:8px;">📝</div>
+    <h2 style="margin:0 0 10px;">Place an Order</h2>
+    <p style="color:#94a3b8;font-size:0.9rem;margin:0 0 18px;line-height:1.55;" id="confirmModalBody"></p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <button type="button" class="tf-btn" style="padding:12px;font-size:0.9rem;" onclick="closeConfirmModal()">Cancel</button>
+      <button type="button" class="btn-buy" id="confirmPlaceBtn" onclick="confirmPlaceOrder()">Place an Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE COUNTDOWN MODAL -->
+<div class="modal-backdrop" id="countdownModal">
+  <div class="modal-box" style="max-width:420px;">
+    <div style="font-size:0.8rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Trade in Progress</div>
+    <div style="font-size:4rem;font-weight:800;line-height:1;color:#f97316;margin:8px 0 10px;" id="countdownNumber">60</div>
+    <div style="font-size:1.05rem;font-weight:800;margin-bottom:14px;" id="countdownSideLabel">BUY</div>
+    <div id="countdownMeta" style="background:#182032;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 14px;text-align:left;font-size:0.88rem;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="color:#94a3b8;">Pair</span><strong id="cdPair">—</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="color:#94a3b8;">Side</span><strong id="cdSide">—</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="color:#94a3b8;">Currency</span><strong id="cdCurrency">—</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="color:#94a3b8;">Amount</span><strong id="cdAmount">—</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="color:#94a3b8;">Duration</span><strong id="cdDuration">—</strong></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:#94a3b8;">Entry Price</span><strong id="cdEntry">—</strong></div>
+    </div>
+  </div>
+</div>
+
 <!-- SETTLEMENT RESULT MODAL -->
 <div class="modal-backdrop" id="resultModal">
   <div class="modal-box">
     <div style="font-size:2.6rem;margin-bottom:8px;" id="resModalIcon">🎉</div>
     <h2 style="margin:0 0 8px;" id="resModalTitle">TRADE WON</h2>
     <p style="color:#94a3b8;font-size:0.9rem;margin-bottom:16px;" id="resModalBody"></p>
-    <button type="button" class="btn-buy" style="width:100%;" onclick="document.getElementById('resultModal').classList.remove('open')">Continue Trading</button>
+    <button type="button" class="btn-buy" style="width:100%;" onclick="goToDashboardFromResult()">Go to Dashboard</button>
+  </div>
+</div>
+
+<!-- WITHDRAW DETAILS MODAL -->
+<div class="modal-backdrop" id="wdrDetailsModal">
+  <div class="modal-box" style="text-align:left;max-width:420px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h2 style="margin:0;">Details</h2>
+      <button type="button" class="tf-btn" onclick="closeWithdrawDetails()" style="padding:4px 10px;">✕</button>
+    </div>
+    <div id="wdrDetailsBody"></div>
+    <button type="button" class="btn-buy" style="width:100%;margin-top:16px;" onclick="closeWithdrawDetails()">Close</button>
+  </div>
+</div>
+
+<!-- ACCOUNT RESTRICTION MODAL (withdraw / trade ban) -->
+<div class="modal-backdrop" id="restrictionModal">
+  <div class="modal-box" style="max-width:400px;">
+    <div style="font-size:2.4rem;margin-bottom:8px;">🚫</div>
+    <h2 style="margin:0 0 8px;color:#ef4444;" id="restrictionTitle">Action Banned</h2>
+    <p style="color:#94a3b8;font-size:0.92rem;margin:0 0 18px;line-height:1.55;" id="restrictionMessage">
+      This action is restricted on your account.
+    </p>
+    <button type="button" class="btn-buy" style="width:100%;" onclick="closeRestrictionModal()">OK</button>
   </div>
 </div>
 
@@ -468,7 +862,7 @@
 
 <script>
   const traderUser = JSON.parse(localStorage.getItem('traderUser'));
-  if (!traderUser) window.location.href = './login.html';
+  if (!traderUser) window.location.href = './index.html';
 
   const TELEGRAM_SUPPORT_HANDLE = '@Darazhelpdisk';
   const TELEGRAM_SUPPORT_URL = 'https://t.me/Darazhelpdisk';
@@ -516,6 +910,25 @@
   let selectedPayout = 25;
   let selectedTimeframe = '1m';
   let trackedRunningId = null;
+  // Trade ids that already showed (or were dismissed) — never reopen for these.
+  const shownResultIds = new Set();
+  let activeTradeId = null;
+  let countdownTimer = null;
+  let countdownEndsAt = 0;
+  let countdownDone = false;
+  let settlePrefetch = null; // Promise<trade|null>
+  let settleReady = null;    // settled trade object when prefetch completes
+  let tradeUiBusy = false;   // blocks SSE/poll from interfering during settle UI
+
+  // Drop stale service workers so this file is never an old cached build.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((r) => r.unregister());
+    }).catch(() => {});
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.getRegistration().then((reg) => reg && reg.unregister()).catch(() => {});
+    }
+  }
 
   function traderHeaders(json = true) {
     const h = {
@@ -534,24 +947,113 @@
     setTimeout(() => { el.style.display = 'none'; }, 3200);
   }
 
+  function openTraderSidebar() {
+    document.getElementById('traderSidebar').classList.add('open');
+    document.getElementById('sidebarBackdrop').classList.add('show');
+  }
+
+  function closeTraderSidebar() {
+    document.getElementById('traderSidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('show');
+  }
+
+  function toggleTraderSidebar() {
+    const side = document.getElementById('traderSidebar');
+    if (side.classList.contains('open')) closeTraderSidebar();
+    else openTraderSidebar();
+  }
+
+  function isWithdrawBanned() {
+    return Boolean(dashState?.user?.withdrawBan?.enabled);
+  }
+
+  function isTradeBanned() {
+    return Boolean(dashState?.user?.tradeBan?.enabled);
+  }
+
+  function showRestrictionModal(title, message) {
+    document.getElementById('restrictionTitle').textContent = title;
+    document.getElementById('restrictionMessage').textContent = message;
+    document.getElementById('restrictionModal').classList.add('open');
+    closeTraderSidebar();
+  }
+
+  function closeRestrictionModal() {
+    document.getElementById('restrictionModal').classList.remove('open');
+  }
+
+  function showWithdrawBannedModal() {
+    showRestrictionModal(
+      'Withdraw Banned',
+      dashState?.user?.withdrawBan?.message || 'Your withdraw has been banned.'
+    );
+  }
+
+  function showTradeBannedModal() {
+    showRestrictionModal(
+      'Trade Banned',
+      dashState?.user?.tradeBan?.message || 'Your trade has been banned.'
+    );
+  }
+
   function switchTab(tab, btn) {
+    // New trade is blocked when admin has banned trading.
+    if (tab === 'trade' && isTradeBanned()) {
+      showTradeBannedModal();
+      return;
+    }
+    // Withdraw Funds is blocked when admin has banned withdrawals.
+    if (tab === 'withdraw' && isWithdrawBanned()) {
+      showWithdrawBannedModal();
+      return;
+    }
+
     document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
     const target = document.getElementById(`tab-${tab}`);
     if (target) target.classList.remove('hidden');
-    if (btn) {
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+    document.querySelectorAll('.nav-btn[data-tab]').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tab || b === btn);
+    });
+    const titles = {
+      home: 'Account overview',
+      trade: 'New trade',
+      history: 'Trade history',
+      withdraw: 'Withdraw funds',
+      'withdraw-history': 'Withdraw history',
+      support: 'Daraz Help Center',
+      profile: 'Profile & security'
+    };
+    const sub = document.getElementById('topbarSubline');
+    if (sub) sub.textContent = titles[tab] || 'Account overview';
+    document.body.classList.toggle('help-mode', tab === 'support');
+    closeTraderSidebar();
+    if (tab === 'support') {
+      renderHelpChat(dashState?.tickets || []);
+      setTimeout(() => document.getElementById('helpChatInput')?.focus(), 50);
     }
-    document.getElementById('traderSidebar').classList.remove('open');
+    if (tab === 'trade') {
+      requestAnimationFrame(() => {
+        try {
+          chart.applyOptions({ width: chartContainer.clientWidth || 720 });
+          chart.timeScale().scrollToRealTime();
+        } catch (_) {}
+      });
+    }
   }
 
   // ==========================================================================
   // BINANCE-STYLE RIGHT-ANCHORED CANDLESTICK CHART (500 CANDLES + LIVE KLINES)
   // ==========================================================================
+  function chartHeightForViewport() {
+    if (window.innerWidth <= 480) return 240;
+    if (window.innerWidth <= 960) return 280;
+    return 430;
+  }
+
   const chartContainer = document.getElementById('tvChart');
   const chart = LightweightCharts.createChart(chartContainer, {
     width: chartContainer.clientWidth || 720,
-    height: 430,
+    height: chartHeightForViewport(),
     layout: { background: { color: '#0e131f' }, textColor: '#94a3b8' },
     grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
@@ -584,10 +1086,23 @@
   if (typeof ResizeObserver !== 'undefined') {
     new ResizeObserver(() => {
       if (chartContainer.clientWidth > 0) {
-        chart.applyOptions({ width: chartContainer.clientWidth });
+        chart.applyOptions({
+          width: chartContainer.clientWidth,
+          height: chartHeightForViewport()
+        });
       }
     }).observe(chartContainer);
   }
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      if (chartContainer.clientWidth > 0) {
+        chart.applyOptions({
+          width: chartContainer.clientWidth,
+          height: chartHeightForViewport()
+        });
+      }
+    }, 250);
+  });
 
   const TF_SECONDS = {
     '1m': 60,
@@ -729,39 +1244,147 @@
     document.getElementById('estPayoutDisplay').textContent = `${ret.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${curr}`;
   }
 
-  async function placeTrade(direction) {
-    const pair = document.getElementById('pairSelector').value;
-    const currency = document.getElementById('tradeCurrencySelect').value || 'PKR';
-    const stake = Number(document.getElementById('tradeStakeInput').value);
+  let pendingDirection = null;
 
-    if (!stake || stake < 10) return showToast('Minimum trade amount is 10.', true);
-
-    const res = await fetch('/api/trades/execute', {
-      method: 'POST',
-      headers: traderHeaders(),
-      body: JSON.stringify({
-        pair,
-        currency,
-        direction,
-        stake,
-        durationSeconds: selectedDuration
-      })
-    });
-    const data = await res.json();
-    if (!res.ok) return showToast(data.error || 'Could not execute trade', true);
-
-    trackedRunningId = data.trade.id;
-    showToast(`${direction === 'UP' ? 'BUY' : 'SELL'} order placed (${stake} ${currency})!`);
-    await loadDashboard();
+  function setTradeButtonsDisabled(disabled) {
+    const buy = document.getElementById('btnBuyOrder');
+    const sell = document.getElementById('btnSellOrder');
+    if (buy) buy.disabled = disabled;
+    if (sell) sell.disabled = disabled;
   }
 
-  async function verifyAndShowSettledModal(tradeId) {
-    if (!tradeId) return;
-    await loadDashboard();
-    const settled = (dashState?.trades || []).find(t => t.id === tradeId);
-    if (!settled || settled.status === 'RUNNING') return;
+  function closeConfirmModal() {
+    pendingDirection = null;
+    document.getElementById('confirmModal').classList.remove('open');
+  }
 
+  function stopCountdown(hide = true) {
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+    if (hide) document.getElementById('countdownModal').classList.remove('open');
+  }
+
+  async function requestSettle(tradeId) {
+    try {
+      const res = await fetch(`/api/trades/${encodeURIComponent(tradeId)}/settle`, {
+        method: 'POST',
+        headers: traderHeaders()
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.trade && data.trade.status !== 'RUNNING') return data.trade;
+    } catch (_) {}
+    return null;
+  }
+
+  function beginSettlePrefetch(tradeId) {
+    if (!tradeId || settlePrefetch) return;
+    settlePrefetch = requestSettle(tradeId).then((trade) => {
+      if (trade) settleReady = trade;
+      return trade;
+    });
+  }
+
+  function startCountdown(trade) {
+    stopCountdown();
+    document.getElementById('resultModal').classList.remove('open');
+
+    const tradeId = trade.id || trackedRunningId;
+    activeTradeId = tradeId;
+    countdownDone = false;
+    settlePrefetch = null;
+    settleReady = null;
+    tradeUiBusy = true;
+
+    const side = trade.direction === 'DOWN' ? 'SELL' : 'BUY';
+    const curr = trade.currency || document.getElementById('tradeCurrencySelect').value || 'PKR';
+    const dur = Number(trade.durationSeconds || selectedDuration || 60);
+    countdownEndsAt = Number(trade.expiresAt) || (Date.now() + dur * 1000);
+
+    document.getElementById('countdownSideLabel').textContent = side;
+    document.getElementById('countdownSideLabel').style.color = side === 'BUY' ? '#10b981' : '#ef4444';
+    document.getElementById('cdPair').textContent = trade.pair || '—';
+    document.getElementById('cdSide').textContent = side;
+    document.getElementById('cdSide').style.color = side === 'BUY' ? '#10b981' : '#ef4444';
+    document.getElementById('cdCurrency').textContent = curr;
+    document.getElementById('cdAmount').textContent = `${Number(trade.stake || 0).toLocaleString()} ${curr}`;
+    document.getElementById('cdDuration').textContent = `${dur}s`;
+    document.getElementById('cdEntry').textContent = Number(trade.entryPrice || 0).toLocaleString();
+
+    const tick = () => {
+      const leftMs = countdownEndsAt - Date.now();
+      const left = Math.max(0, Math.ceil(leftMs / 1000));
+      document.getElementById('countdownNumber').textContent = String(left);
+
+      // Prefetch settle ~1.2s early so result is ready the instant clock hits 0.
+      if (leftMs <= 1200) beginSettlePrefetch(tradeId);
+
+      if (leftMs <= 0 && !countdownDone) {
+        countdownDone = true;
+        stopCountdown(false);
+        document.getElementById('countdownNumber').textContent = '0';
+        revealTradeResult(tradeId);
+      }
+    };
+
+    document.getElementById('countdownModal').classList.add('open');
+    tick();
+    countdownTimer = setInterval(tick, 50);
+  }
+
+  async function revealTradeResult(tradeId) {
+    if (!tradeId) {
+      stopCountdown(true);
+      setTradeButtonsDisabled(false);
+      tradeUiBusy = false;
+      return;
+    }
+    // Single-fire: if this trade already showed / was dismissed, never open again.
+    if (shownResultIds.has(tradeId)) {
+      stopCountdown(true);
+      setTradeButtonsDisabled(false);
+      tradeUiBusy = false;
+      return;
+    }
+    shownResultIds.add(tradeId);
     trackedRunningId = null;
+
+    let settled = settleReady;
+    if (!settled && settlePrefetch) {
+      try { settled = await settlePrefetch; } catch (_) {}
+    }
+    if (!settled) settled = await requestSettle(tradeId);
+
+    if (!settled) {
+      try {
+        const res = await fetch('/api/trader/dashboard', { headers: traderHeaders(false) });
+        if (res.ok) {
+          dashState = await res.json();
+          settled = (dashState.trades || []).find(t => t.id === tradeId && t.status !== 'RUNNING') || null;
+        }
+      } catch (_) {}
+    }
+
+    if (settled) {
+      paintResultModal(settled);
+      loadDashboard();
+      return;
+    }
+
+    tradeUiBusy = false;
+    setTradeButtonsDisabled(false);
+    stopCountdown(true);
+    showToast('Could not load trade result. Check Trade History.', true);
+  }
+
+  function paintResultModal(settled) {
+    if (!settled || !settled.id) return;
+    shownResultIds.add(settled.id);
+    trackedRunningId = null;
+    stopCountdown(true);
+    setTradeButtonsDisabled(false);
+
     const won = settled.status === 'WON';
     const curr = settled.currency || 'PKR';
     const pnl = Number(settled.profit || 0);
@@ -774,6 +1397,99 @@
       Result: <strong style="color:${won ? '#10b981' : '#ef4444'};">${won ? '+' : ''}${pnl.toLocaleString()} ${curr}</strong>
     `;
     document.getElementById('resultModal').classList.add('open');
+    tradeUiBusy = false;
+  }
+
+  function closeResultModal() {
+    document.getElementById('resultModal').classList.remove('open');
+    if (activeTradeId) shownResultIds.add(activeTradeId);
+    tradeUiBusy = false;
+  }
+
+  function goToDashboardFromResult() {
+    closeResultModal();
+    const homeBtn = document.querySelector('.nav-btn[data-tab="home"]');
+    switchTab('home', homeBtn);
+    loadDashboard();
+  }
+
+  // Keep old name as alias so any leftover onclick still works safely.
+  function showSettledResult(settled) {
+    if (!settled || !settled.id || shownResultIds.has(settled.id)) return;
+    paintResultModal(settled);
+  }
+
+  function placeTrade(direction) {
+    if (isTradeBanned()) {
+      showTradeBannedModal();
+      return;
+    }
+    if (trackedRunningId) return showToast('A trade is already running. Please wait.', true);
+
+    const pair = document.getElementById('pairSelector').value;
+    const currency = document.getElementById('tradeCurrencySelect').value || 'PKR';
+    const stake = Number(document.getElementById('tradeStakeInput').value);
+    if (!stake || stake < 10) return showToast('Minimum trade amount is 10.', true);
+
+    pendingDirection = direction;
+    const side = direction === 'UP' ? 'BUY' : 'SELL';
+    const est = stake + (stake * (selectedPayout / 100));
+    document.getElementById('confirmModalBody').innerHTML = `
+      Side: <strong style="color:${side === 'BUY' ? '#10b981' : '#ef4444'};">${side}</strong><br/>
+      Pair: <strong>${pair}</strong><br/>
+      Amount: <strong>${stake.toLocaleString()} ${currency}</strong><br/>
+      Duration: <strong>${selectedDuration}s</strong> (+${selectedPayout}%)<br/>
+      Est. payout if win: <strong style="color:#10b981;">${est.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}</strong>
+    `;
+    document.getElementById('confirmModal').classList.add('open');
+  }
+
+  async function confirmPlaceOrder() {
+    if (isTradeBanned()) {
+      closeConfirmModal();
+      showTradeBannedModal();
+      return;
+    }
+    if (!pendingDirection) return;
+    const direction = pendingDirection;
+    const pair = document.getElementById('pairSelector').value;
+    const currency = document.getElementById('tradeCurrencySelect').value || 'PKR';
+    const stake = Number(document.getElementById('tradeStakeInput').value);
+    const btn = document.getElementById('confirmPlaceBtn');
+    btn.disabled = true;
+    btn.textContent = 'Placing...';
+
+    try {
+      const res = await fetch('/api/trades/execute', {
+        method: 'POST',
+        headers: traderHeaders(),
+        body: JSON.stringify({
+          pair,
+          currency,
+          direction,
+          stake,
+          durationSeconds: selectedDuration
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Could not execute trade', true);
+        return;
+      }
+
+      closeConfirmModal();
+      trackedRunningId = data.trade.id;
+      setTradeButtonsDisabled(true);
+      startCountdown({
+        ...data.trade,
+        currency,
+        durationSeconds: selectedDuration
+      });
+      await loadDashboard();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Place an Order';
+    }
   }
 
   async function loadDashboard() {
@@ -795,16 +1511,26 @@
     const totalBal = Number(user.totalBalance ?? (availBal + frozenBal));
     const inOrderBal = Number(user.inOrderBalance || 0);
 
+    const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username;
+    const initial = (displayName || 'T').trim().charAt(0).toUpperCase();
+
     document.getElementById('sideUserHandle').textContent = `@${user.username}`;
     document.getElementById('topGreeting').textContent = `Welcome, ${user.firstName || user.username}`;
-    document.getElementById('topCreditScore').textContent = user.creditScore ?? 100;
 
-    document.getElementById('topAvailBal').textContent = `${availBal.toLocaleString()} ${curr}`;
-    document.getElementById('topFrozenBal').textContent = `${frozenBal.toLocaleString()} ${curr}`;
-    document.getElementById('topInOrderBal').textContent = `${inOrderBal.toLocaleString()} ${curr}`;
+    document.getElementById('dashAvatar').textContent = initial;
+    document.getElementById('dashFullName').textContent = displayName;
+    document.getElementById('dashUsername').textContent = `@${user.username}`;
+    document.getElementById('dashEmail').textContent = user.email || '—';
+    document.getElementById('dashCreditScore').textContent = user.creditScore ?? 100;
+    document.getElementById('dashAccountStatus').textContent = `Status: ${user.status || 'ACTIVE'}`;
 
-    document.getElementById('wdrAvailNotice').textContent = `${availBal.toLocaleString()} ${curr}`;
-    document.getElementById('wdrFrozenNotice').textContent = `${frozenBal.toLocaleString()} ${curr}`;
+    // Dashboard balances always display in PKR.
+    document.getElementById('topAvailBal').textContent = `${availBal.toLocaleString()} PKR`;
+    document.getElementById('topFrozenBal').textContent = `${frozenBal.toLocaleString()} PKR`;
+    document.getElementById('topInOrderBal').textContent = `${inOrderBal.toLocaleString()} PKR`;
+
+    document.getElementById('wdrAvailNotice').textContent = `${availBal.toLocaleString()} PKR`;
+    document.getElementById('wdrFrozenNotice').textContent = `${frozenBal.toLocaleString()} PKR`;
 
     if (document.activeElement.id !== 'tradeCurrencySelect') {
       document.getElementById('tradeCurrencySelect').value = curr;
@@ -820,7 +1546,7 @@
     const freezeBox = document.getElementById('frozenNoticeContainer');
     if (frozenBal > 0) {
       freezeBox.innerHTML = `<div class="freeze-banner">
-        ❄️ <strong>Frozen Balance Notice:</strong> ${frozenBal.toLocaleString()} ${curr} of your ${totalBal.toLocaleString()} ${curr} total balance is currently frozen (Available: ${availBal.toLocaleString()} ${curr}). ${user.balanceFreeze?.message || ''}
+        ❄️ <strong>Frozen Balance Notice:</strong> ${frozenBal.toLocaleString()} PKR of your ${totalBal.toLocaleString()} PKR total balance is currently frozen (Available: ${availBal.toLocaleString()} PKR). ${user.balanceFreeze?.message || ''}
       </div>`;
     } else {
       freezeBox.innerHTML = '';
@@ -861,18 +1587,10 @@
       }
     }
 
-    // Check if tracked trade settled
-    if (trackedRunningId) {
-      const tr = (trades || []).find(t => t.id === trackedRunningId);
-      if (tr && tr.status !== 'RUNNING') {
-        verifyAndShowSettledModal(trackedRunningId);
-      }
-    }
-
     // Render Trade Tables with Currency Badges
     const renderTradesHtml = (list) => list.length ? `
-      <table>
-        <thead><tr><th>PAIR &amp; SIDE</th><th>CURRENCY &amp; AMOUNT</th><th>ENTRY / EXIT</th><th>STATUS</th><th>PNL</th></tr></thead>
+      <table class="mobile-stack">
+        <thead><tr><th>PAIR</th><th>SIDE</th><th>CURRENCY</th><th>AMOUNT</th><th>ENTRY / EXIT</th><th>STATUS</th></tr></thead>
         <tbody>
           ${list.map(t => {
             const rem = Math.max(0, Math.ceil((Number(t.expiresAt) - Date.now()) / 1000));
@@ -880,11 +1598,12 @@
             const side = t.direction === 'DOWN' ? 'SELL' : 'BUY';
             const tCurr = t.currency || 'PKR';
             return `<tr>
-              <td><strong>${t.pair}</strong> · <span style="color:${side==='BUY'?'#10b981':'#ef4444'};font-weight:700;">${side}</span></td>
-              <td><span class="badge b-curr">${tCurr}</span><strong>${Number(t.stake).toLocaleString()}</strong></td>
-              <td>${Number(t.entryPrice).toLocaleString()} → ${t.exitPrice ? Number(t.exitPrice).toLocaleString() : '...'}</td>
-              <td>${isRun ? `<span class="badge b-run">${rem}s</span>` : `<span class="badge ${t.status==='WON'?'b-win':'b-loss'}">${t.status}</span>`}</td>
-              <td style="font-weight:700;color:${Number(t.profit)>=0?'#10b981':'#ef4444'};">${isRun ? 'Running' : `${Number(t.profit)>=0?'+':''}${Number(t.profit).toLocaleString()} ${tCurr}`}</td>
+              <td data-label="Pair"><strong>${t.pair}</strong></td>
+              <td data-label="Side"><span style="color:${side==='BUY'?'#10b981':'#ef4444'};font-weight:700;">${side}</span></td>
+              <td data-label="Currency"><span class="badge b-curr">${tCurr}</span></td>
+              <td data-label="Amount"><strong>${Number(t.stake).toLocaleString()}</strong></td>
+              <td data-label="Entry / Exit">${Number(t.entryPrice).toLocaleString()} → ${t.exitPrice ? Number(t.exitPrice).toLocaleString() : '...'}</td>
+              <td data-label="Status">${isRun ? `<span class="badge b-run">${rem}s</span>` : `<span class="badge ${t.status==='WON'?'b-win':'b-loss'}">${t.status}</span>`}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -893,46 +1612,239 @@
     document.getElementById('recentTradesWrap').innerHTML = renderTradesHtml((trades || []).slice(0, 8));
     document.getElementById('fullTradeHistoryWrap').innerHTML = renderTradesHtml(trades || []);
 
-    // Render Withdrawal History with Currency
-    document.getElementById('wdrHistoryWrap').innerHTML = (withdrawals || []).length ? `
-      <table>
-        <thead><tr><th>CURRENCY &amp; AMOUNT</th><th>METHOD</th><th>STATUS</th><th>DATE</th></tr></thead>
-        <tbody>
-          ${withdrawals.map(w => `<tr>
-            <td><span class="badge b-curr">${w.currency || 'PKR'}</span><strong>${Number(w.amount).toLocaleString()}</strong></td>
-            <td>${w.method}<div style="font-size:0.74rem;color:#94a3b8;">${w.accountDetails}</div></td>
-            <td>
-              <span class="badge ${w.status==='APPROVED'?'b-win':w.status==='REJECTED'?'b-loss':'b-run'}">${w.status}</span>
-              ${w.status==='REJECTED' && w.rejectReason ? `<div style="color:#fca5a5;font-size:0.74rem;margin-top:4px;">Reason: ${w.rejectReason}</div>` : ''}
-            </td>
-            <td style="font-size:0.76rem;color:#94a3b8;">${new Date(w.createdAt).toLocaleDateString()}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>` : '<p style="color:#94a3b8;">No withdrawal requests yet.</p>';
-
-    // Support Tickets
-    document.getElementById('ticketsListWrap').innerHTML = (tickets || []).length ? tickets.map(tk => `
-      <div style="background:#182032;padding:12px;border-radius:10px;margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;">
-          <strong>${tk.subject}</strong>
-          <span class="badge ${tk.status==='ANSWERED'?'b-win':'b-run'}">${tk.status}</span>
-        </div>
-        <p style="font-size:0.84rem;color:#cbd5e1;margin:6px 0;">${tk.message}</p>
-        ${tk.reply ? `<div style="background:rgba(16,185,129,0.12);padding:8px 10px;border-radius:8px;font-size:0.82rem;color:#34d399;"><strong>Admin Reply:</strong> ${tk.reply}</div>` : ''}
-      </div>
-    `).join('') : '<p style="color:#94a3b8;">No messages yet.</p>';
-
+    renderWithdrawHistory();
+    renderHelpChat(tickets || []);
     updateEstReturn();
+
+    // If ban was applied while user is on a blocked tab, kick them out and show popup once.
+    const restrictionOpen = document.getElementById('restrictionModal').classList.contains('open');
+    const withdrawTab = document.getElementById('tab-withdraw');
+    const tradeTab = document.getElementById('tab-trade');
+    if (isWithdrawBanned() && withdrawTab && !withdrawTab.classList.contains('hidden')) {
+      withdrawTab.classList.add('hidden');
+      switchTab('home', document.querySelector('.nav-btn[data-tab="home"]'));
+      if (!restrictionOpen) showWithdrawBannedModal();
+    } else if (isTradeBanned() && tradeTab && !tradeTab.classList.contains('hidden')) {
+      tradeTab.classList.add('hidden');
+      switchTab('home', document.querySelector('.nav-btn[data-tab="home"]'));
+      if (!restrictionOpen) showTradeBannedModal();
+    }
+  }
+
+  function timeAgoShort(iso) {
+    if (!iso) return '—';
+    const diff = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+    if (diff < 60) return `${diff} seconds ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
+  }
+
+  function formatWdrDateTime(iso) {
+    try {
+      return new Date(iso).toLocaleString(undefined, {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: 'numeric', minute: '2-digit'
+      });
+    } catch (_) {
+      return iso || '—';
+    }
+  }
+
+  function wdrTxnCode(id) {
+    return String(id || '').replace(/^WDR-?/i, '').replace(/[^a-zA-Z0-9]/g, '').slice(-12).toUpperCase() || '—';
+  }
+
+  function parseWdrAccountDetails(details) {
+    const raw = String(details || '');
+    const title = (raw.match(/Title:\s*([^|]+)/i) || [])[1]?.trim() || '';
+    const bank = (raw.match(/Bank:\s*([^|]+)/i) || [])[1]?.trim() || '';
+    const number = (raw.match(/Account(?:\/IBAN)?:\s*([^|]+)/i) || [])[1]?.trim()
+      || (raw.match(/Account:\s*([^|]+)/i) || [])[1]?.trim()
+      || '';
+    return {
+      title: title || (raw.includes('|') ? '' : raw.split('-')[0]?.trim()) || '—',
+      number: number || (raw.includes('-') ? raw.split('-').slice(1).join('-').trim() : raw) || '—',
+      bank: bank || ''
+    };
+  }
+
+  function statusLabel(status) {
+    if (status === 'APPROVED') return 'Approved';
+    if (status === 'REJECTED') return 'Rejected';
+    return 'Pending';
+  }
+
+  function renderWithdrawHistory() {
+    const wrap = document.getElementById('wdrHistoryWrap');
+    if (!wrap) return;
+    const q = (document.getElementById('wdrHistorySearch')?.value || '').toLowerCase().trim();
+    const list = (dashState?.withdrawals || []).filter((w) => {
+      if (!q) return true;
+      const txn = wdrTxnCode(w.id).toLowerCase();
+      const hay = `${w.id} ${txn} ${w.method} ${w.currency} ${w.accountDetails} ${w.status} ${w.rejectReason || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+
+    if (!list.length) {
+      wrap.innerHTML = `<p style="color:#94a3b8;">${q ? 'No matching withdrawals.' : 'No withdrawal requests yet.'}</p>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <table class="mobile-stack">
+        <thead>
+          <tr>
+            <th>CURRENCY | WALLET</th>
+            <th>GATEWAY | TRANSACTION</th>
+            <th>INITIATED</th>
+            <th>AMOUNT</th>
+            <th>STATUS</th>
+            <th>ACTION</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map((w) => {
+            const curr = w.currency || 'PKR';
+            const amt = Number(w.amount || 0);
+            const fee = 0;
+            const gateway = w.method === 'Bank' ? 'Bank' : (w.method || '—');
+            const txn = wdrTxnCode(w.id);
+            const statusCls = w.status === 'APPROVED' ? 'b-win' : w.status === 'REJECTED' ? 'b-loss' : 'b-run';
+            return `<tr>
+              <td data-label="Currency | Wallet">
+                <strong>${escapeHtml(curr)}</strong>
+                <div class="wdr-sub">${escapeHtml(curr)} Wallet | SPOT</div>
+              </td>
+              <td data-label="Gateway | Txn">
+                <div class="wdr-gateway">${escapeHtml(gateway)}</div>
+                <div class="wdr-sub">${escapeHtml(txn)}</div>
+              </td>
+              <td data-label="Initiated">
+                <div>${escapeHtml(formatWdrDateTime(w.createdAt))}</div>
+                <div class="wdr-sub">${escapeHtml(timeAgoShort(w.createdAt))}</div>
+              </td>
+              <td data-label="Amount">
+                <div class="wdr-amount-fee">${amt.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} - ${fee.toFixed(1)}</div>
+                <strong>${amt.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} ${escapeHtml(curr)}</strong>
+              </td>
+              <td data-label="Status">
+                <span class="badge ${statusCls}">${statusLabel(w.status)}</span>
+                ${w.status === 'REJECTED' ? `<div class="wdr-sub">${escapeHtml(timeAgoShort(w.createdAt))}</div>` : ''}
+              </td>
+              <td data-label="Action">
+                <button type="button" class="wdr-details-btn" onclick='openWithdrawDetails(${JSON.stringify(String(w.id))})'>🖥 Details</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  function openWithdrawDetails(wdrId) {
+    const w = (dashState?.withdrawals || []).find((x) => x.id === wdrId);
+    if (!w) return showToast('Withdrawal not found.', true);
+    const parsed = parseWdrAccountDetails(w.accountDetails);
+    const curr = w.currency || 'PKR';
+    const feedback = w.status === 'REJECTED'
+      ? (w.rejectReason || 'Your withdrawal request was rejected.')
+      : w.status === 'APPROVED'
+        ? 'Your withdrawal has been approved.'
+        : 'Your withdrawal request is under review.';
+
+    document.getElementById('wdrDetailsBody').innerHTML = `
+      <div class="wdr-detail-row"><span>Account Holder Name</span><strong>${escapeHtml(parsed.title)}</strong></div>
+      <div class="wdr-detail-row"><span>Account Number</span><strong>${escapeHtml(parsed.number)}</strong></div>
+      ${parsed.bank ? `<div class="wdr-detail-row"><span>Bank Name</span><strong>${escapeHtml(parsed.bank)}</strong></div>` : ''}
+      <div class="wdr-detail-row"><span>Gateway</span><strong>${escapeHtml(w.method || '—')}</strong></div>
+      <div class="wdr-detail-row"><span>Amount</span><strong>${Number(w.amount || 0).toLocaleString()} ${escapeHtml(curr)}</strong></div>
+      <div class="wdr-detail-row"><span>Status</span><strong>${escapeHtml(statusLabel(w.status))}</strong></div>
+      <div class="wdr-detail-row"><span>Transaction</span><strong>${escapeHtml(wdrTxnCode(w.id))}</strong></div>
+      <div class="wdr-feedback"><strong>System Feedback</strong><div style="margin-top:6px;">${escapeHtml(feedback)}</div></div>
+    `;
+    document.getElementById('wdrDetailsModal').classList.add('open');
+  }
+
+  function closeWithdrawDetails() {
+    document.getElementById('wdrDetailsModal').classList.remove('open');
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function renderHelpChat(tickets) {
+    const body = document.getElementById('helpChatBody');
+    if (!body) return;
+    const name = (dashState?.user?.firstName || dashState?.user?.username || traderUser?.username || 'trader');
+    const initial = String(name).trim().charAt(0).toUpperCase() || 'T';
+    const sorted = [...(tickets || [])].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    let html = `
+      <div class="help-row bot">
+        <div class="help-mini-avatar">🤖</div>
+        <div class="help-bubble">Hello <strong>${escapeHtml(name)}</strong>! 👋 I'm your assistant for <strong>Daraz Trade</strong>. How can I help you today? You can ask anything about trading, withdrawals, deposits, or account issues.</div>
+      </div>`;
+
+    sorted.forEach((tk) => {
+      if (tk.message && String(tk.message).trim()) {
+        html += `
+        <div class="help-row user">
+          <div class="help-user-avatar">${escapeHtml(initial)}</div>
+          <div class="help-bubble">${escapeHtml(tk.message)}</div>
+        </div>`;
+      }
+      if (tk.reply && String(tk.reply).trim()) {
+        html += `
+        <div class="help-row bot">
+          <div class="help-mini-avatar">🤖</div>
+          <div class="help-bubble">${escapeHtml(tk.reply)}</div>
+        </div>`;
+      }
+    });
+
+    body.innerHTML = html;
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function onWithdrawMethodChange() {
+    const method = document.getElementById('wdrMethod').value;
+    const bankField = document.getElementById('wdrBankNameField');
+    const numLbl = document.getElementById('wdrAccountNumberLbl');
+    const numInput = document.getElementById('wdrAccountNumber');
+    const isBank = method === 'Bank';
+    bankField.style.display = isBank ? 'block' : 'none';
+    if (!isBank) document.getElementById('wdrBankName').value = '';
+    numLbl.textContent = isBank ? 'Account / IBAN Number' : 'Account Number';
+    numInput.placeholder = isBank ? 'e.g. PK00XXXX0000000000000000' : 'e.g. 03001234567';
   }
 
   async function submitWithdrawal() {
+    if (isWithdrawBanned()) {
+      showWithdrawBannedModal();
+      return;
+    }
     const currency = document.getElementById('wdrCurrencySelect').value || 'PKR';
     const method = document.getElementById('wdrMethod').value;
     const amount = Number(document.getElementById('wdrAmount').value);
-    const accountDetails = document.getElementById('wdrDetails').value.trim();
+    const title = document.getElementById('wdrAccountTitle').value.trim();
+    const number = document.getElementById('wdrAccountNumber').value.trim();
+    const bankName = document.getElementById('wdrBankName').value.trim();
 
     if (!amount || amount < 100) return showToast('Minimum withdrawal is 100.', true);
-    if (accountDetails.length < 8) return showToast('Enter complete account details.', true);
+    if (!title || title.length < 3) return showToast('Enter account title.', true);
+    if (!number || number.length < 6) return showToast('Enter a valid account number.', true);
+    if (method === 'Bank' && (!bankName || bankName.length < 2)) {
+      return showToast('Enter bank name.', true);
+    }
+
+    const accountDetails = method === 'Bank'
+      ? `Title: ${title} | Bank: ${bankName} | Account/IBAN: ${number}`
+      : `Title: ${title} | Account: ${number}`;
 
     const res = await fetch('/api/wallet/withdraw', {
       method: 'POST',
@@ -943,25 +1855,43 @@
     if (!res.ok) return showToast(data.error || 'Withdrawal failed', true);
 
     document.getElementById('wdrAmount').value = '';
-    document.getElementById('wdrDetails').value = '';
-    showToast(`Withdrawal request submitted in ${currency}!`);
-    loadDashboard();
+    document.getElementById('wdrAccountTitle').value = '';
+    document.getElementById('wdrAccountNumber').value = '';
+    document.getElementById('wdrBankName').value = '';
+    showToast('Withdraw request sent successfully');
+    await loadDashboard();
+    switchTab('withdraw-history', document.querySelector('[data-tab="withdraw-history"]'));
   }
 
-  async function sendSupportTicket() {
-    const subject = document.getElementById('tktSubject').value.trim();
-    const message = document.getElementById('tktMessage').value.trim();
-    const res = await fetch('/api/help-center/send', {
-      method: 'POST',
-      headers: traderHeaders(),
-      body: JSON.stringify({ subject, message })
-    });
-    const data = await res.json();
-    if (!res.ok) return showToast(data.error || 'Error sending message', true);
-    document.getElementById('tktSubject').value = '';
-    document.getElementById('tktMessage').value = '';
-    showToast('Message sent to Help Center!');
-    loadDashboard();
+  async function sendHelpChatMessage() {
+    const input = document.getElementById('helpChatInput');
+    const btn = document.getElementById('helpSendBtn');
+    const message = (input?.value || '').trim();
+    if (!message || message.length < 1) return;
+    if (message.length < 2) return showToast('Type a longer message.', true);
+
+    btn.disabled = true;
+    input.disabled = true;
+    try {
+      const subject = message.length > 48 ? message.slice(0, 48) + '…' : message;
+      const res = await fetch('/api/help-center/send', {
+        method: 'POST',
+        headers: traderHeaders(),
+        body: JSON.stringify({ subject, message })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || 'Could not send message', true);
+        return;
+      }
+      input.value = '';
+      await loadDashboard();
+      renderHelpChat(dashState?.tickets || []);
+    } finally {
+      btn.disabled = false;
+      input.disabled = false;
+      input.focus();
+    }
   }
 
   async function updateTraderPassword() {
@@ -987,24 +1917,19 @@
   function logoutTrader() {
     localStorage.removeItem('traderUser');
     localStorage.removeItem('traderToken');
-    window.location.href = './login.html';
+    window.location.href = './index.html';
   }
 
+  onWithdrawMethodChange();
   loadDashboard();
   const stream = new EventSource('/api/stream');
-  stream.onmessage = (ev) => {
-    try {
-      const msg = JSON.parse(ev.data);
-      if (msg.type === 'TRADE_SETTLED' && trackedRunningId) {
-        verifyAndShowSettledModal(trackedRunningId);
-      } else {
-        loadDashboard();
-      }
-    } catch (_) {
-      loadDashboard();
-    }
+  stream.onmessage = () => {
+    // Countdown owns the result modal — SSE only refreshes balances/tables.
+    if (!tradeUiBusy && !countdownTimer) loadDashboard();
   };
-  setInterval(loadDashboard, 1500);
+  setInterval(() => {
+    if (!tradeUiBusy && !countdownTimer) loadDashboard();
+  }, 2000);
 </script>
 </body>
 </html>
