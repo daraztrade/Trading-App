@@ -457,6 +457,7 @@ function ensureDbInitialized() {
       "ALTER TABLE trades ADD COLUMN IF NOT EXISTS outcomeOverride TEXT DEFAULT ''",
       "ALTER TABLE trades ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'PKR'",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS subAdminId TEXT DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS tempPassword TEXT DEFAULT ''",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS frozenBalance REAL DEFAULT 0",
       "ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejectReason TEXT DEFAULT ''",
       "ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'PKR'",
@@ -1476,7 +1477,9 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
     return {
       ...s,
       traderCount: linked.length,
-      activeTraderCount: linked.filter((t) => t.status === 'ACTIVE').length
+      activeTraderCount: linked.filter((t) => t.status === 'ACTIVE').length,
+      // Include visible password only for MAIN_ADMIN requests
+      tempPassword: isMain ? (row.tempPassword || '') : undefined
     };
   });
   const myCode = (req.user.invitationCode || req.user.username || '').toUpperCase();
@@ -1548,9 +1551,9 @@ app.post('/api/admin/sub-admins', requireAuth(['MAIN_ADMIN']), async (req, res) 
 
   const id = 'admin-sub-' + Date.now();
   await dbRun(
-    `INSERT INTO users (id, username, email, password, role, firstName, lastName, status, invitationCode, canApproveWithdrawals, createdAt)
-     VALUES (?, ?, ?, ?, 'SUB_ADMIN', ?, ?, 'ACTIVE', ?, ?, ?)`,
-    [id, username, email, hashPassword(password), firstName, lastName, invitationCode, canApprove, new Date().toISOString()]
+    `INSERT INTO users (id, username, email, password, tempPassword, role, firstName, lastName, status, invitationCode, canApproveWithdrawals, createdAt)
+     VALUES (?, ?, ?, ?, ?, 'SUB_ADMIN', ?, ?, 'ACTIVE', ?, ?, ?)`,
+    [id, username, email, hashPassword(password), password, firstName, lastName, invitationCode, canApprove, new Date().toISOString()]
   );
 
   await logAudit(req.user, 'CREATE_SUB_ADMIN', username, `Email: ${email}; Code: ${invitationCode}`);
@@ -1558,7 +1561,7 @@ app.post('/api/admin/sub-admins', requireAuth(['MAIN_ADMIN']), async (req, res) 
   const created = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [id]));
   res.json({
     message: `Sub Admin @${username} created.`,
-    user: { ...created, traderCount: 0, activeTraderCount: 0 },
+    user: { ...created, traderCount: 0, activeTraderCount: 0, tempPassword: password },
     temporaryPassword: password
   });
 });
@@ -1589,9 +1592,9 @@ app.post('/api/admin/sub-admins/:id/reset-password', requireAuth(['MAIN_ADMIN'])
   const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'SUB_ADMIN'", [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Sub Admin not found.' });
 
-  await dbRun('UPDATE users SET password = ? WHERE id = ?', [hashPassword(newPassword), row.id]);
+  await dbRun('UPDATE users SET password = ?, tempPassword = ? WHERE id = ?', [hashPassword(newPassword), newPassword, row.id]);
   await logAudit(req.user, 'RESET_SUB_ADMIN_PASSWORD', row.username, 'Password reset by Main Admin');
-  res.json({ message: `Password updated for @${row.username}.` });
+  res.json({ message: `Password updated for @${row.username}.`, newPassword });
 });
 
 app.post('/api/admin/sub-admins/:id/permissions', requireAuth(['MAIN_ADMIN']), async (req, res) => {
@@ -1647,7 +1650,7 @@ app.get('/api/admin/sub-admins/:id/detail', requireAuth(['MAIN_ADMIN']), async (
   const inviteLinks = await dbAll("SELECT * FROM invite_links WHERE createdBy = ? ORDER BY createdAt DESC", [subAdmin.id]);
 
   res.json({
-    subAdmin,
+    subAdmin: { ...subAdmin, tempPassword: row.tempPassword || '' },
     traders: myTraders,
     runningTrades,
     recentTrades,
