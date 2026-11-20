@@ -64,6 +64,178 @@
       display: inline-block;
       margin-top: 3px;
     }
+    .role-badge.main-owner {
+      background: linear-gradient(90deg, #7c3aed, #ee4d07);
+      color: #fff;
+      border: none;
+      letter-spacing: 0.06em;
+      font-weight: 900;
+      font-size: 0.65rem;
+    }
+    body:not(.is-main-admin) .main-only,
+    body:not(.is-main-admin) .main-only-col { display: none !important; }
+    body.is-main-admin thead th.main-only-col,
+    body.is-main-admin td.main-only-col { display: table-cell; }
+
+    /* MAIN ADMIN — DISTINCT BRAND */
+    body.is-main-admin .sidebar {
+      background: #0d0d10 !important;
+      border-right-color: rgba(124,58,237,0.25) !important;
+    }
+    body.is-main-admin .brand {
+      border-bottom-color: rgba(124,58,237,0.25);
+    }
+    body.is-main-admin .brand .brand-title {
+      background: linear-gradient(90deg, #c084fc, #fb923c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    body.is-main-admin .nav-item.active {
+      background: linear-gradient(90deg, #7c3aed, #ee4d07) !important;
+    }
+    body.is-main-admin .submenu {
+      border-left-color: #7c3aed;
+    }
+    .staff-nav-sep {
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
+      color: #64748b; text-transform: uppercase;
+      padding: 10px 14px 4px;
+    }
+    .sub-item.staff-link { padding-left: 14px; }
+    .sub-item.staff-link .staff-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+      background: #10b981;
+    }
+    .sub-item.staff-link .staff-dot.suspended { background: #f59e0b; }
+    .sub-item.staff-link .staff-dot.banned { background: #ef4444; }
+
+    /* IMPERSONATION BANNER */
+    .impersonate-bar {
+      display: none;
+      position: sticky; top: 0; left: 0; right: 0; z-index: 300;
+      background: linear-gradient(90deg, #7c3aed, #2563eb);
+      color: #fff; padding: 10px 18px;
+      align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      font-size: 0.85rem; font-weight: 700;
+      box-shadow: 0 2px 12px rgba(124,58,237,0.5);
+    }
+    .impersonate-bar.show { display: flex; }
+    .impersonate-bar button {
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; padding: 6px 14px; border-radius: 6px;
+      font-weight: 800; cursor: pointer; font-size: 0.8rem;
+    }
+    .impersonate-bar button:hover { background: rgba(255,255,255,0.3); }
+
+    /* SUB ADMIN DETAIL SECTION */
+    .sa-profile-box {
+      display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      padding: 20px; border-radius: 14px; margin-bottom: 16px;
+      background: linear-gradient(120deg, rgba(124,58,237,0.18), #141416 55%);
+      border: 1px solid rgba(124,58,237,0.35);
+    }
+    .sa-avatar {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: linear-gradient(135deg, #7c3aed, #ee4d07);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; font-weight: 900; color: #fff;
+      flex-shrink: 0;
+    }
+    .sa-info .sa-name { font-size: 1.3rem; font-weight: 800; color: #fff; }
+    .sa-info .sa-handle { color: #c084fc; font-size: 0.85rem; font-weight: 700; margin: 2px 0; }
+    .sa-info .sa-email { color: #94a3b8; font-size: 0.8rem; }
+    .sa-creds-box {
+      background: #111116;
+      border: 1px solid rgba(124,58,237,0.3);
+      border-radius: 10px; padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .sa-cred-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .sa-cred-label { font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
+    .sa-cred-val { font-size: 1rem; font-weight: 800; color: #e2e8f0; font-family: monospace; letter-spacing: 0.04em; }
+    .sa-stat-mini {
+      background: #141416; border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 12px 16px; text-align: center;
+    }
+    .sa-stat-mini strong { display: block; font-size: 1.5rem; color: #fff; }
+    .sa-stat-mini span { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
+    .sa-stats-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;
+    }
+    @media (max-width: 720px) {
+      .sa-stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+    .cmd-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(238,77,7,0.35);
+      background:
+        linear-gradient(120deg, rgba(238,77,7,0.18), rgba(17,17,19,0.95) 45%, rgba(17,17,19,0.98)),
+        #111113;
+    }
+    body.is-main-admin .cmd-banner { display: flex; }
+    .cmd-banner h3 { margin: 0; font-size: 1rem; color: #fff; }
+    .cmd-banner p { margin: 4px 0 0; font-size: 0.8rem; color: #cbd5e1; max-width: 520px; }
+    .hierarchy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .staff-card {
+      background: #141416;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .staff-card.head-office {
+      border-color: rgba(238,77,7,0.4);
+      background: linear-gradient(180deg, rgba(238,77,7,0.12), #141416 55%);
+    }
+    .staff-card .staff-top {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+    }
+    .staff-card .staff-name { font-weight: 800; color: #fff; font-size: 0.95rem; }
+    .staff-card .staff-meta { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
+    .staff-metrics {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .staff-metrics div {
+      background: rgba(255,255,255,0.03);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .staff-metrics strong { display: block; color: #fff; font-size: 1.05rem; }
+    .staff-metrics span { font-size: 0.68rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.03em; }
+    .status-chip {
+      font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 999px;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .status-chip.active { background: rgba(16,185,129,0.18); color: #6ee7b7; }
+    .status-chip.suspended { background: rgba(245,158,11,0.18); color: #fcd34d; }
+    .status-chip.banned { background: rgba(239,68,68,0.18); color: #fca5a5; }
+    .staff-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .staff-actions .btn-sm, .staff-actions .btn-details { font-size: 0.72rem; padding: 6px 9px; }
+    .create-sub-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 720px) {
+      .create-sub-grid { grid-template-columns: 1fr; }
+    }
     .nav-item {
       display: flex;
       align-items: center;
@@ -587,14 +759,29 @@
   <aside class="sidebar" id="adminSidebar">
     <div class="brand">
       <div>
-        <div>📈 DARAZ ADMIN</div>
+        <div class="brand-title" style="font-size:1.1rem;font-weight:900;letter-spacing:0.02em;" id="brandTitle">📈 DARAZ ADMIN</div>
         <span class="role-badge" id="actorRoleBadge">ADMIN</span>
       </div>
       <button class="hamburger-btn" style="width:32px;height:32px;font-size:1rem;" onclick="toggleAdminSidebar()">✕</button>
     </div>
 
     <div class="nav-item active" id="nav-dashboard" onclick="showSection('dashboard', this)">
-      <span>🏠 Dashboard</span>
+      <span id="dashNavLabel">🏠 Dashboard</span>
+    </div>
+
+    <!-- MAIN ADMIN: STAFF MANAGEMENT (collapsible) -->
+    <div class="nav-item main-only" id="nav-staff-toggle" onclick="toggleStaffMenu()">
+      <span>🛡️ Staff Management</span>
+      <div style="display:flex;align-items:center;gap:5px;">
+        <span class="badge-count" id="badgeSubAdmins">0</span>
+        <span id="staffArrow">▶</span>
+      </div>
+    </div>
+    <div class="submenu main-only" id="staffSubmenu" style="display:none;">
+      <div class="sub-item" id="sub-create-subadmin" onclick="showSection('sub-admins', this)">
+        <span>⊕ Create Sub Admin</span>
+      </div>
+      <div id="staffNavItems"><!-- dynamic sub admin links injected here --></div>
     </div>
 
     <!-- COLLAPSIBLE MANAGE ORDER MENU -->
@@ -668,6 +855,16 @@
 
   <!-- MAIN AREA -->
   <main class="main" id="adminMain">
+    <!-- IMPERSONATION BANNER (shown when Main Admin is visiting a Sub Admin) -->
+    <div class="impersonate-bar" id="impersonateBar">
+      <div>
+        <span style="opacity:0.75;">👁 Viewing as Sub Admin:</span>
+        &nbsp;<span id="impersonateLabel" style="color:#c4b5fd;font-size:1rem;">@admin</span>
+        &nbsp;<span style="opacity:0.65;font-size:0.75rem;">— You have full control. Changes are real.</span>
+      </div>
+      <button onclick="returnToMainAdmin()">← Return to Main Admin</button>
+    </div>
+
     <div class="topbar">
       <div style="display:flex;align-items:center;gap:12px;">
         <button class="hamburger-btn" title="Toggle Menu" onclick="toggleAdminSidebar()">☰</button>
@@ -685,7 +882,28 @@
 
     <!-- SECTION 1: DASHBOARD -->
     <section id="sec-dashboard">
+      <div class="cmd-banner">
+        <div>
+          <h3>Platform Command Center</h3>
+          <p>You are Main Admin — create Sub Admins, oversee every trader they invite, and control staff access from one place.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="pill-btn pill-indigo" onclick="showSection('sub-admins', document.getElementById('nav-sub-admins'))">＋ Create / Manage Sub Admins</button>
+          <button type="button" class="btn-details" onclick="showSection('users', document.getElementById('nav-users'))">View All Traders</button>
+        </div>
+      </div>
+
       <div class="stats-grid">
+        <div class="stat-card main-only">
+          <div class="stat-left">
+            <div class="stat-icon" style="background:rgba(238,77,7,0.18);color:#fdba74;">🛡️</div>
+            <div>
+              <div class="stat-val" id="stSubAdmins">0</div>
+              <div class="stat-lbl">Sub Admins</div>
+            </div>
+          </div>
+          <button class="view-all-btn" onclick="showSection('sub-admins', document.getElementById('nav-sub-admins'))">Manage</button>
+        </div>
         <div class="stat-card">
           <div class="stat-left">
             <div class="stat-icon">👥</div>
@@ -728,12 +946,155 @@
         </div>
       </div>
 
+      <div class="card main-only" id="dashHierarchyCard" style="margin-bottom:16px;">
+        <div class="toolbar">
+          <div>
+            <h3 style="margin:0;">Staff Hierarchy</h3>
+            <span style="font-size:0.8rem;color:#94a3b8;">Main Admin → Sub Admins → Traders invited under each admin</span>
+          </div>
+          <button type="button" class="view-all-btn" onclick="showSection('sub-admins', document.getElementById('nav-sub-admins'))">Open Sub Admin Control →</button>
+        </div>
+        <div class="hierarchy-grid" id="dashHierarchyGrid"></div>
+      </div>
+
       <div class="card">
         <div class="toolbar">
           <h3 style="margin:0;">⚡ Live Running Trades</h3>
           <button class="view-all-btn" onclick="showSection('running-trades')">Open Full Running Trades →</button>
         </div>
         <div class="table-wrap" id="dashRunningWrap"></div>
+      </div>
+    </section>
+
+    <!-- SECTION: MANAGE SUB ADMINS (MAIN ADMIN ONLY) -->
+    <section id="sec-sub-admins" class="hidden main-only">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="toolbar">
+          <div>
+            <h3 style="margin:0;">Create Sub Admin</h3>
+            <span style="font-size:0.8rem;color:#94a3b8;">New staff can log in to the Admin portal, invite traders, and manage their book — under your control.</span>
+          </div>
+        </div>
+        <div class="create-sub-grid">
+          <div class="field" style="margin:0;">
+            <label>Username</label>
+            <input type="text" id="subAdminUsername" class="input-dark" placeholder="e.g. karachi_ops" />
+          </div>
+          <div class="field" style="margin:0;">
+            <label>Email</label>
+            <input type="email" id="subAdminEmail" class="input-dark" placeholder="ops@daraztrade.online" />
+          </div>
+          <div class="field" style="margin:0;">
+            <label>First Name</label>
+            <input type="text" id="subAdminFirst" class="input-dark" placeholder="Ali" />
+          </div>
+          <div class="field" style="margin:0;">
+            <label>Last Name</label>
+            <input type="text" id="subAdminLast" class="input-dark" placeholder="Khan" />
+          </div>
+          <div class="field" style="margin:0;">
+            <label>Temporary Password</label>
+            <input type="text" id="subAdminPass" class="input-dark" placeholder="Min 6 characters" />
+          </div>
+          <div class="field" style="margin:0;">
+            <label>Invite Master Code (optional)</label>
+            <input type="text" id="subAdminInviteCode" class="input-dark" placeholder="Auto from username if empty" />
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:#cbd5e1;margin-bottom:14px;">
+          <input type="checkbox" id="subAdminCanApprove" checked />
+          Allow this Sub Admin to approve / reject withdrawals
+        </label>
+        <button type="button" class="pill-btn pill-indigo" id="btnCreateSubAdmin" onclick="createSubAdmin()">＋ Create Sub Admin</button>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <div>
+            <h3 style="margin:0;">All Sub Admins</h3>
+            <span style="font-size:0.8rem;color:#94a3b8;">Suspend access, reset passwords, toggle withdrawal rights, or open their traders.</span>
+          </div>
+          <div class="search-group">
+            <input type="text" id="subAdminSearchInput" class="input-dark" placeholder="Search sub admin..." oninput="renderSubAdminsSection()" />
+          </div>
+        </div>
+        <div class="hierarchy-grid" id="subAdminsGrid"></div>
+      </div>
+    </section>
+
+    <!-- SUB ADMIN DETAIL SECTION (Main Admin drill-down) -->
+    <section id="sec-subadmin-detail" class="hidden main-only">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;" id="saDetailHeading">Sub Admin Profile</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-details" onclick="showSection('sub-admins', document.getElementById('sub-create-subadmin'))">← Back to All Sub Admins</button>
+          <button class="pill-btn pill-indigo" id="btnVisitSubAdmin" onclick="visitSubAdmin()">🔑 Visit Dashboard as Sub Admin</button>
+        </div>
+      </div>
+
+      <!-- Profile + Credentials -->
+      <div class="sa-profile-box">
+        <div class="sa-avatar" id="saDetailAvatar">A</div>
+        <div class="sa-info" style="flex:1;min-width:200px;">
+          <div class="sa-name" id="saDetailName">Sub Admin</div>
+          <div class="sa-handle" id="saDetailHandle">@username</div>
+          <div class="sa-email" id="saDetailEmail">email</div>
+          <div style="margin-top:8px;" id="saDetailStatusBadge"></div>
+        </div>
+        <div class="sa-creds-box" style="flex:1;min-width:260px;">
+          <div>
+            <div class="sa-cred-label">Username</div>
+            <div class="sa-cred-val" id="saDetailUsername">—</div>
+          </div>
+          <div>
+            <div class="sa-cred-label">Password</div>
+            <div class="sa-cred-val" style="color:#64748b;font-size:0.85rem;">●●●●●●●●</div>
+          </div>
+          <button type="button" class="btn-sm" onclick="openSubAdminPasswordModal(currentSaId, document.getElementById('saDetailUsername').textContent)">🔑 Reset Password</button>
+        </div>
+      </div>
+
+      <!-- Mini stats -->
+      <div class="sa-stats-row">
+        <div class="sa-stat-mini">
+          <strong id="saStat1">0</strong><span>Total Traders</span>
+        </div>
+        <div class="sa-stat-mini">
+          <strong id="saStat2" style="color:#10b981;">0</strong><span>Active Traders</span>
+        </div>
+        <div class="sa-stat-mini">
+          <strong id="saStat3" style="color:#f59e0b;">0</strong><span>Running Trades</span>
+        </div>
+        <div class="sa-stat-mini">
+          <strong id="saStat4" style="color:#ef4444;">0</strong><span>Pending Withdrawals</span>
+        </div>
+      </div>
+
+      <!-- Action strip -->
+      <div class="action-pills" style="margin-bottom:16px;" id="saDetailActions"></div>
+
+      <!-- Their Traders -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="toolbar">
+          <h3 style="margin:0;" id="saDetailTradersHeading">Traders under this Sub Admin</h3>
+          <input type="text" id="saTraderSearch" class="input-dark" placeholder="Search trader..." oninput="renderSaDetailTraders()" style="max-width:240px;" />
+        </div>
+        <div class="table-wrap">
+          <table class="mobile-stack">
+            <thead>
+              <tr>
+                <th>TRADER</th><th>EMAIL / PHONE</th><th>BALANCE</th><th>TRADE MODE</th><th>STATUS</th><th>DETAILS</th>
+              </tr>
+            </thead>
+            <tbody id="saDetailTradersTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card">
+        <h3 style="margin-top:0;margin-bottom:12px;">Recent Activity by this Sub Admin</h3>
+        <div class="table-wrap" id="saDetailAuditWrap"></div>
       </div>
     </section>
 
@@ -815,8 +1176,14 @@
     <section id="sec-users" class="hidden">
       <div class="card">
         <div class="toolbar">
-          <h3 style="margin:0;">All Users</h3>
+          <div>
+            <h3 style="margin:0;" id="usersSectionTitle">All Users</h3>
+            <span class="main-only" id="usersSectionHint" style="font-size:0.8rem;color:#94a3b8;">Filter by Sub Admin to audit each staff member’s traders.</span>
+          </div>
           <div class="search-group">
+            <select id="userStaffFilter" class="select-dark main-only" onchange="renderUsersTable()">
+              <option value="ALL">All Staff Books</option>
+            </select>
             <select id="userFilterSelect" class="select-dark" onchange="renderUsersTable()">
               <option value="ALL">All Users</option>
               <option value="ACTIVE">Active Only</option>
@@ -834,6 +1201,7 @@
               <tr>
                 <th>USER</th>
                 <th>EMAIL-PHONE</th>
+                <th class="main-only-col">MANAGED BY</th>
                 <th>AVAILABLE / FROZEN / TOTAL</th>
                 <th>TRADE MODE</th>
                 <th>JOINED AT</th>
@@ -1235,6 +1603,30 @@
     document.getElementById('wdrArrow').textContent = hidden ? '▶' : '▼';
   }
 
+  function toggleStaffMenu() {
+    const sub = document.getElementById('staffSubmenu');
+    if (!sub) return;
+    const isHidden = sub.style.display === 'none' || !sub.style.display;
+    sub.style.display = isHidden ? 'block' : 'none';
+    document.getElementById('staffArrow').textContent = isHidden ? '▼' : '▶';
+  }
+
+  function injectStaffNavItems(subs) {
+    const container = document.getElementById('staffNavItems');
+    if (!container) return;
+    container.innerHTML = subs.map((s) => {
+      const name = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.username;
+      const statusClass = (s.status || '').toLowerCase() === 'suspended' ? 'suspended' : ((s.status || '').toLowerCase() === 'banned' ? 'banned' : '');
+      return `<div class="sub-item staff-link" onclick="openSubAdminDetail('${s.id}')">
+        <span style="display:flex;align-items:center;gap:7px;">
+          <span class="staff-dot ${statusClass}"></span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;">${escapeHtml(name)}</span>
+        </span>
+        <span style="font-size:0.68rem;color:#94a3b8;">${s.traderCount || 0}</span>
+      </div>`;
+    }).join('') || '<div style="padding:6px 14px;font-size:0.78rem;color:#64748b;">No sub admins yet</div>';
+  }
+
   function openWithdrawalsTab(statusFilter = 'PENDING', el = null) {
     const sel = document.getElementById('wdrStatusFilter');
     if (sel) sel.value = statusFilter;
@@ -1264,10 +1656,12 @@
       document.getElementById('helpChatPanel')?.classList.add('hidden');
     }
     const titles = {
-      'dashboard': 'Dashboard Overview',
+      'dashboard': isMainAdmin() ? 'Platform Overview — All Staff' : 'Dashboard Overview',
       'running-trades': 'Running Trades',
       'trade-history': 'Trade History',
-      'users': 'All Users',
+      'sub-admins': 'Staff Management — Sub Admins',
+      'subadmin-detail': 'Sub Admin Profile',
+      'users': 'All Traders',
       'invite-members': 'Invite Members (1 User Limit Per Link)',
       'user-detail': 'User Detail',
       'withdrawals': 'Withdrawals Management',
@@ -1347,16 +1741,479 @@
     else adminData.traders = [user, ...(adminData.traders || [])];
   }
 
+  function isMainAdmin() {
+    return adminData?.actor?.role === 'MAIN_ADMIN' || staffUser?.role === 'MAIN_ADMIN';
+  }
+
+  function getStaffList() {
+    return (adminData?.staff || []).filter((s) => s.role === 'SUB_ADMIN' || s.role === 'MAIN_ADMIN');
+  }
+
+  function getSubAdmins() {
+    return (adminData?.staff || []).filter((s) => s.role === 'SUB_ADMIN');
+  }
+
+  function resolveManagerLabel(trader) {
+    if (!trader) return 'Unassigned';
+    const staff = getStaffList();
+    const byId = staff.find((s) => s.id === trader.subAdminId);
+    if (byId) {
+      const name = `${byId.firstName || ''} ${byId.lastName || ''}`.trim();
+      return `${name || byId.username} (@${byId.username})`;
+    }
+    const code = String(trader.invitationCode || '').toUpperCase();
+    if (code) {
+      const byCode = staff.find((s) => String(s.invitationCode || '').toUpperCase() === code);
+      if (byCode) return `@${byCode.username}`;
+    }
+    return trader.subAdminId ? 'Unknown Staff' : 'Direct / Unassigned';
+  }
+
+  // ─── Impersonation state ────────────────────────────────────────────────────
+  const ORIG_USER_KEY = 'mainAdminOriginalUser';
+  const ORIG_TOK_KEY  = 'mainAdminOriginalToken';
+
+  function isImpersonating() {
+    return !!sessionStorage.getItem(ORIG_TOK_KEY);
+  }
+
+  function applyMainAdminChrome() {
+    const main = isMainAdmin();
+    const impersonating = isImpersonating();
+
+    document.body.classList.toggle('is-main-admin', main || impersonating ? !impersonating : false);
+    // If currently impersonating, body should NOT show main-admin chrome
+    // (we look like a sub admin), but the banner stays
+    document.body.classList.toggle('is-main-admin', main && !impersonating);
+
+    const badge = document.getElementById('actorRoleBadge');
+    if (badge) {
+      if (impersonating) {
+        badge.textContent = 'SUB ADMIN';
+        badge.classList.remove('main-owner');
+      } else if (main) {
+        badge.textContent = 'MAIN ADMIN';
+        badge.classList.add('main-owner');
+      } else {
+        badge.textContent = 'SUB ADMIN';
+        badge.classList.remove('main-owner');
+      }
+    }
+
+    const brandTitle = document.getElementById('brandTitle');
+    if (brandTitle) {
+      brandTitle.textContent = impersonating ? '📊 DARAZ ADMIN' : (main ? '👑 DARAZ HQ' : '📊 DARAZ ADMIN');
+    }
+
+    const dashLabel = document.getElementById('dashNavLabel');
+    if (dashLabel) dashLabel.textContent = main && !impersonating ? '🏛️ Platform Overview' : '🏠 Dashboard';
+
+    // Impersonation banner
+    const bar = document.getElementById('impersonateBar');
+    if (bar) {
+      if (impersonating) {
+        bar.classList.add('show');
+        const lbl = document.getElementById('impersonateLabel');
+        if (lbl) lbl.textContent = `@${adminData?.actor?.username || 'admin'}`;
+      } else {
+        bar.classList.remove('show');
+      }
+    }
+  }
+
+  async function visitSubAdmin(id) {
+    const targetId = id || currentSaId;
+    if (!targetId) return showToast('No Sub Admin selected', true);
+    // Save original Main Admin credentials
+    sessionStorage.setItem(ORIG_USER_KEY, localStorage.getItem('staffUser'));
+    sessionStorage.setItem(ORIG_TOK_KEY, localStorage.getItem('staffToken') || '');
+    // Get sub admin token
+    const res = await fetch(`/api/admin/sub-admins/${encodeURIComponent(targetId)}/impersonate`, {
+      method: 'POST', headers: adminHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showToast(data.error || 'Could not switch context', true);
+    // Switch to sub admin session
+    localStorage.setItem('staffUser', JSON.stringify(data.user));
+    localStorage.setItem('staffToken', data.token);
+    showToast(`Switched to @${data.user.username} — reloading…`);
+    setTimeout(() => window.location.reload(), 900);
+  }
+
+  function returnToMainAdmin() {
+    const origUser = sessionStorage.getItem(ORIG_USER_KEY);
+    const origTok  = sessionStorage.getItem(ORIG_TOK_KEY);
+    if (!origUser || !origTok) return adminLogout();
+    localStorage.setItem('staffUser', origUser);
+    localStorage.setItem('staffToken', origTok);
+    sessionStorage.removeItem(ORIG_USER_KEY);
+    sessionStorage.removeItem(ORIG_TOK_KEY);
+    showToast('Returning to Main Admin…');
+    setTimeout(() => window.location.reload(), 700);
+  }
+
+  let currentSaId = null;
+  let currentSaData = null;
+
+  async function openSubAdminDetail(id) {
+    currentSaId = id;
+    showSection('subadmin-detail', null);
+    const res = await fetch(`/api/admin/sub-admins/${encodeURIComponent(id)}/detail`, { headers: adminHeaders() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showToast(data.error || 'Could not load Sub Admin detail', true);
+    currentSaData = data;
+    const { subAdmin, stats } = data;
+
+    const name = `${subAdmin.firstName || ''} ${subAdmin.lastName || ''}`.trim() || subAdmin.username;
+    document.getElementById('saDetailHeading').textContent = `Sub Admin · @${subAdmin.username}`;
+    document.getElementById('saDetailAvatar').textContent = (name[0] || 'A').toUpperCase();
+    document.getElementById('saDetailName').textContent = name;
+    document.getElementById('saDetailHandle').textContent = `@${subAdmin.username}`;
+    document.getElementById('saDetailEmail').textContent = subAdmin.email || '';
+    document.getElementById('saDetailUsername').textContent = subAdmin.username;
+    document.getElementById('saDetailStatusBadge').innerHTML = statusChipHtml(subAdmin.status) +
+      ` <span style="font-size:0.75rem;color:#94a3b8;margin-left:6px;">Invite code: <strong style="color:#c084fc;">${escapeHtml(subAdmin.invitationCode || '—')}</strong></span>` +
+      ` <span style="font-size:0.75rem;color:#94a3b8;margin-left:6px;">Withdrawals: <strong style="color:${subAdmin.permissions?.canApproveWithdrawals ? '#6ee7b7' : '#fca5a5'};">${subAdmin.permissions?.canApproveWithdrawals ? 'Allowed' : 'Blocked'}</strong></span>`;
+    document.getElementById('saStat1').textContent = stats.totalTraders;
+    document.getElementById('saStat2').textContent = stats.activeTraders;
+    document.getElementById('saStat3').textContent = stats.runningTrades;
+    document.getElementById('saStat4').textContent = stats.pendingWithdrawals;
+
+    const nextStatus = subAdmin.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    const statusLabel = subAdmin.status === 'ACTIVE' ? '⏸ Suspend' : '▶ Activate';
+    const canApprove = !!subAdmin.permissions?.canApproveWithdrawals;
+    document.getElementById('saDetailActions').innerHTML = `
+      <button class="pill-btn pill-indigo" onclick="visitSubAdmin('${subAdmin.id}')">🔑 Visit Dashboard as this Sub Admin</button>
+      <button class="pill-btn" style="background:rgba(99,102,241,0.18);color:#a5b4fc;border:1px solid rgba(99,102,241,0.35);" onclick="toggleSubAdminStatus('${subAdmin.id}','${nextStatus}')">${statusLabel}</button>
+      <button class="pill-btn" style="background:rgba(16,185,129,0.12);color:#6ee7b7;border:1px solid rgba(16,185,129,0.3);" onclick="toggleSubAdminWithdrawPerm('${subAdmin.id}',${canApprove?'false':'true'})">${canApprove?'🚫 Block Withdrawals':'✅ Allow Withdrawals'}</button>
+      ${subAdmin.status !== 'BANNED' ? `<button class="pill-btn" style="background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);" onclick="toggleSubAdminStatus('${subAdmin.id}','BANNED')">🚫 Ban Sub Admin</button>` : ''}
+    `;
+
+    renderSaDetailTraders();
+    renderSaDetailAudit();
+  }
+
+  function renderSaDetailTraders() {
+    if (!currentSaData) return;
+    const q = (document.getElementById('saTraderSearch')?.value || '').toLowerCase().trim();
+    const list = (currentSaData.traders || []).filter((u) =>
+      !q || u.username.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase().includes(q)
+    );
+    const h2 = document.getElementById('saDetailTradersHeading');
+    if (h2) h2.textContent = `Traders under @${currentSaData.subAdmin?.username || 'sub admin'} (${list.length})`;
+    const tbody = document.getElementById('saDetailTradersTbody');
+    if (!tbody) return;
+    tbody.innerHTML = list.length ? list.map((u) => {
+      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.username;
+      const avail = Number(u.availableBalance ?? u.balance ?? 0);
+      const isLoss = u.tradeOutcome === 'FORCE_LOSS';
+      return `<tr>
+        <td data-label="Trader"><strong>${escapeHtml(fullName)}</strong><br/><span style="color:#94a3b8;font-size:0.75rem;">@${escapeHtml(u.username)}</span></td>
+        <td data-label="Email / Phone">${escapeHtml(u.email)}<br/><small style="color:#94a3b8;">${u.mobile || '-'}</small></td>
+        <td data-label="Balance"><span style="color:#10b981;font-weight:700;">${avail.toLocaleString()}</span></td>
+        <td data-label="Trade Mode">
+          <div class="mode-switch">
+            <button type="button" class="${isLoss ? '' : 'active'}" onclick="setUserTradeMode('${u.id}','FORCE_WIN')">Win</button>
+            <button type="button" class="${isLoss ? 'active' : ''}" onclick="setUserTradeMode('${u.id}','FORCE_LOSS')">Lose</button>
+          </div>
+        </td>
+        <td data-label="Status">${statusChipHtml(u.status)}</td>
+        <td data-label="Details"><button class="btn-details" onclick="openUserDetail('${u.id}')">🖥 Details</button></td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="6" style="text-align:center;color:#94a3b8;">No traders found under this Sub Admin.</td></tr>`;
+  }
+
+  function renderSaDetailAudit() {
+    if (!currentSaData) return;
+    const logs = currentSaData.auditLogs || [];
+    const wrap = document.getElementById('saDetailAuditWrap');
+    if (!wrap) return;
+    wrap.innerHTML = logs.length ? `<table class="mobile-stack">
+      <thead><tr><th>ACTION</th><th>TARGET</th><th>DETAIL</th><th>TIME</th></tr></thead>
+      <tbody>${logs.map((l) => `<tr>
+        <td data-label="Action"><strong style="color:#fdba74;font-size:0.8rem;">${escapeHtml(l.action || '')}</strong></td>
+        <td data-label="Target">${escapeHtml(l.target || '')}</td>
+        <td data-label="Detail" style="color:#94a3b8;font-size:0.8rem;">${escapeHtml((l.details || '').slice(0, 60))}</td>
+        <td data-label="Time" style="color:#64748b;font-size:0.75rem;">${timeAgo(l.timestamp)}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : `<div style="color:#94a3b8;text-align:center;padding:16px;">No recent activity from this Sub Admin.</div>`;
+  }
+
+  function statusChipHtml(status) {
+    const s = String(status || 'ACTIVE').toUpperCase();
+    const cls = s === 'ACTIVE' ? 'active' : (s === 'SUSPENDED' ? 'suspended' : 'banned');
+    return `<span class="status-chip ${cls}">${s}</span>`;
+  }
+
+  function renderDashHierarchy() {
+    const grid = document.getElementById('dashHierarchyGrid');
+    if (!grid || !isMainAdmin()) return;
+    const actor = adminData.actor;
+    const subs = getSubAdmins();
+    const totalTraders = adminData.stats?.totalUsers || 0;
+    const unassigned = (adminData.traders || []).filter((t) => {
+      if (!t.subAdminId) {
+        const code = String(t.invitationCode || '').toUpperCase();
+        return !subs.some((s) => String(s.invitationCode || '').toUpperCase() === code);
+      }
+      return !subs.some((s) => s.id === t.subAdminId);
+    }).length;
+
+    const cards = [
+      `<div class="staff-card head-office">
+        <div class="staff-top">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#ee4d07,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;">👑</div>
+            <div>
+              <div class="staff-name">Main Admin · HQ</div>
+              <div class="staff-meta" style="color:#fdba74;">@${escapeHtml(actor.username)} · Platform Owner</div>
+            </div>
+          </div>
+          <span class="status-chip active">ACTIVE</span>
+        </div>
+        <div class="staff-metrics">
+          <div><strong style="color:#c084fc;">${subs.length}</strong><span>Sub Admins</span></div>
+          <div><strong>${totalTraders}</strong><span>All Traders</span></div>
+        </div>
+        <div class="staff-actions">
+          <button type="button" class="pill-btn pill-indigo" style="flex:1;font-size:0.74rem;padding:8px;" onclick="showSection('sub-admins', document.getElementById('sub-create-subadmin'))">＋ Add Sub Admin</button>
+        </div>
+      </div>`
+    ];
+
+    subs.slice(0, 5).forEach((s) => {
+      const name = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.username;
+      const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      const canApprove = !!s.permissions?.canApproveWithdrawals;
+      cards.push(`<div class="staff-card" style="cursor:pointer;" onclick="openSubAdminDetail('${s.id}')">
+        <div class="staff-top">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#2563eb);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.95rem;color:#fff;flex-shrink:0;">${initials}</div>
+            <div>
+              <div class="staff-name" style="font-size:0.9rem;">${escapeHtml(name)}</div>
+              <div class="staff-meta" style="color:#c084fc;">@${escapeHtml(s.username)}</div>
+            </div>
+          </div>
+          ${statusChipHtml(s.status)}
+        </div>
+        <div style="font-size:0.75rem;color:#94a3b8;margin:-2px 0 2px;">Code: <strong style="color:#fdba74;">${escapeHtml(s.invitationCode || '—')}</strong>  ·  Wdr: <strong style="color:${canApprove?'#6ee7b7':'#fca5a5'};">${canApprove?'✓':'✗'}</strong></div>
+        <div class="staff-metrics">
+          <div><strong>${s.traderCount || 0}</strong><span>Traders</span></div>
+          <div><strong>${s.activeTraderCount || 0}</strong><span>Active</span></div>
+        </div>
+        <div class="staff-actions" onclick="event.stopPropagation()">
+          <button type="button" class="btn-details" style="flex:1;font-size:0.72rem;" onclick="openSubAdminDetail('${s.id}')">🖥 Profile</button>
+          <button type="button" class="btn-sm" style="font-size:0.72rem;" onclick="visitSubAdmin('${s.id}')">🔑 Visit</button>
+        </div>
+      </div>`);
+    });
+
+    if (unassigned > 0) {
+      cards.push(`<div class="staff-card">
+        <div class="staff-top">
+          <div>
+            <div class="staff-name" style="color:#fcd34d;">⚠ Unassigned Traders</div>
+            <div class="staff-meta">Not linked to any Sub Admin</div>
+          </div>
+        </div>
+        <div class="staff-metrics">
+          <div><strong style="color:#fcd34d;">${unassigned}</strong><span>Traders</span></div>
+          <div><strong>—</strong><span>Needs Review</span></div>
+        </div>
+        <div class="staff-actions">
+          <button type="button" class="btn-details" onclick="openUsersForStaff('UNASSIGNED')">Inspect →</button>
+        </div>
+      </div>`);
+    }
+
+    if (subs.length > 5) {
+      cards.push(`<div class="staff-card">
+        <div class="staff-top"><div class="staff-name" style="color:#94a3b8;">+${subs.length - 5} more</div></div>
+        <div class="staff-actions">
+          <button type="button" class="pill-btn pill-indigo" onclick="showSection('sub-admins', document.getElementById('sub-create-subadmin'))">View All</button>
+        </div>
+      </div>`);
+    }
+
+    grid.innerHTML = cards.join('') || '<div style="color:#94a3b8;padding:12px 0;">No Sub Admins yet — create your first one above.</div>';
+  }
+
+  function renderSubAdminsSection() {
+    const grid = document.getElementById('subAdminsGrid');
+    if (!grid || !isMainAdmin()) return;
+    const q = (document.getElementById('subAdminSearchInput')?.value || '').toLowerCase().trim();
+    let list = getSubAdmins();
+    if (q) {
+      list = list.filter((s) =>
+        s.username.toLowerCase().includes(q) ||
+        (s.email || '').toLowerCase().includes(q) ||
+        `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase().includes(q) ||
+        String(s.invitationCode || '').toLowerCase().includes(q)
+      );
+    }
+
+    if (!list.length) {
+      grid.innerHTML = `<div style="color:#94a3b8;padding:12px 0;">No Sub Admins found. Create one using the form above.</div>`;
+      return;
+    }
+
+    grid.innerHTML = list.map((s) => {
+      const name = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.username;
+      const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      const canApprove = !!s.permissions?.canApproveWithdrawals;
+      const nextStatus = s.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+      const statusLabel = s.status === 'ACTIVE' ? '⏸ Suspend' : '▶ Activate';
+      return `<div class="staff-card" style="cursor:pointer;" onclick="openSubAdminDetail('${s.id}')">
+        <div class="staff-top">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#ee4d07);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.1rem;color:#fff;flex-shrink:0;">${initials}</div>
+            <div>
+              <div class="staff-name">${escapeHtml(name)}</div>
+              <div class="staff-meta" style="color:#c084fc;">@${escapeHtml(s.username)}</div>
+            </div>
+          </div>
+          ${statusChipHtml(s.status)}
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:0.76rem;color:#94a3b8;margin-bottom:6px;">
+            <span>Username</span><strong style="color:#e2e8f0;font-family:monospace;">${escapeHtml(s.username)}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.76rem;color:#94a3b8;margin-bottom:6px;">
+            <span>Invite Code</span><strong style="color:#fdba74;">${escapeHtml(s.invitationCode || '—')}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.76rem;color:#94a3b8;margin-bottom:6px;">
+            <span>Email</span><span style="color:#94a3b8;max-width:150px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(s.email || '—')}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.76rem;color:#94a3b8;">
+            <span>Withdrawals</span><strong style="color:${canApprove ? '#6ee7b7' : '#fca5a5'};">${canApprove ? 'Allowed' : 'Blocked'}</strong>
+          </div>
+        </div>
+        <div class="staff-metrics">
+          <div><strong>${s.traderCount || 0}</strong><span>Total Traders</span></div>
+          <div><strong>${s.activeTraderCount || 0}</strong><span>Active</span></div>
+        </div>
+        <div class="staff-actions" onclick="event.stopPropagation()">
+          <button type="button" class="pill-btn pill-indigo" style="flex:1;padding:9px 6px;font-size:0.76rem;" onclick="openSubAdminDetail('${s.id}')">🖥 Open Profile</button>
+          <button type="button" class="btn-details" style="font-size:0.74rem;" onclick="visitSubAdmin('${s.id}')">🔑 Visit</button>
+          <button type="button" class="btn-sm" onclick="toggleSubAdminStatus('${s.id}', '${nextStatus}')">${statusLabel}</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function openUsersForStaff(staffId) {
+    const sel = document.getElementById('userStaffFilter');
+    if (sel) sel.value = staffId;
+    showSection('users', document.getElementById('nav-users'));
+    renderUsersTable();
+  }
+
+  async function createSubAdmin() {
+    if (!isMainAdmin()) return showToast('Only Main Admin can create Sub Admins.', true);
+    const btn = document.getElementById('btnCreateSubAdmin');
+    const payload = {
+      username: document.getElementById('subAdminUsername').value.trim(),
+      email: document.getElementById('subAdminEmail').value.trim(),
+      firstName: document.getElementById('subAdminFirst').value.trim(),
+      lastName: document.getElementById('subAdminLast').value.trim(),
+      password: document.getElementById('subAdminPass').value,
+      invitationCode: document.getElementById('subAdminInviteCode').value.trim(),
+      canApproveWithdrawals: document.getElementById('subAdminCanApprove').checked
+    };
+    if (!payload.username || !payload.email || !payload.password) {
+      return showToast('Username, email, and password are required.', true);
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+    try {
+      const res = await fetch('/api/admin/sub-admins', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return showToast(data.error || 'Could not create Sub Admin', true);
+      ['subAdminUsername', 'subAdminEmail', 'subAdminFirst', 'subAdminLast', 'subAdminPass', 'subAdminInviteCode'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      document.getElementById('subAdminCanApprove').checked = true;
+      showToast(data.message || 'Sub Admin created');
+      await fetchAdminOverview(true);
+      showSection('sub-admins', document.getElementById('nav-sub-admins'));
+    } catch (_) {
+      showToast('Network error. Please try again.', true);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '＋ Create Sub Admin'; }
+    }
+  }
+
+  async function toggleSubAdminStatus(id, status) {
+    const res = await fetch(`/api/admin/sub-admins/${encodeURIComponent(id)}/status`, {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify({ status })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showToast(data.error || 'Could not update status', true);
+    showToast(data.message || 'Status updated');
+    await fetchAdminOverview(true);
+  }
+
+  async function toggleSubAdminWithdrawPerm(id, allow) {
+    const res = await fetch(`/api/admin/sub-admins/${encodeURIComponent(id)}/permissions`, {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify({ canApproveWithdrawals: !!allow })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showToast(data.error || 'Could not update permissions', true);
+    showToast(data.message || 'Permissions updated');
+    await fetchAdminOverview(true);
+  }
+
+  function openSubAdminPasswordModal(id, username) {
+    openCustomModal(
+      '🔑 Reset Sub Admin Password',
+      `<p style="color:#94a3b8;font-size:0.85rem;margin:0 0 10px;">Set a new password for <strong style="color:#fff;">@${escapeHtml(username)}</strong>.</p>
+       <div class="field"><label>New Password (min 6 chars)</label><input type="text" id="modalSubAdminPass" class="input-dark" placeholder="Enter new password" /></div>`,
+      async () => {
+        const newPassword = document.getElementById('modalSubAdminPass')?.value || '';
+        if (newPassword.length < 6) return showToast('Password must be at least 6 characters.', true);
+        setModalConfirmLoading(true, 'Saving...');
+        try {
+          const res = await fetch(`/api/admin/sub-admins/${encodeURIComponent(id)}/reset-password`, {
+            method: 'POST',
+            headers: adminHeaders(),
+            body: JSON.stringify({ newPassword })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setModalConfirmLoading(false);
+            return showToast(data.error || 'Could not reset password', true);
+          }
+          closeCustomModal();
+          showToast(data.message || 'Password updated');
+        } catch (_) {
+          setModalConfirmLoading(false);
+          showToast('Network error. Please try again.', true);
+        }
+      }
+    );
+  }
+
   function renderAdminUI() {
     if (!adminData) return;
     const { actor, stats, traders, trades, withdrawals, tickets, settings, invitedCount, inviteLinks = [] } = adminData;
+
+    applyMainAdminChrome();
 
     const fullName = `${actor.firstName || ''} ${actor.lastName || ''}`.trim();
     document.getElementById('actorFullName').textContent = fullName || actor.username;
     document.getElementById('actorName').textContent = `(@${actor.username})`;
     document.getElementById('profAdminUsername').textContent = actor.username;
-    document.getElementById('actorRoleLabel').textContent = 'Admin';
-    document.getElementById('actorRoleBadge').textContent = actor.role === 'MAIN_ADMIN' ? 'MAIN_ADMIN' : 'ADMIN';
+    document.getElementById('actorRoleLabel').textContent = isMainAdmin() ? 'Main Admin · Platform Owner' : 'Sub Admin';
 
     const invCountEl = document.getElementById('adminInvitedCount');
     if (invCountEl) invCountEl.textContent = invitedCount ?? 0;
@@ -1364,11 +2221,16 @@
     const pendingWdr = withdrawals.filter(w => w.status === 'PENDING').length;
     const approvedWdr = withdrawals.filter(w => w.status === 'APPROVED').length;
     const rejectedWdr = withdrawals.filter(w => w.status === 'REJECTED').length;
+    const subCount = stats.subAdmins ?? getSubAdmins().length;
 
     document.getElementById('stTotalUsers').textContent = stats.totalUsers;
     document.getElementById('stActiveUsers').textContent = stats.activeUsers;
     document.getElementById('stRunningTrades').textContent = stats.runningTrades;
     document.getElementById('stPendingWdr').textContent = pendingWdr;
+    const stSub = document.getElementById('stSubAdmins');
+    if (stSub) stSub.textContent = subCount;
+    const badgeSub = document.getElementById('badgeSubAdmins');
+    if (badgeSub) badgeSub.textContent = subCount;
 
     document.getElementById('badgeRunning').textContent = stats.runningTrades;
     document.getElementById('topRunningCount').textContent = stats.runningTrades;
@@ -1396,10 +2258,24 @@
     if ([...thUserSel.options].some(o => o.value === prevUserVal)) {
       thUserSel.value = prevUserVal;
     }
+
+    const staffFilter = document.getElementById('userStaffFilter');
+    if (staffFilter && isMainAdmin()) {
+      const prevStaff = staffFilter.value || 'ALL';
+      const subs = getSubAdmins();
+      staffFilter.innerHTML = `<option value="ALL">All Staff Books</option>` +
+        `<option value="UNASSIGNED">Unassigned Traders</option>` +
+        subs.map((s) => `<option value="${s.id}">@${s.username} (${s.traderCount || 0})</option>`).join('');
+      if ([...staffFilter.options].some((o) => o.value === prevStaff)) staffFilter.value = prevStaff;
+    }
+
     renderTradeHistorySection();
     renderUsersTable();
     renderInviteLinksTable();
     renderWithdrawalsTable();
+    renderDashHierarchy();
+    renderSubAdminsSection();
+    if (isMainAdmin()) injectStaffNavItems(getSubAdmins());
 
     const errSel = document.getElementById('errTargetUser');
     if (errSel.options.length <= 1) {
@@ -1762,19 +2638,41 @@
     </table>`;
   }
 
+  function traderBelongsToStaff(u, staffId) {
+    if (staffId === 'ALL') return true;
+    const subs = getSubAdmins();
+    if (staffId === 'UNASSIGNED') {
+      if (!u.subAdminId) {
+        const code = String(u.invitationCode || '').toUpperCase();
+        return !subs.some((s) => String(s.invitationCode || '').toUpperCase() === code);
+      }
+      return !subs.some((s) => s.id === u.subAdminId);
+    }
+    const staff = getStaffList().find((s) => s.id === staffId);
+    if (!staff) return false;
+    if (u.subAdminId === staff.id) return true;
+    const code = String(staff.invitationCode || '').toUpperCase();
+    return !!(code && String(u.invitationCode || '').toUpperCase() === code);
+  }
+
   function renderUsersTable() {
     if (!adminData) return;
     const q = (document.getElementById('userSearchInput').value || '').toLowerCase().trim();
     const filter = document.getElementById('userFilterSelect').value;
+    const staffFilter = document.getElementById('userStaffFilter')?.value || 'ALL';
+    const main = isMainAdmin();
+    const colSpan = main ? 8 : 7;
 
     const filtered = adminData.traders.filter(u => {
       const matchesText = !q ||
         u.username.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
         (`${u.firstName} ${u.lastName}`).toLowerCase().includes(q) ||
-        (u.mobile || '').toLowerCase().includes(q);
+        (u.mobile || '').toLowerCase().includes(q) ||
+        resolveManagerLabel(u).toLowerCase().includes(q);
 
       if (!matchesText) return false;
+      if (main && !traderBelongsToStaff(u, staffFilter)) return false;
       if (filter === 'ACTIVE') return u.status === 'ACTIVE';
       if (filter === 'BANNED') return u.status !== 'ACTIVE' || Number(u.frozenBalance || 0) > 0;
       if (filter === 'WIN_DEFAULT') return (u.tradeOutcome || 'WIN_DEFAULT') === 'WIN_DEFAULT';
@@ -1782,6 +2680,18 @@
       if (filter === 'FORCE_LOSS') return u.tradeOutcome === 'FORCE_LOSS';
       return true;
     });
+
+    const titleEl = document.getElementById('usersSectionTitle');
+    if (titleEl) {
+      if (main && staffFilter !== 'ALL') {
+        const staff = getStaffList().find((s) => s.id === staffFilter);
+        titleEl.textContent = staffFilter === 'UNASSIGNED'
+          ? `Unassigned Traders (${filtered.length})`
+          : `Traders under @${staff?.username || 'staff'} (${filtered.length})`;
+      } else {
+        titleEl.textContent = `All Users (${filtered.length})`;
+      }
+    }
 
     const tbody = document.getElementById('allUsersTbody');
     tbody.innerHTML = filtered.length ? filtered.map(u => {
@@ -1798,6 +2708,7 @@
       const avail = Number(u.availableBalance ?? u.balance ?? 0);
       const frozen = Number(u.frozenBalance || 0);
       const total = Number(u.totalBalance ?? (avail + frozen));
+      const managedBy = resolveManagerLabel(u);
 
       return `<tr>
         <td data-label="User">
@@ -1809,6 +2720,7 @@
           <div>${u.email}</div>
           <small style="color:#94a3b8;">${u.mobile || '-'}</small>
         </td>
+        ${main ? `<td class="main-only-col" data-label="Managed By"><span style="color:#fdba74;font-weight:700;font-size:0.82rem;">${escapeHtml(managedBy)}</span></td>` : ''}
         <td data-label="Balances">
           <div style="color:#10b981;font-weight:700;">Avail: ${avail.toLocaleString()}</div>
           ${frozen > 0 ? `<div style="color:#38bdf8;font-size:0.76rem;font-weight:700;">❄️ Frozen: ${frozen.toLocaleString()}</div>` : ''}
@@ -1826,7 +2738,7 @@
           <button class="btn-details" onclick="openUserDetail('${u.id}')">🖥 Details</button>
         </td>
       </tr>`;
-    }).join('') : `<tr><td colspan="7" style="text-align:center;color:#94a3b8;">No matching users found.</td></tr>`;
+    }).join('') : `<tr><td colspan="${colSpan}" style="text-align:center;color:#94a3b8;">No matching users found.</td></tr>`;
   }
 
   function confirmDeleteUser(userId, username) {
@@ -2331,6 +3243,7 @@
     window.location.href = './login.html';
   }
 
+  applyMainAdminChrome();
   fetchAdminOverview(true);
   const adminStream = new EventSource('/api/stream');
   let adminStreamRefreshTimer = null;

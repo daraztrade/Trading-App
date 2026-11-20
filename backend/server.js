@@ -978,6 +978,9 @@ function requireAuth(roles = []) {
       if (user.status === 'BANNED') {
         return res.status(403).json({ error: 'Your account is banned. Contact Help Center.' });
       }
+      if (user.status === 'SUSPENDED') {
+        return res.status(403).json({ error: 'Your account is suspended. Contact Main Admin.' });
+      }
       if (roles.length && !roles.includes(user.role)) {
         return res.status(403).json({ error: 'Access denied.' });
       }
@@ -1145,6 +1148,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   const user = formatUserRow(row);
   if (user.status === 'BANNED') return res.status(403).json({ error: 'Your account is banned. Contact Help Center.' });
+  if (user.status === 'SUSPENDED') return res.status(403).json({ error: 'Your account is suspended. Contact Main Admin.' });
   if (portal === 'ADMIN' && user.role === 'TRADER') return res.status(403).json({ error: 'Traders cannot access the Admin Portal.' });
   if (portal === 'TRADER' && user.role !== 'TRADER') return res.status(403).json({ error: 'Staff must log in via the Admin Portal.' });
 
@@ -1463,11 +1467,23 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
   ]);
 
   const traders = tradersRows.map(formatUserRow);
-  const staff = staffRows.map(formatUserRow);
+  const staff = staffRows.map((row) => {
+    const s = formatUserRow(row);
+    const linked = traders.filter(
+      (t) => t.subAdminId === s.id ||
+        (s.invitationCode && String(t.invitationCode || '').toUpperCase() === String(s.invitationCode).toUpperCase())
+    );
+    return {
+      ...s,
+      traderCount: linked.length,
+      activeTraderCount: linked.filter((t) => t.status === 'ACTIVE').length
+    };
+  });
   const myCode = (req.user.invitationCode || req.user.username || '').toUpperCase();
   const invitedCount = traders.filter(
     t => t.subAdminId === req.user.id || (myCode && String(t.invitationCode || '').toUpperCase() === myCode)
   ).length;
+  const subAdmins = staff.filter((s) => s.role === 'SUB_ADMIN');
 
   res.json({
     actor: req.user,
@@ -1479,7 +1495,9 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
       runningTrades: Number(countsRow?.runningtrades || 0),
       pendingDeposits: Number(countsRow?.pendingdeposits || 0),
       pendingWithdrawals: Number(countsRow?.pendingwithdrawals || 0),
-      openTickets: Number(countsRow?.opentickets || 0)
+      openTickets: Number(countsRow?.opentickets || 0),
+      subAdmins: subAdmins.length,
+      activeSubAdmins: subAdmins.filter((s) => s.status === 'ACTIVE').length
     },
     traders,
     staff,
@@ -1490,6 +1508,160 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
     auditLogs,
     inviteLinks,
     settings
+  });
+});
+
+// ─── MAIN ADMIN: Sub-Admin management ───────────────────────────────────────
+app.post('/api/admin/sub-admins', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const username = cleanStr(req.body.username, 24).replace(/\s+/g, ' ');
+  const email = cleanStr(req.body.email, 120).toLowerCase();
+  const password = String(req.body.password || '');
+  const firstName = cleanStr(req.body.firstName || 'Sub', 50);
+  const lastName = cleanStr(req.body.lastName || 'Admin', 50);
+  const canApprove = req.body.canApproveWithdrawals === false || req.body.canApproveWithdrawals === 0 ? 0 : 1;
+  let invitationCode = cleanStr(req.body.invitationCode || '', 30).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+
+  if (!isValidUsername(username)) {
+    return res.status(400).json({ error: 'Username must be 3–24 characters and start with a letter.' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'Please enter a valid email address.' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  }
+
+  if (!invitationCode) {
+    invitationCode = username.replace(/\s+/g, '').toUpperCase().slice(0, 20);
+  }
+  if (invitationCode.length < 3) {
+    return res.status(400).json({ error: 'Invitation code must be at least 3 characters.' });
+  }
+
+  const exists = await dbGet(
+    'SELECT id FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR UPPER(invitationCode) = ?',
+    [username, email, invitationCode]
+  );
+  if (exists) {
+    return res.status(400).json({ error: 'Username, email, or invitation code already exists.' });
+  }
+
+  const id = 'admin-sub-' + Date.now();
+  await dbRun(
+    `INSERT INTO users (id, username, email, password, role, firstName, lastName, status, invitationCode, canApproveWithdrawals, createdAt)
+     VALUES (?, ?, ?, ?, 'SUB_ADMIN', ?, ?, 'ACTIVE', ?, ?, ?)`,
+    [id, username, email, hashPassword(password), firstName, lastName, invitationCode, canApprove, new Date().toISOString()]
+  );
+
+  await logAudit(req.user, 'CREATE_SUB_ADMIN', username, `Email: ${email}; Code: ${invitationCode}`);
+  broadcastEvent('STAFF_UPDATED');
+  const created = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [id]));
+  res.json({
+    message: `Sub Admin @${username} created.`,
+    user: { ...created, traderCount: 0, activeTraderCount: 0 },
+    temporaryPassword: password
+  });
+});
+
+app.post('/api/admin/sub-admins/:id/status', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const status = cleanStr(req.body.status, 20).toUpperCase();
+  if (!['ACTIVE', 'SUSPENDED', 'BANNED'].includes(status)) {
+    return res.status(400).json({ error: 'Status must be ACTIVE, SUSPENDED, or BANNED.' });
+  }
+
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'SUB_ADMIN'", [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Sub Admin not found.' });
+
+  await dbRun('UPDATE users SET status = ? WHERE id = ?', [status, row.id]);
+  await logAudit(req.user, 'SUB_ADMIN_STATUS', row.username, `Status → ${status}`);
+  broadcastEvent('STAFF_UPDATED');
+  res.json({
+    message: `@${row.username} is now ${status}.`,
+    user: formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [row.id]))
+  });
+});
+
+app.post('/api/admin/sub-admins/:id/reset-password', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const newPassword = String(req.body.newPassword || '');
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  }
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'SUB_ADMIN'", [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Sub Admin not found.' });
+
+  await dbRun('UPDATE users SET password = ? WHERE id = ?', [hashPassword(newPassword), row.id]);
+  await logAudit(req.user, 'RESET_SUB_ADMIN_PASSWORD', row.username, 'Password reset by Main Admin');
+  res.json({ message: `Password updated for @${row.username}.` });
+});
+
+app.post('/api/admin/sub-admins/:id/permissions', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'SUB_ADMIN'", [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Sub Admin not found.' });
+
+  const canApprove = req.body.canApproveWithdrawals === false || req.body.canApproveWithdrawals === 0 ? 0 : 1;
+  await dbRun('UPDATE users SET canApproveWithdrawals = ? WHERE id = ?', [canApprove, row.id]);
+  await logAudit(req.user, 'SUB_ADMIN_PERMISSIONS', row.username, `canApproveWithdrawals=${canApprove}`);
+  broadcastEvent('STAFF_UPDATED');
+  res.json({
+    message: `Permissions updated for @${row.username}.`,
+    user: formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [row.id]))
+  });
+});
+
+// Main Admin: visit (impersonate) a Sub Admin — returns a session token for that sub admin
+app.post('/api/admin/sub-admins/:id/impersonate', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'SUB_ADMIN'", [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Sub Admin not found.' });
+  const subAdmin = formatUserRow(row);
+  if (subAdmin.status === 'BANNED') return res.status(403).json({ error: 'Sub Admin is banned.' });
+  await logAudit(req.user, 'IMPERSONATE_SUB_ADMIN', subAdmin.username, `Main Admin entered Sub Admin context`);
+  res.json({ user: subAdmin, token: signSession(subAdmin) });
+});
+
+// Main Admin: full detail for one sub admin (profile + their traders + stats + recent activity)
+app.get('/api/admin/sub-admins/:id/detail', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'SUB_ADMIN'", [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Sub Admin not found.' });
+  const subAdmin = formatUserRow(row);
+  const code = String(subAdmin.invitationCode || '').toUpperCase();
+
+  const allTraders = await dbAll("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC");
+  const myTraders = allTraders.filter((t) => {
+    const tCode = String(t.invitationCode || '').toUpperCase();
+    return t.subAdminId === subAdmin.id || (code && tCode === code);
+  }).map(formatUserRow);
+
+  const traderIds = myTraders.map((t) => t.id);
+  let runningTrades = [], recentTrades = [], pendingWithdrawals = [], recentDeposits = [], auditLogs = [];
+
+  if (traderIds.length) {
+    const ph = traderIds.map(() => '?').join(',');
+    [runningTrades, recentTrades, pendingWithdrawals, recentDeposits] = await Promise.all([
+      dbAll(`SELECT * FROM trades WHERE status='RUNNING' AND userId IN (${ph})`, traderIds),
+      dbAll(`SELECT * FROM trades WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 60`, traderIds),
+      dbAll(`SELECT * FROM withdrawals WHERE status='PENDING' AND userId IN (${ph})`, traderIds),
+      dbAll(`SELECT * FROM deposits WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 20`, traderIds),
+    ]);
+  }
+  auditLogs = await dbAll("SELECT * FROM audit_logs WHERE actorUsername = ? ORDER BY timestamp DESC LIMIT 25", [subAdmin.username]);
+  const inviteLinks = await dbAll("SELECT * FROM invite_links WHERE createdBy = ? ORDER BY createdAt DESC", [subAdmin.id]);
+
+  res.json({
+    subAdmin,
+    traders: myTraders,
+    runningTrades,
+    recentTrades,
+    pendingWithdrawals,
+    recentDeposits,
+    auditLogs,
+    inviteLinks,
+    stats: {
+      totalTraders: myTraders.length,
+      activeTraders: myTraders.filter((t) => t.status === 'ACTIVE').length,
+      runningTrades: runningTrades.length,
+      pendingWithdrawals: pendingWithdrawals.length,
+      totalBalance: myTraders.reduce((s, t) => s + (t.totalBalance || 0), 0)
+    }
   });
 });
 
@@ -1708,6 +1880,9 @@ app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN
 });
 
 app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  if (req.user.role === 'SUB_ADMIN' && !req.user.permissions?.canApproveWithdrawals) {
+    return res.status(403).json({ error: 'You do not have permission to review withdrawals. Contact Main Admin.' });
+  }
   const { action } = req.body;
   const status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
   const reason = cleanStr(req.body.reason || '', 300);
