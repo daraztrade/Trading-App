@@ -155,8 +155,9 @@
       </div>
 
       <div class="field">
-        <label>Invitation Code (Optional)</label>
-        <input type="text" id="regInvite" placeholder="Referral code" />
+        <label>Invitation Code <span style="color:#f97316;">(Required)</span></label>
+        <input type="text" id="regInvite" placeholder="Paste invite code from admin link" required maxlength="40" autocomplete="off" />
+        <small style="display:block;margin-top:6px;color:var(--text-muted);font-size:0.75rem;">One invitation code = one account. Already-used codes will be rejected.</small>
       </div>
 
 <!-- Register Password -->
@@ -332,6 +333,10 @@
       if (password !== document.getElementById('regConfirm').value) {
         return showError('Passwords do not match.');
       }
+      const invitationCode = document.getElementById('regInvite').value.trim();
+      if (!invitationCode || invitationCode.length < 3) {
+        return showError('Invitation code is required. Ask admin for a unique invite link.');
+      }
 
       const payload = {
         username: normalizedUser,
@@ -339,7 +344,7 @@
         country: document.getElementById('regCountry').value,
         mobile: document.getElementById('regPhoneCode').value + mobileDigits,
         currency: document.getElementById('regCurrency').value,
-        invitationCode: document.getElementById('regInvite').value.trim(),
+        invitationCode,
         password
       };
 
@@ -412,8 +417,12 @@
     }
 
     const refParam = new URLSearchParams(window.location.search).get('ref');
-    if (refParam && document.getElementById('regInvite')) {
-      document.getElementById('regInvite').value = refParam;
+    const inviteInput = document.getElementById('regInvite');
+    if (refParam && inviteInput) {
+      inviteInput.value = refParam;
+      inviteInput.readOnly = true;
+      inviteInput.style.opacity = '0.92';
+      inviteInput.title = 'Invitation code locked from your invite link';
     }
   </script>
 </body>

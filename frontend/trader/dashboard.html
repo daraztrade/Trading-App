@@ -1455,6 +1455,16 @@
     document.body.classList.toggle('help-mode', tab === 'support');
     const ticker = document.getElementById('dashLiveTicker');
     if (ticker) ticker.style.display = tab === 'home' ? '' : 'none';
+    // Demo deposit/withdraw popups only on Dashboard
+    const activityFeed = document.getElementById('activityFeed');
+    if (activityFeed) {
+      if (tab === 'home') {
+        activityFeed.style.display = '';
+      } else {
+        activityFeed.innerHTML = '';
+        activityFeed.style.display = 'none';
+      }
+    }
     closeTraderSidebar();
     if (tab === 'support') {
       renderHelpChat(dashState?.tickets || []);
@@ -2568,9 +2578,18 @@
     return pickRandom(useGirl ? PK_GIRL_NAMES : PK_BOY_NAMES);
   }
 
+  function isDashboardTabOpen() {
+    const home = document.getElementById('tab-home');
+    return !!(home && !home.classList.contains('hidden'));
+  }
+
   function showDemoActivityPopup() {
+    // Only show dummy deposit/withdraw alerts on Dashboard
+    if (!isDashboardTabOpen()) return;
+
     const feed = document.getElementById('activityFeed');
     if (!feed) return;
+    feed.style.display = '';
 
     const isDeposit = Math.random() < 0.5;
     const name = randomPakistaniName();
@@ -2606,12 +2625,14 @@
   function scheduleDemoActivityPopup() {
     const delay = 6000 + Math.floor(Math.random() * 9000); // 6–15s
     setTimeout(() => {
-      showDemoActivityPopup();
+      if (isDashboardTabOpen()) showDemoActivityPopup();
       scheduleDemoActivityPopup();
     }, delay);
   }
 
-  setTimeout(showDemoActivityPopup, 2500);
+  setTimeout(() => {
+    if (isDashboardTabOpen()) showDemoActivityPopup();
+  }, 2500);
   scheduleDemoActivityPopup();
 </script>
 </body>

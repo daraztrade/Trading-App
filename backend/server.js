@@ -1046,7 +1046,7 @@ app.post('/api/auth/register', async (req, res) => {
   const mobile = cleanStr(req.body.mobile, 25);
   const currency = cleanStr(req.body.currency || 'PKR', 10);
   const password = String(req.body.password || '');
-  const invitationCode = cleanStr(req.body.invitationCode, 40).toUpperCase();
+  const invitationCode = cleanStr(req.body.invitationCode, 40).toUpperCase().replace(/\s+/g, '');
 
   if (!isValidUsername(username)) {
     return res.status(400).json({ error: 'Username must be 3–24 characters. Letters are enough — numbers or symbols are optional.' });
@@ -1061,54 +1061,59 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ error: 'Please enter a valid mobile number.' });
   }
 
+  // Invitation code is mandatory — no account without a valid single-use invite.
+  if (!invitationCode || invitationCode.length < 3) {
+    return res.status(400).json({ error: 'Invitation code is required. Ask admin for a unique invite link.' });
+  }
+
   const exists = await dbGet('SELECT id FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)', [username, email]);
   if (exists) return res.status(400).json({ error: 'Username or email already exists.' });
 
-  let subAdminId = '';
-  let usedSingleInvite = null;
-
-  if (invitationCode) {
-    // 1. Check single-use unique invitation links first
-    const inviteLink = await dbGet('SELECT * FROM invite_links WHERE UPPER(code) = ?', [invitationCode]);
-    if (inviteLink) {
-      if (inviteLink.status !== 'ACTIVE' || Number(inviteLink.useCount) >= Number(inviteLink.maxUses || 1)) {
-        return res.status(400).json({ error: 'This invitation link has already been used or expired (1 user limit).' });
-      }
-      subAdminId = inviteLink.createdBy;
-      usedSingleInvite = inviteLink;
-    } else {
-      // 2. Fallback to admin static invitation code
-      const inviter = await dbGet(
-        "SELECT id FROM users WHERE role IN ('MAIN_ADMIN', 'SUB_ADMIN') AND UPPER(invitationCode) = ?",
-        [invitationCode]
-      );
-      if (!inviter) {
-        return res.status(400).json({ error: 'Invalid or already-used invitation link.' });
-      }
-      subAdminId = inviter.id;
-    }
+  // Only unique invite_links are accepted (1 code = 1 account).
+  const inviteLink = await dbGet('SELECT * FROM invite_links WHERE UPPER(code) = ?', [invitationCode]);
+  if (!inviteLink) {
+    return res.status(400).json({ error: 'Invalid invitation code. Use a unique invite link from admin.' });
+  }
+  if (inviteLink.status !== 'ACTIVE' || Number(inviteLink.useCount) >= Number(inviteLink.maxUses || 1)) {
+    return res.status(400).json({ error: 'This invitation code has already been used. Each code works for only 1 account.' });
   }
 
   const id = 'usr-' + Date.now();
   const nowIso = new Date().toISOString();
+  const subAdminId = inviteLink.createdBy || '';
+  const hashed = hashPassword(password);
 
-  if (usedSingleInvite) {
-    const claimedLink = await dbRun(
+  // Atomically claim the invite + create the user (prevents double registration races).
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const claimQ = toPg(
       `UPDATE invite_links
        SET useCount = useCount + 1, status = 'USED', usedByUserId = ?, usedByUsername = ?, usedAt = ?
-       WHERE code = ? AND status = 'ACTIVE' AND useCount < maxUses`,
-      [id, username, nowIso, usedSingleInvite.code]
+       WHERE UPPER(code) = ? AND status = 'ACTIVE' AND useCount < maxUses
+       RETURNING code`,
+      [id, username, nowIso, invitationCode]
     );
-    if (!claimedLink.rowCount) {
-      return res.status(400).json({ error: 'This invitation link has already been claimed by another user.' });
+    const claimed = await client.query(claimQ.text, claimQ.values);
+    if (!claimed.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'This invitation code has already been claimed by another user.' });
     }
-  }
 
-  await dbRun(
-    `INSERT INTO users (id, username, email, password, role, country, mobile, currency, invitationCode, subAdminId, createdAt)
-     VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?, ?)`,
-    [id, username, email, hashPassword(password), country, mobile, currency, invitationCode, subAdminId, nowIso]
-  );
+    const insertQ = toPg(
+      `INSERT INTO users (id, username, email, password, role, country, mobile, currency, invitationCode, subAdminId, createdAt)
+       VALUES (?, ?, ?, ?, 'TRADER', ?, ?, ?, ?, ?, ?)`,
+      [id, username, email, hashed, country, mobile, currency, invitationCode, subAdminId, nowIso]
+    );
+    await client.query(insertQ.text, insertQ.values);
+    await client.query('COMMIT');
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    console.error('register failed:', err?.message || err);
+    return res.status(500).json({ error: 'Could not create account. Please try again.' });
+  } finally {
+    client.release();
+  }
 
   const user = formatUserRow(await dbGet('SELECT * FROM users WHERE id = ?', [id]));
   broadcastEvent('NEW_USER', { username });
@@ -1817,6 +1822,42 @@ app.post('/api/admin/error-sender', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), as
   await logAudit(req.user, 'ERROR_SENDER', targetUserId, title);
   broadcastEvent('ERROR_ALERT');
   res.json({ message: 'Alert sent.' });
+});
+
+app.delete('/api/admin/users/:id', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const trader = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
+  if (!trader) return res.status(404).json({ error: 'Trader not found.' });
+
+  const userId = trader.id;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const stmts = [
+      ['DELETE FROM trades WHERE userId = ?', [userId]],
+      ['DELETE FROM deposits WHERE userId = ?', [userId]],
+      ['DELETE FROM withdrawals WHERE userId = ?', [userId]],
+      ['DELETE FROM transactions WHERE userId = ?', [userId]],
+      ['DELETE FROM tickets WHERE userId = ?', [userId]],
+      ['DELETE FROM login_logs WHERE userId = ?', [userId]],
+      ['DELETE FROM custom_errors WHERE targetUserId = ?', [userId]],
+      ["DELETE FROM users WHERE id = ? AND role = 'TRADER'", [userId]]
+    ];
+    for (const [sql, args] of stmts) {
+      const q = toPg(sql, args);
+      await client.query(q.text, q.values);
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    console.error('delete user failed:', err?.message || err);
+    return res.status(500).json({ error: 'Could not delete user. Please try again.' });
+  } finally {
+    client.release();
+  }
+
+  logAudit(req.user, 'DELETE_USER', trader.username, `Permanently deleted trader ${userId}`).catch(() => {});
+  broadcastEvent('USER_UPDATED');
+  res.json({ message: `User @${trader.username} has been permanently deleted.` });
 });
 
 app.post('/api/admin/users/:id/impersonate', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
