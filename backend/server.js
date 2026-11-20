@@ -272,7 +272,8 @@ const defaultSettings = {
   currencies: [
     { code: 'PKR', symbol: 'Rs ', name: 'Pakistani Rupee', rateToBase: 278.5 },
     { code: 'USDT', symbol: '$', name: 'Tether USDT', rateToBase: 1 },
-    { code: 'BTC', symbol: '₿', name: 'Bitcoin', rateToBase: 0.000011 },
+    { code: 'BTC', symbol: '₿', name: 'BTC-USD', rateToBase: 0.000011 },
+    { code: 'BTS', symbol: 'Ƀ', name: 'BTS-USD', rateToBase: 0.0042 },
     { code: 'ETH', symbol: 'Ξ', name: 'Ethereum', rateToBase: 0.00032 }
   ],
   taxRate: 0,
@@ -561,8 +562,11 @@ async function getSettings() {
       rateToBase: Number(c.rateToBase) || 1
     });
   }
-  // Keep core account currencies first: PKR, USDT, BTC, ETH
-  const core = ['PKR', 'USDT', 'BTC', 'ETH'];
+  // Keep core account currencies first: PKR, USDT, BTC-USD, BTS-USD, ETH
+  const core = ['PKR', 'USDT', 'BTC', 'BTS', 'ETH'];
+  if (byCode.has('BTC')) byCode.set('BTC', { ...byCode.get('BTC'), name: 'BTC-USD', symbol: byCode.get('BTC').symbol || '₿' });
+  if (byCode.has('BTS')) byCode.set('BTS', { ...byCode.get('BTS'), name: 'BTS-USD', symbol: byCode.get('BTS').symbol || 'Ƀ' });
+  else byCode.set('BTS', { code: 'BTS', symbol: 'Ƀ', name: 'BTS-USD', rateToBase: 0.0042 });
   const ordered = [];
   for (const code of core) {
     if (byCode.has(code)) {
@@ -1154,12 +1158,14 @@ app.post('/api/trader/currency', requireAuth(['TRADER']), async (req, res) => {
   const currency = cleanStr(req.body.currency, 10).toUpperCase();
   const settings = await getSettings();
   const allowed = new Set((settings.currencies || []).map((c) => String(c.code || '').toUpperCase()));
-  ['PKR', 'USDT', 'BTC', 'ETH'].forEach((c) => allowed.add(c));
-  if (!allowed.has(currency)) {
+  ['PKR', 'USDT', 'BTC', 'BTS', 'ETH', 'BTC-USD', 'BTS-USD'].forEach((c) => allowed.add(c));
+  // Normalize display aliases to stored codes
+  const normalizedCurrency = currency === 'BTC-USD' ? 'BTC' : currency === 'BTS-USD' ? 'BTS' : currency;
+  if (!allowed.has(normalizedCurrency) && !allowed.has(currency)) {
     return res.status(400).json({ error: 'Unsupported currency.' });
   }
-  await dbRun('UPDATE users SET currency = ? WHERE id = ?', [currency, req.user.id]);
-  res.json({ message: 'Currency updated', currency });
+  await dbRun('UPDATE users SET currency = ? WHERE id = ?', [normalizedCurrency, req.user.id]);
+  res.json({ message: 'Currency updated', currency: normalizedCurrency });
 });
 
 app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {

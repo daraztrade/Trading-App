@@ -1284,8 +1284,9 @@
   }
 
   const ALL_TRADING_PAIRS = [
+    'BTC_USDT', 'BTS_USDT',
     'BTC_PKR',
-    'BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'BTS_USDT',
+    'ETH_USDT', 'BNB_USDT', 'SOL_USDT',
     'USDC_USDT', 'DOGE_USDT', 'TRX_USDT', 'XRP_USDT', 'ADA_USDT',
     'PI_USDT', 'TON_USDT', 'AVAX_USDT', 'DOT_USDT', 'LINK_USDT',
     'MATIC_USDT', 'LTC_USDT', 'BCH_USDT', 'SHIB_USDT', 'PEPE_USDT',
@@ -1297,15 +1298,25 @@
     'THETA_USDT', 'EGLD_USDT', 'XTZ_USDT', 'EOS_USDT', 'KAVA_USDT'
   ];
 
+  function pairDisplayLabel(pair, compact = false) {
+    if (pair === 'BTC_USDT') return compact ? 'BTC-USD' : 'BTC-USD (Default)';
+    if (pair === 'BTS_USDT') return 'BTS-USD';
+    if (pair === 'BTC_PKR') return compact ? 'BTC/PKR' : 'BTC / PKR';
+    return String(pair || '').replace('_', '/');
+  }
+
   function populatePairsDropdown(filterText = '') {
     const sel = document.getElementById('pairSelector');
-    const currentVal = sel.value || 'BTC_PKR';
-    const q = filterText.trim().toUpperCase();
-    const list = ALL_TRADING_PAIRS.filter(p => !q || p.includes(q) || p.replace('_', '/').includes(q));
+    const currentVal = sel.value || 'BTC_USDT';
+    const q = filterText.trim().toUpperCase().replace(/-/g, '_');
+    const list = ALL_TRADING_PAIRS.filter((p) => {
+      if (!q) return true;
+      const label = pairDisplayLabel(p).toUpperCase().replace(/-/g, '_');
+      return p.includes(q) || p.replace('_', '/').includes(q) || label.includes(q) || label.replace(/_/g, '-').includes(q.replace(/_/g, '-'));
+    });
     const compact = window.innerWidth <= 960;
     sel.innerHTML = (list.length ? list : ALL_TRADING_PAIRS).map(pair => {
-      let label = pair.replace('_', '/');
-      if (pair === 'BTC_PKR') label = compact ? 'BTC/PKR' : 'BTC / PKR (Default)';
+      const label = pairDisplayLabel(pair, compact);
       return `<option value="${pair}" ${pair === currentVal ? 'selected' : ''}>${label}</option>`;
     }).join('');
   }
@@ -1651,12 +1662,21 @@
     updateEstReturn();
   }
 
+  function displayCurrency(code) {
+    const c = String(code || '').toUpperCase();
+    if (c === 'BTC' || c === 'BTC-USD') return 'BTC-USD';
+    if (c === 'BTS' || c === 'BTS-USD') return 'BTS-USD';
+    return c || 'PKR';
+  }
+
   function currencyOptionLabel(c) {
     const code = String(c.code || c).toUpperCase();
+    if (code === 'BTC' || code === 'BTC-USD') return 'BTC-USD';
+    if (code === 'BTS' || code === 'BTS-USD') return 'BTS-USD';
     const name = c.name || '';
     const symbol = c.symbol || '';
-    if (name && symbol) return `${code} — ${name}`;
-    if (name) return `${code} — ${name}`;
+    if (name && symbol && name !== code) return `${code} — ${name}`;
+    if (name && name !== code) return `${code} — ${name}`;
     if (symbol) return `${code} (${symbol})`;
     return code;
   }
@@ -1683,7 +1703,8 @@
     const fallback = [
       { code: 'PKR', symbol: 'Rs', name: 'Pakistani Rupee' },
       { code: 'USDT', symbol: '$', name: 'Tether USD' },
-      { code: 'BTC', symbol: '₿', name: 'Bitcoin' },
+      { code: 'BTC', symbol: '₿', name: 'BTC-USD' },
+      { code: 'BTS', symbol: 'Ƀ', name: 'BTS-USD' },
       { code: 'ETH', symbol: 'Ξ', name: 'Ethereum' }
     ];
     let list = fallback;
@@ -1692,23 +1713,32 @@
       const data = await res.json();
       if (Array.isArray(data.currencies) && data.currencies.length) list = data.currencies;
     } catch (_) {}
+    // Ensure BTC-USD / BTS-USD options always exist
+    if (!list.some((c) => String(c.code).toUpperCase() === 'BTC')) {
+      list = [...list, { code: 'BTC', symbol: '₿', name: 'BTC-USD' }];
+    }
+    if (!list.some((c) => String(c.code).toUpperCase() === 'BTS')) {
+      list = [...list, { code: 'BTS', symbol: 'Ƀ', name: 'BTS-USD' }];
+    }
 
     const preferred = dashState?.user?.currency || 'PKR';
     fillCurrencySelect(document.getElementById('tradeCurrencySelect'), list, preferred);
     fillCurrencySelect(document.getElementById('wdrCurrencySelect'), list, preferred);
     const curr = document.getElementById('tradeCurrencySelect').value || 'PKR';
-    document.getElementById('stakeCurrencyLbl').textContent = curr;
-    document.getElementById('wdrCurrLbl').textContent = curr;
-    document.getElementById('orderCurrSummary').textContent = curr;
+    const shown = displayCurrency(curr);
+    document.getElementById('stakeCurrencyLbl').textContent = shown;
+    document.getElementById('wdrCurrLbl').textContent = shown;
+    document.getElementById('orderCurrSummary').textContent = shown;
     updateEstReturn();
   }
 
   async function onCurrencySelectChange(curr) {
     document.getElementById('tradeCurrencySelect').value = curr;
     document.getElementById('wdrCurrencySelect').value = curr;
-    document.getElementById('stakeCurrencyLbl').textContent = curr;
-    document.getElementById('wdrCurrLbl').textContent = curr;
-    document.getElementById('orderCurrSummary').textContent = curr;
+    const shown = displayCurrency(curr);
+    document.getElementById('stakeCurrencyLbl').textContent = shown;
+    document.getElementById('wdrCurrLbl').textContent = shown;
+    document.getElementById('orderCurrSummary').textContent = shown;
     updateEstReturn();
 
     await fetch('/api/trader/currency', {
@@ -1720,7 +1750,7 @@
 
   function updateEstReturn() {
     const stake = Number(document.getElementById('tradeStakeInput').value || 0);
-    const curr = document.getElementById('tradeCurrencySelect').value || 'PKR';
+    const curr = displayCurrency(document.getElementById('tradeCurrencySelect').value || 'PKR');
     const ret = stake + (stake * (selectedPayout / 100));
     document.getElementById('estPayoutDisplay').textContent = `${ret.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${curr}`;
   }
@@ -1779,13 +1809,13 @@
     tradeUiBusy = true;
 
     const side = trade.direction === 'DOWN' ? 'SELL' : 'BUY';
-    const curr = trade.currency || document.getElementById('tradeCurrencySelect').value || 'PKR';
+    const curr = displayCurrency(trade.currency || document.getElementById('tradeCurrencySelect').value || 'PKR');
     const dur = Number(trade.durationSeconds || selectedDuration || 60);
     countdownEndsAt = Number(trade.expiresAt) || (Date.now() + dur * 1000);
 
     document.getElementById('countdownSideLabel').textContent = side;
     document.getElementById('countdownSideLabel').style.color = side === 'BUY' ? '#10b981' : '#ef4444';
-    document.getElementById('cdPair').textContent = trade.pair || '—';
+    document.getElementById('cdPair').textContent = pairDisplayLabel(trade.pair || '') || '—';
     document.getElementById('cdSide').textContent = side;
     document.getElementById('cdSide').style.color = side === 'BUY' ? '#10b981' : '#ef4444';
     document.getElementById('cdCurrency').textContent = curr;
@@ -2039,12 +2069,12 @@
 
     if (document.activeElement.id !== 'tradeCurrencySelect') {
       document.getElementById('tradeCurrencySelect').value = curr;
-      document.getElementById('stakeCurrencyLbl').textContent = curr;
-      document.getElementById('orderCurrSummary').textContent = curr;
+      document.getElementById('stakeCurrencyLbl').textContent = displayCurrency(curr);
+      document.getElementById('orderCurrSummary').textContent = displayCurrency(curr);
     }
     if (document.activeElement.id !== 'wdrCurrencySelect') {
       document.getElementById('wdrCurrencySelect').value = curr;
-      document.getElementById('wdrCurrLbl').textContent = curr;
+      document.getElementById('wdrCurrLbl').textContent = displayCurrency(curr);
     }
 
     // Only show Frozen Balance banner when frozenBal > 0
@@ -2285,11 +2315,11 @@
   function renderDashLiveTicker(prices) {
     const el = document.getElementById('dashLiveTicker');
     if (!el) return;
-    const keys = ['BTC_PKR', 'BTC_USDT', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'XRP_USDT', 'DOGE_USDT'];
+    const keys = ['BTC_USDT', 'BTS_USDT', 'BTC_PKR', 'ETH_USDT', 'BNB_USDT', 'SOL_USDT', 'XRP_USDT', 'DOGE_USDT'];
     const items = keys
       .filter((k) => prices && prices[k] != null)
       .map((k) => {
-        const label = k === 'BTC_PKR' ? 'BTC/PKR' : k.replace('_', '/');
+        const label = pairDisplayLabel(k, true);
         const val = Number(prices[k]).toLocaleString(undefined, { maximumFractionDigits: 2 });
         return `<div class="live-ticker-item">${escapeHtml(label)}<span>${escapeHtml(val)}</span></div>`;
       });
