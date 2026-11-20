@@ -1002,7 +1002,7 @@
         </div>
         <div class="dash-stat dash-stat--score">
           <div class="dash-stat-label"><span class="dash-stat-icon">⭐</span> Credit Score</div>
-          <strong id="dashCreditScore">100 / 100</strong>
+          <strong id="dashCreditScore">100</strong>
           <span class="dash-stat-sub" id="dashAccountStatus">Status: ACTIVE</span>
         </div>
       </div>
@@ -2018,16 +2018,31 @@
     return [...byId.values()];
   }
 
-  async function loadDashboard() {
-    try {
-      const res = await fetch('/api/trader/dashboard', { headers: traderHeaders(false) });
-      if (res.status === 401 || res.status === 403) return logoutTrader();
-      const data = await res.json();
-      const prevTickets = dashState?.tickets || [];
-      dashState = data;
-      dashState.tickets = mergeTickets(prevTickets, data.tickets || []);
-      renderDashboard();
-    } catch (_) {}
+  let dashboardInFlight = null;
+  let dashboardLastAt = 0;
+  const DASHBOARD_MIN_GAP_MS = 1500;
+
+  async function loadDashboard(force = false) {
+    const now = Date.now();
+    if (!force && dashboardInFlight) return dashboardInFlight;
+    if (!force && (now - dashboardLastAt) < DASHBOARD_MIN_GAP_MS) return dashboardInFlight;
+
+    dashboardLastAt = now;
+    dashboardInFlight = (async () => {
+      try {
+        const res = await fetch('/api/trader/dashboard', { headers: traderHeaders(false) });
+        if (res.status === 401 || res.status === 403) return logoutTrader();
+        const data = await res.json();
+        const prevTickets = dashState?.tickets || [];
+        dashState = data;
+        dashState.tickets = mergeTickets(prevTickets, data.tickets || []);
+        renderDashboard();
+      } catch (_) {
+      } finally {
+        dashboardInFlight = null;
+      }
+    })();
+    return dashboardInFlight;
   }
 
   function renderDashboard() {
@@ -2055,7 +2070,7 @@
     document.getElementById('dashFullName').textContent = displayName;
     document.getElementById('dashUsername').textContent = `@${user.username}`;
     document.getElementById('dashEmail').textContent = user.email || '—';
-    document.getElementById('dashCreditScore').textContent = `${user.creditScore ?? 100} / 100`;
+    document.getElementById('dashCreditScore').textContent = String(user.creditScore ?? 100);
     document.getElementById('dashAccountStatus').textContent = `Status: ${user.status || 'ACTIVE'}`;
     renderDashLiveTicker(prices);
 
@@ -2510,15 +2525,21 @@
   }
 
   onWithdrawMethodChange();
-  loadTraderCurrencies().finally(() => loadDashboard());
+  loadTraderCurrencies().finally(() => loadDashboard(true));
   const stream = new EventSource('/api/stream');
+  let traderStreamRefreshTimer = null;
   stream.onmessage = () => {
     // Countdown owns the result modal — SSE only refreshes balances/tables.
-    if (!tradeUiBusy && !countdownTimer) loadDashboard();
+    if (tradeUiBusy || countdownTimer) return;
+    if (traderStreamRefreshTimer) return;
+    traderStreamRefreshTimer = setTimeout(() => {
+      traderStreamRefreshTimer = null;
+      if (!tradeUiBusy && !countdownTimer) loadDashboard();
+    }, 1000);
   };
   setInterval(() => {
     if (!tradeUiBusy && !countdownTimer) loadDashboard();
-  }, 2000);
+  }, 5000);
 
   /* Demo activity popups — random Pakistani names + amounts */
   const PK_BOY_NAMES = [

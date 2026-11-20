@@ -1288,41 +1288,63 @@
     return `${Math.floor(diff / 86400)} days ago`;
   }
 
-  async function fetchAdminOverview() {
-    try {
-      const res = await fetch('/api/admin/overview', { headers: adminHeaders() });
-      if (res.status === 401 || res.status === 403) return adminLogout();
-      const nextData = await res.json();
+  let adminOverviewInFlight = null;
+  let adminOverviewLastAt = 0;
+  const ADMIN_OVERVIEW_MIN_GAP_MS = 2500;
 
-      if (prevStateSnapshot) {
-        const prevTrades = prevStateSnapshot.totalTrades || 0;
-        const prevPendingWdr = prevStateSnapshot.pendingWithdrawals || 0;
-        const prevRejectedWdr = prevStateSnapshot.rejectedWithdrawals || 0;
+  async function fetchAdminOverview(force = false) {
+    const now = Date.now();
+    if (!force && adminOverviewInFlight) return adminOverviewInFlight;
+    if (!force && (now - adminOverviewLastAt) < ADMIN_OVERVIEW_MIN_GAP_MS) return adminOverviewInFlight;
 
-        const currTrades = nextData.stats?.totalTrades || 0;
-        const currPendingWdr = nextData.stats?.pendingWithdrawals || 0;
-        const currRejectedWdr = (nextData.withdrawals || []).filter(w => w.status === 'REJECTED').length;
+    adminOverviewLastAt = now;
+    adminOverviewInFlight = (async () => {
+      try {
+        const res = await fetch('/api/admin/overview', { headers: adminHeaders() });
+        if (res.status === 401 || res.status === 403) return adminLogout();
+        const nextData = await res.json();
 
-        if (currPendingWdr > prevPendingWdr) {
-          playAdminChime('WITHDRAW');
-          showToast('🔔 New withdrawal request received!');
-        } else if (currTrades > prevTrades) {
-          playAdminChime('TRADE');
-          showToast('⚡ New trade placed by a user!');
-        } else if (currRejectedWdr > prevRejectedWdr) {
-          playAdminChime('REJECT');
+        if (prevStateSnapshot) {
+          const prevTrades = prevStateSnapshot.totalTrades || 0;
+          const prevPendingWdr = prevStateSnapshot.pendingWithdrawals || 0;
+          const prevRejectedWdr = prevStateSnapshot.rejectedWithdrawals || 0;
+
+          const currTrades = nextData.stats?.totalTrades || 0;
+          const currPendingWdr = nextData.stats?.pendingWithdrawals || 0;
+          const currRejectedWdr = (nextData.withdrawals || []).filter(w => w.status === 'REJECTED').length;
+
+          if (currPendingWdr > prevPendingWdr) {
+            playAdminChime('WITHDRAW');
+            showToast('🔔 New withdrawal request received!');
+          } else if (currTrades > prevTrades) {
+            playAdminChime('TRADE');
+            showToast('⚡ New trade placed by a user!');
+          } else if (currRejectedWdr > prevRejectedWdr) {
+            playAdminChime('REJECT');
+          }
         }
+
+        prevStateSnapshot = {
+          totalTrades: nextData.stats?.totalTrades || 0,
+          pendingWithdrawals: nextData.stats?.pendingWithdrawals || 0,
+          rejectedWithdrawals: (nextData.withdrawals || []).filter(w => w.status === 'REJECTED').length
+        };
+
+        adminData = nextData;
+        renderAdminUI();
+      } catch (_) {
+      } finally {
+        adminOverviewInFlight = null;
       }
+    })();
+    return adminOverviewInFlight;
+  }
 
-      prevStateSnapshot = {
-        totalTrades: nextData.stats?.totalTrades || 0,
-        pendingWithdrawals: nextData.stats?.pendingWithdrawals || 0,
-        rejectedWithdrawals: (nextData.withdrawals || []).filter(w => w.status === 'REJECTED').length
-      };
-
-      adminData = nextData;
-      renderAdminUI();
-    } catch (_) {}
+  function patchTraderInAdminData(user) {
+    if (!user?.id || !adminData) return;
+    const idx = (adminData.traders || []).findIndex((u) => u.id === user.id);
+    if (idx >= 0) adminData.traders[idx] = { ...adminData.traders[idx], ...user };
+    else adminData.traders = [user, ...(adminData.traders || [])];
   }
 
   function renderAdminUI() {
@@ -1953,13 +1975,44 @@
     openUserDetail(selectedUserId);
   }
 
+  function setModalConfirmLoading(loading, loadingText = 'Processing...') {
+    const btn = document.getElementById('modalConfirmBtn');
+    const cancelBtn = document.querySelector('#customModal .btn-details');
+    if (!btn) return;
+    if (loading) {
+      btn.dataset.prevText = btn.textContent || 'Confirm';
+      btn.textContent = loadingText;
+      btn.disabled = true;
+      btn.style.opacity = '0.85';
+      btn.style.pointerEvents = 'none';
+      if (cancelBtn) cancelBtn.disabled = true;
+    } else {
+      btn.textContent = btn.dataset.prevText || 'Confirm';
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.style.pointerEvents = '';
+      if (cancelBtn) cancelBtn.disabled = false;
+    }
+  }
+
   function openCustomModal(title, bodyHtml, onConfirm) {
     document.getElementById('modalTitle').textContent = title;
     document.getElementById('modalBody').innerHTML = bodyHtml;
-    document.getElementById('modalConfirmBtn').onclick = onConfirm;
+    const btn = document.getElementById('modalConfirmBtn');
+    setModalConfirmLoading(false);
+    btn.onclick = async () => {
+      if (btn.disabled) return;
+      try {
+        await onConfirm();
+      } catch (_) {
+        setModalConfirmLoading(false);
+        showToast('Something went wrong. Please try again.', true);
+      }
+    };
     document.getElementById('customModal').classList.add('open');
   }
   function closeCustomModal() {
+    setModalConfirmLoading(false);
     document.getElementById('customModal').classList.remove('open');
   }
 
@@ -2029,22 +2082,48 @@
   }
 
   function openBalanceModal(mode) {
-    const label = mode === 'ADD' ? 'Amount to Add' : 'Amount to Subtract';
+    const isAdd = mode === 'ADD';
+    const label = isAdd ? 'Amount to Add' : 'Amount to Subtract';
     openCustomModal(
-      mode === 'ADD' ? '➕ Add Balance' : '➖ Subtract Balance',
+      isAdd ? '➕ Add Balance' : '➖ Subtract Balance',
       `<div class="field"><label>${label}</label><input type="number" id="modalBalAmt" placeholder="e.g. 500" min="1" /></div>`,
       async () => {
         const amt = Number(document.getElementById('modalBalAmt').value);
         if (!amt || amt <= 0) return showToast('Enter a valid amount', true);
-        const delta = mode === 'ADD' ? amt : -amt;
-        const res = await fetch(`/api/admin/users/${selectedUserId}/adjust`, {
-          method: 'POST', headers: adminHeaders(), body: JSON.stringify({ balanceDelta: delta })
-        });
-        closeCustomModal();
-        if (res.ok) {
-          showToast(`Balance ${mode === 'ADD' ? 'added' : 'deducted'}!`);
-          fetchAdminOverview();
-          openUserDetail(selectedUserId);
+
+        // Immediate click feedback
+        setModalConfirmLoading(true, isAdd ? 'Adding balance...' : 'Deducting...');
+        showToast(isAdd ? 'Adding balance...' : 'Deducting balance...');
+
+        try {
+          const delta = isAdd ? amt : -amt;
+          const res = await fetch(`/api/admin/users/${selectedUserId}/adjust`, {
+            method: 'POST',
+            headers: adminHeaders(),
+            body: JSON.stringify({ balanceDelta: delta })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setModalConfirmLoading(false);
+            return showToast(data.error || 'Could not update balance', true);
+          }
+
+          // Instant UI update from API response — don't wait on full overview reload
+          if (data.user) {
+            patchTraderInAdminData(data.user);
+            if (selectedUserId === data.user.id) populateUserDetailFields(data.user);
+          }
+          closeCustomModal();
+          showToast(
+            isAdd
+              ? `Balance has been added (+${amt.toLocaleString()})`
+              : `Balance has been deducted (−${amt.toLocaleString()})`
+          );
+          // Background refresh only
+          fetchAdminOverview(true);
+        } catch (_) {
+          setModalConfirmLoading(false);
+          showToast('Network error. Please try again.', true);
         }
       }
     );
@@ -2216,10 +2295,18 @@
     window.location.href = './login.html';
   }
 
-  fetchAdminOverview();
+  fetchAdminOverview(true);
   const adminStream = new EventSource('/api/stream');
-  adminStream.onmessage = () => fetchAdminOverview();
-  setInterval(fetchAdminOverview, 2500);
+  let adminStreamRefreshTimer = null;
+  adminStream.onmessage = () => {
+    // Coalesce SSE bursts so every event does not reload the whole admin panel
+    if (adminStreamRefreshTimer) return;
+    adminStreamRefreshTimer = setTimeout(() => {
+      adminStreamRefreshTimer = null;
+      fetchAdminOverview();
+    }, 1200);
+  };
+  setInterval(() => fetchAdminOverview(), 8000);
 </script>
 </body>
 </html>

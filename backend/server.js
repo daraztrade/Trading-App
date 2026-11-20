@@ -543,7 +543,14 @@ app.use('/api', async (req, res, next) => {
   }
 });
 
+let settingsCache = null;
+let settingsCacheAt = 0;
+const SETTINGS_CACHE_MS = 8000;
+
 async function getSettings() {
+  if (settingsCache && (Date.now() - settingsCacheAt) < SETTINGS_CACHE_MS) {
+    return settingsCache;
+  }
   const rows = await dbAll('SELECT key, value FROM settings');
   const result = { ...defaultSettings };
   for (const r of rows) {
@@ -577,6 +584,8 @@ async function getSettings() {
   for (const c of byCode.values()) ordered.push(c);
   result.currencies = ordered;
   result.defaultCurrency = 'PKR';
+  settingsCache = result;
+  settingsCacheAt = Date.now();
   return result;
 }
 
@@ -586,6 +595,8 @@ async function saveSettings(obj) {
     args: [k, JSON.stringify(v)]
   }));
   if (stmts.length) await dbBatch(stmts);
+  settingsCache = null;
+  settingsCacheAt = 0;
 }
 
 function generateTrx() {
@@ -1169,18 +1180,19 @@ app.post('/api/trader/currency', requireAuth(['TRADER']), async (req, res) => {
 });
 
 app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
+  // Prices/settlement run on the 1s background timer — do not block every poll.
   if (!hasInitialPriceSync) {
     await syncRealBasePrices();
+  } else {
+    tickMarketPrices();
   }
-  tickMarketPrices();
-  await settleExpiredTrades();
   const [userRow, settings, trades, transactions, tickets, customErrors, withdrawals] = await Promise.all([
     dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]),
     getSettings(),
     dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.user.id]),
     dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.user.id]),
-    dbAll('SELECT * FROM tickets WHERE userId = ? ORDER BY createdAt DESC', [req.user.id]),
-    dbAll("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC", [req.user.id]),
+    dbAll('SELECT * FROM tickets WHERE userId = ? ORDER BY createdAt DESC LIMIT 80', [req.user.id]),
+    dbAll("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC LIMIT 20", [req.user.id]),
     dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.user.id])
   ]);
 
@@ -1412,7 +1424,8 @@ app.post('/api/help-center/send', requireAuth(['TRADER']), async (req, res) => {
 // ADMIN & SUB-ADMIN ROUTES
 // ==========================================================================
 app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  await settleExpiredTrades();
+  // Settlement is handled by the background timer — don't block admin UI loads.
+  settleExpiredTrades().catch(() => {});
   const isMain = req.user.role === 'MAIN_ADMIN';
 
   const [
@@ -1435,12 +1448,12 @@ app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (
       (SELECT COUNT(*) FROM deposits WHERE status = 'PENDING') AS pendingdeposits,
       (SELECT COUNT(*) FROM withdrawals WHERE status = 'PENDING') AS pendingwithdrawals,
       (SELECT COUNT(*) FROM tickets WHERE status = 'OPEN') AS opentickets`),
-    dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 60'),
-    dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 100'),
-    dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 100'),
-    dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 300'),
-    dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 60'),
-    dbAll('SELECT * FROM invite_links ORDER BY createdAt DESC LIMIT 100'),
+    dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 40'),
+    dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 80'),
+    dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 80'),
+    dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 120'),
+    dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 40'),
+    dbAll('SELECT * FROM invite_links ORDER BY createdAt DESC LIMIT 80'),
     getSettings()
   ]);
 
@@ -1518,12 +1531,12 @@ app.post('/api/admin/my-invite-code', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), 
 });
 
 app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  await settleExpiredTrades();
+  settleExpiredTrades().catch(() => {});
   const [row, trades, deposits, withdrawals, transactions, logins, notifications] = await Promise.all([
     dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]),
     dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.params.id]),
-    dbAll('SELECT * FROM deposits WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.params.id]),
-    dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.params.id]),
+    dbAll('SELECT * FROM deposits WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.params.id]),
+    dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.params.id]),
     dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 50', [req.params.id]),
     dbAll('SELECT * FROM login_logs WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.params.id]),
     dbAll("SELECT * FROM custom_errors WHERE targetUserId = ? OR targetUserId = 'ALL' ORDER BY createdAt DESC LIMIT 25", [req.params.id])
@@ -1844,9 +1857,10 @@ app.post('/api/admin/users/:id/adjust', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN'])
   const newScore = creditScore !== undefined ? Math.max(0, Math.min(100, Number(creditScore))) : Number(trader.creditScore);
 
   await dbRun('UPDATE users SET balance = ?, creditScore = ? WHERE id = ?', [newBal, newScore, trader.id]);
-  await logAudit(req.user, 'ADJUST_BALANCE_SCORE', trader.username, `Delta: ${balanceDelta || 0}, Score: ${newScore}`);
+  const updated = await dbGet('SELECT * FROM users WHERE id = ?', [trader.id]);
+  logAudit(req.user, 'ADJUST_BALANCE_SCORE', trader.username, `Delta: ${balanceDelta || 0}, Score: ${newScore}`).catch(() => {});
   broadcastEvent('USER_UPDATED');
-  res.json({ message: 'Trader updated.' });
+  res.json({ message: 'Trader updated.', user: formatUserRow(updated) });
 });
 
 app.post('/api/admin/settings', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
