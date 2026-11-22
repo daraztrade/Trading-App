@@ -1237,21 +1237,22 @@
             <span style="font-size:0.8rem;color:#94a3b8;">Filter all orders and settled trades globally or inspect a single trader</span>
           </div>
           <div class="search-group">
-            <select id="tradeHistoryUserFilter" class="select-dark" onchange="renderTradeHistorySection()">
+            <select id="tradeHistoryUserFilter" class="select-dark" onchange="reloadTradesSection()">
               <option value="ALL">All Traders</option>
             </select>
-            <select id="tradeHistoryStatusFilter" class="select-dark" onchange="renderTradeHistorySection()">
+            <select id="tradeHistoryStatusFilter" class="select-dark" onchange="reloadTradesSection()">
               <option value="ALL">All Statuses</option>
               <option value="RUNNING">Running</option>
               <option value="WON">Won</option>
               <option value="LOST">Lost</option>
               <option value="VOIDED">Voided</option>
             </select>
-            <input type="text" id="tradeHistorySearchInput" class="input-dark" placeholder="Search ID, @user, pair, currency..." oninput="renderTradeHistorySection()" />
+            <input type="text" id="tradeHistorySearchInput" class="input-dark" placeholder="Search ID, @user, pair, currency..." oninput="debounceTradesSearch()" />
           </div>
         </div>
         <div class="trade-summary-bar" id="tradeHistorySummary"></div>
         <div class="table-wrap" id="tradeHistoryTable"></div>
+        <div id="tradesPagination" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:0.82rem;color:#94a3b8;"></div>
       </div>
     </section>
 
@@ -1300,10 +1301,10 @@
             <span class="main-only" id="usersSectionHint" style="font-size:0.8rem;color:#94a3b8;">Filter by Sub Admin to audit each staff member’s traders.</span>
           </div>
           <div class="search-group">
-            <select id="userStaffFilter" class="select-dark main-only" onchange="renderUsersTable()">
+            <select id="userStaffFilter" class="select-dark main-only" onchange="reloadUsersSection()">
               <option value="ALL">All Staff Books</option>
             </select>
-            <select id="userFilterSelect" class="select-dark" onchange="renderUsersTable()">
+            <select id="userFilterSelect" class="select-dark" onchange="reloadUsersSection()">
               <option value="ALL">All Users</option>
               <option value="ACTIVE">Active Only</option>
               <option value="BANNED">Banned / Frozen</option>
@@ -1311,7 +1312,7 @@
               <option value="FORCE_WIN">Outcome: Force Win</option>
               <option value="FORCE_LOSS">Outcome: Force Loss</option>
             </select>
-            <input type="text" id="userSearchInput" class="input-dark" placeholder="Username / Email / Phone..." oninput="renderUsersTable()" />
+            <input type="text" id="userSearchInput" class="input-dark" placeholder="Username / Email / Phone..." oninput="debounceUsersSearch()" />
           </div>
         </div>
         <div class="table-wrap">
@@ -1331,6 +1332,7 @@
             <tbody id="allUsersTbody"></tbody>
           </table>
         </div>
+        <div id="usersPagination" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:0.82rem;color:#94a3b8;"></div>
       </div>
     </section>
 
@@ -1518,16 +1520,17 @@
             <span style="font-size:0.8rem;color:#94a3b8;">Review withdrawal requests, currency selections, and rejection reasons</span>
           </div>
           <div class="search-group">
-            <select id="wdrStatusFilter" class="select-dark" onchange="renderWithdrawalsTable()">
+            <select id="wdrStatusFilter" class="select-dark" onchange="reloadWithdrawalsSection()">
               <option value="PENDING">Pending Withdrawals</option>
               <option value="APPROVED">Approved Withdrawals</option>
               <option value="REJECTED">Rejected Withdrawals</option>
               <option value="ALL">All Withdrawals</option>
             </select>
-            <input type="text" id="wdrSearchInput" class="input-dark" placeholder="Search @user, method, currency..." oninput="renderWithdrawalsTable()" />
+            <input type="text" id="wdrSearchInput" class="input-dark" placeholder="Search @user, method, currency..." oninput="debounceWdrSearch()" />
           </div>
         </div>
         <div class="table-wrap" id="withdrawalsTable"></div>
+        <div id="wdrPagination" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:0.82rem;color:#94a3b8;"></div>
       </div>
     </section>
 
@@ -1749,11 +1752,30 @@
   function openWithdrawalsTab(statusFilter = 'PENDING', el = null) {
     const sel = document.getElementById('wdrStatusFilter');
     if (sel) sel.value = statusFilter;
+    withdrawalsPage = 1;
+    sectionLoadedAt.withdrawals = 0;
     showSection('withdrawals', el);
-    renderWithdrawalsTable();
   }
 
+  let currentAdminSection = 'dashboard';
+  let usersPage = 1;
+  let tradesPage = 1;
+  let withdrawalsPage = 1;
+  const USERS_PAGE_SIZE = 40;
+  const TRADES_PAGE_SIZE = 40;
+  const WDR_PAGE_SIZE = 40;
+  const sectionLoadedAt = {};
+  const SECTION_TTL_MS = {
+    users: 25000,
+    trades: 20000,
+    withdrawals: 15000,
+    tickets: 15000,
+    invites: 30000,
+    staff: 25000
+  };
+
   function showSection(sec, el) {
+    currentAdminSection = sec;
     document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
     const target = document.getElementById(`sec-${sec}`);
     if (target) target.classList.remove('hidden');
@@ -1769,7 +1791,6 @@
       if (listCard) listCard.classList.remove('hidden');
       if (chatPanel) chatPanel.classList.add('hidden');
     } else if (el && el.id === 'nav-tickets') {
-      // Clicking sidebar Help Center always returns to All Chats list.
       activeHelpChatUserId = null;
       document.getElementById('helpChatsListCard')?.classList.remove('hidden');
       document.getElementById('helpChatPanel')?.classList.add('hidden');
@@ -1790,6 +1811,7 @@
     };
     document.getElementById('pageHeaderTitle').textContent = titles[sec] || 'Admin Command Center';
     if (window.innerWidth <= 900) document.getElementById('adminSidebar').classList.remove('mobile-open');
+    ensureSectionData(sec).catch(() => {});
   }
 
   function timeAgo(iso) {
@@ -1803,9 +1825,248 @@
 
   let adminOverviewInFlight = null;
   let adminOverviewLastAt = 0;
-  const ADMIN_OVERVIEW_MIN_GAP_MS = 2500;
+  const ADMIN_OVERVIEW_MIN_GAP_MS = 4000;
+  const sectionInFlight = {};
+
+  function ensureAdminDataShell() {
+    if (!adminData) {
+      adminData = {
+        actor: staffUser,
+        stats: {},
+        traders: [],
+        staff: [],
+        trades: [],
+        withdrawals: [],
+        tickets: [],
+        inviteLinks: [],
+        settings: {},
+        runningTrades: []
+      };
+    }
+  }
+
+  function sectionKeyFor(sec) {
+    if (sec === 'users' || sec === 'user-detail' || sec === 'errors') return 'users';
+    if (sec === 'trade-history') return 'trades';
+    if (sec === 'withdrawals') return 'withdrawals';
+    if (sec === 'tickets') return 'tickets';
+    if (sec === 'invite-members') return 'invites';
+    if (sec === 'sub-admins' || sec === 'subadmin-detail') return 'staff';
+    if (sec === 'dashboard' && isMainAdmin()) return 'staff';
+    return null;
+  }
+
+  async function ensureSectionData(sec, force = false) {
+    const key = sectionKeyFor(sec);
+    if (!key) {
+      if (sec === 'running-trades' || sec === 'dashboard') renderLightPanels();
+      if (sec === 'withdrawals') renderWithdrawalsTable();
+      return;
+    }
+    const ttl = SECTION_TTL_MS[key] || 20000;
+    const last = sectionLoadedAt[key] || 0;
+    if (!force && last && (Date.now() - last) < ttl && sectionHasData(key)) {
+      renderSection(key);
+      return;
+    }
+    if (sectionInFlight[key]) return sectionInFlight[key];
+
+    sectionInFlight[key] = (async () => {
+      try {
+        ensureAdminDataShell();
+        if (key === 'users') await fetchUsersSection();
+        else if (key === 'trades') await fetchTradesSection();
+        else if (key === 'withdrawals') await fetchWithdrawalsSection();
+        else if (key === 'tickets') await fetchTicketsSection();
+        else if (key === 'invites') await fetchInvitesSection();
+        else if (key === 'staff') await fetchStaffSection();
+        sectionLoadedAt[key] = Date.now();
+        renderSection(key);
+      } catch (_) {
+      } finally {
+        sectionInFlight[key] = null;
+      }
+    })();
+    return sectionInFlight[key];
+  }
+
+  function sectionHasData(key) {
+    if (!adminData) return false;
+    if (key === 'users') return adminData.usersTotal !== undefined;
+    if (key === 'trades') return adminData._tradesLoaded === true;
+    if (key === 'withdrawals') return adminData._withdrawalsLoaded === true;
+    if (key === 'tickets') return adminData._ticketsLoaded === true;
+    if (key === 'invites') return adminData._invitesLoaded === true;
+    if (key === 'staff') return adminData._staffLoaded === true || (Array.isArray(adminData.staff) && adminData.staff.length > 0);
+    return false;
+  }
+
+  function renderSection(key) {
+    if (key === 'users') {
+      renderUsersTable();
+      const errSel = document.getElementById('errTargetUser');
+      if (errSel) {
+        errSel.innerHTML = `<option value="ALL">All Traders</option>` +
+          (adminData.traders || []).map(u => `<option value="${u.id}">${u.username} (${u.email})</option>`).join('');
+      }
+    } else if (key === 'trades') {
+      const thUserSel = document.getElementById('tradeHistoryUserFilter');
+      if (thUserSel) {
+        const prev = thUserSel.value || 'ALL';
+        const traders = adminData.traders || [];
+        thUserSel.innerHTML = `<option value="ALL">All Traders</option>` +
+          traders.map(u => {
+            const label = `${u.firstName || ''} ${u.lastName || ''}`.trim();
+            return `<option value="${u.id}">@${u.username}${label ? ` (${label})` : ''}</option>`;
+          }).join('');
+        if ([...thUserSel.options].some(o => o.value === prev)) thUserSel.value = prev;
+      }
+      renderTradeHistorySection();
+    } else if (key === 'withdrawals') {
+      renderWithdrawalsTable();
+    } else if (key === 'tickets') {
+      renderHelpChatsList(adminData.tickets || [], adminData.traders || []);
+    } else if (key === 'invites') {
+      renderInviteLinksTable();
+    } else if (key === 'staff') {
+      renderDashHierarchy();
+      renderSubAdminsSection();
+      if (isMainAdmin()) injectStaffNavItems(getSubAdmins());
+    }
+  }
+
+  async function fetchUsersSection() {
+    const q = encodeURIComponent(document.getElementById('userSearchInput')?.value || '');
+    const filter = encodeURIComponent(document.getElementById('userFilterSelect')?.value || 'ALL');
+    const staffId = encodeURIComponent(document.getElementById('userStaffFilter')?.value || 'ALL');
+    const res = await fetch(
+      `/api/admin/sections/users?page=${usersPage}&limit=${USERS_PAGE_SIZE}&q=${q}&filter=${filter}&staffId=${staffId}`,
+      { headers: adminHeaders() }
+    );
+    if (res.status === 401 || res.status === 403) return adminLogout();
+    const data = await res.json();
+    adminData.traders = data.traders || [];
+    adminData.usersTotal = Number(data.total || 0);
+    adminData.usersPage = data.page || usersPage;
+    adminData.usersTotalPages = data.totalPages || 1;
+  }
+
+  async function fetchTradesSection() {
+    const status = encodeURIComponent(document.getElementById('tradeHistoryStatusFilter')?.value || 'ALL');
+    const userId = encodeURIComponent(document.getElementById('tradeHistoryUserFilter')?.value || 'ALL');
+    const q = encodeURIComponent(document.getElementById('tradeHistorySearchInput')?.value || '');
+    const res = await fetch(
+      `/api/admin/sections/trades?page=${tradesPage}&limit=${TRADES_PAGE_SIZE}&status=${status}&userId=${userId}&q=${q}`,
+      { headers: adminHeaders() }
+    );
+    if (res.status === 401 || res.status === 403) return adminLogout();
+    const data = await res.json();
+    adminData.trades = data.trades || [];
+    adminData.tradesTotal = Number(data.total || 0);
+    adminData.tradesPage = data.page || tradesPage;
+    adminData.tradesTotalPages = data.totalPages || 1;
+    adminData._tradesLoaded = true;
+    // Ensure trader dropdown has options
+    if (adminData.usersTotal === undefined) {
+      await fetchUsersSection().catch(() => {});
+    }
+  }
+
+  async function fetchWithdrawalsSection() {
+    const status = encodeURIComponent(document.getElementById('wdrStatusFilter')?.value || 'ALL');
+    const q = encodeURIComponent(document.getElementById('wdrSearchInput')?.value || '');
+    const res = await fetch(
+      `/api/admin/sections/withdrawals?page=${withdrawalsPage}&limit=${WDR_PAGE_SIZE}&status=${status}&q=${q}`,
+      { headers: adminHeaders() }
+    );
+    if (res.status === 401 || res.status === 403) return adminLogout();
+    const data = await res.json();
+    adminData.withdrawals = data.withdrawals || [];
+    adminData.withdrawalsTotal = Number(data.total || 0);
+    adminData.withdrawalsPage = data.page || withdrawalsPage;
+    adminData.withdrawalsTotalPages = data.totalPages || 1;
+    adminData._withdrawalsLoaded = true;
+  }
+
+  let tradesSearchTimer = null;
+  let wdrSearchTimer = null;
+  function debounceTradesSearch() {
+    clearTimeout(tradesSearchTimer);
+    tradesSearchTimer = setTimeout(() => reloadTradesSection(), 350);
+  }
+  function debounceWdrSearch() {
+    clearTimeout(wdrSearchTimer);
+    wdrSearchTimer = setTimeout(() => reloadWithdrawalsSection(), 350);
+  }
+  async function reloadTradesSection() {
+    tradesPage = 1;
+    sectionLoadedAt.trades = 0;
+    await ensureSectionData('trade-history', true);
+  }
+  async function reloadWithdrawalsSection() {
+    withdrawalsPage = 1;
+    sectionLoadedAt.withdrawals = 0;
+    await ensureSectionData('withdrawals', true);
+  }
+  async function changeTradesPage(delta) {
+    const pages = adminData?.tradesTotalPages || 1;
+    tradesPage = Math.max(1, Math.min(pages, (adminData?.tradesPage || 1) + delta));
+    sectionLoadedAt.trades = 0;
+    await ensureSectionData('trade-history', true);
+  }
+  async function changeWithdrawalsPage(delta) {
+    const pages = adminData?.withdrawalsTotalPages || 1;
+    withdrawalsPage = Math.max(1, Math.min(pages, (adminData?.withdrawalsPage || 1) + delta));
+    sectionLoadedAt.withdrawals = 0;
+    await ensureSectionData('withdrawals', true);
+  }
+
+  async function fetchTicketsSection() {
+    const res = await fetch('/api/admin/sections/tickets', { headers: adminHeaders() });
+    if (res.status === 401 || res.status === 403) return adminLogout();
+    const data = await res.json();
+    adminData.tickets = data.tickets || [];
+    adminData._ticketsLoaded = true;
+    if (adminData.usersTotal === undefined) adminData.traders = data.traders || [];
+  }
+
+  async function fetchInvitesSection() {
+    const res = await fetch('/api/admin/sections/invites', { headers: adminHeaders() });
+    if (res.status === 401 || res.status === 403) return adminLogout();
+    const data = await res.json();
+    adminData.inviteLinks = data.inviteLinks || [];
+    adminData._invitesLoaded = true;
+  }
+
+  async function fetchStaffSection() {
+    if (!isMainAdmin()) return;
+    const res = await fetch('/api/admin/sections/staff', { headers: adminHeaders() });
+    if (res.status === 401 || res.status === 403) return adminLogout();
+    const data = await res.json();
+    adminData.staff = data.staff || [];
+    adminData._staffLoaded = true;
+  }
+
+  function invalidateSections(...keys) {
+    keys.forEach((k) => {
+      sectionLoadedAt[k] = 0;
+      if (k === 'users') delete adminData?.usersTotal;
+      if (k === 'trades') adminData && (adminData._tradesLoaded = false);
+      if (k === 'withdrawals') adminData && (adminData._withdrawalsLoaded = false);
+      if (k === 'tickets') adminData && (adminData._ticketsLoaded = false);
+      if (k === 'invites') adminData && (adminData._invitesLoaded = false);
+      if (k === 'staff') adminData && (adminData._staffLoaded = false);
+    });
+  }
 
   async function fetchAdminOverview(force = false) {
+    if (force) invalidateSections('users', 'trades', 'withdrawals', 'tickets', 'invites', 'staff');
+    await fetchAdminLight(force);
+    const key = sectionKeyFor(currentAdminSection);
+    if (key) await ensureSectionData(currentAdminSection, force);
+  }
+
+  async function fetchAdminLight(force = false) {
     const now = Date.now();
     if (!force && adminOverviewInFlight) return adminOverviewInFlight;
     if (!force && (now - adminOverviewLastAt) < ADMIN_OVERVIEW_MIN_GAP_MS) return adminOverviewInFlight;
@@ -1813,18 +2074,17 @@
     adminOverviewLastAt = now;
     adminOverviewInFlight = (async () => {
       try {
-        const res = await fetch('/api/admin/overview', { headers: adminHeaders() });
+        const res = await fetch('/api/admin/overview/light', { headers: adminHeaders() });
         if (res.status === 401 || res.status === 403) return adminLogout();
-        const nextData = await res.json();
+        const next = await res.json();
 
         if (prevStateSnapshot) {
           const prevTrades = prevStateSnapshot.totalTrades || 0;
           const prevPendingWdr = prevStateSnapshot.pendingWithdrawals || 0;
           const prevRejectedWdr = prevStateSnapshot.rejectedWithdrawals || 0;
-
-          const currTrades = nextData.stats?.totalTrades || 0;
-          const currPendingWdr = nextData.stats?.pendingWithdrawals || 0;
-          const currRejectedWdr = (nextData.withdrawals || []).filter(w => w.status === 'REJECTED').length;
+          const currTrades = next.stats?.totalTrades || 0;
+          const currPendingWdr = next.stats?.pendingWithdrawals || 0;
+          const currRejectedWdr = next.stats?.rejectedWithdrawals || 0;
 
           if (currPendingWdr > prevPendingWdr) {
             playAdminChime('WITHDRAW');
@@ -1838,12 +2098,31 @@
         }
 
         prevStateSnapshot = {
-          totalTrades: nextData.stats?.totalTrades || 0,
-          pendingWithdrawals: nextData.stats?.pendingWithdrawals || 0,
-          rejectedWithdrawals: (nextData.withdrawals || []).filter(w => w.status === 'REJECTED').length
+          totalTrades: next.stats?.totalTrades || 0,
+          pendingWithdrawals: next.stats?.pendingWithdrawals || 0,
+          rejectedWithdrawals: next.stats?.rejectedWithdrawals || 0
         };
 
-        adminData = nextData;
+        ensureAdminDataShell();
+        adminData.actor = next.actor;
+        adminData.stats = next.stats || {};
+        adminData.settings = next.settings || adminData.settings;
+        adminData.invitedCount = next.invitedCount || 0;
+        adminData.runningTrades = next.runningTrades || [];
+        adminData.pendingWithdrawalsPreview = next.pendingWithdrawalsPreview || [];
+        if (Array.isArray(next.staff)) {
+          adminData.staff = next.staff;
+          adminData._staffLoaded = true;
+          sectionLoadedAt.staff = Date.now();
+        }
+        // Keep trades list running items fresh for dashboard/running panels
+        const running = adminData.runningTrades || [];
+        if (running.length) {
+          const byId = new Map((adminData.trades || []).map((t) => [t.id, t]));
+          running.forEach((t) => byId.set(t.id, t));
+          adminData.trades = Array.from(byId.values());
+        }
+
         renderAdminUI();
       } catch (_) {
       } finally {
@@ -1851,6 +2130,16 @@
       }
     })();
     return adminOverviewInFlight;
+  }
+
+  function renderLightPanels() {
+    if (!adminData) return;
+    const running = adminData.runningTrades || (adminData.trades || []).filter((t) => t.status === 'RUNNING');
+    const runningHtml = buildTradesTable(running, true);
+    const dash = document.getElementById('dashRunningWrap');
+    const full = document.getElementById('runningTradesTable');
+    if (dash) dash.innerHTML = runningHtml;
+    if (full) full.innerHTML = runningHtml;
   }
 
   function patchTraderInAdminData(user) {
@@ -2302,7 +2591,8 @@
 
   function renderAdminUI() {
     if (!adminData) return;
-    const { actor, stats, traders, trades, withdrawals, tickets, settings, invitedCount, inviteLinks = [] } = adminData;
+    const { actor, stats = {}, settings = {}, invitedCount } = adminData;
+    if (!actor) return;
 
     applyMainAdminChrome();
 
@@ -2315,64 +2605,47 @@
     const invCountEl = document.getElementById('adminInvitedCount');
     if (invCountEl) invCountEl.textContent = invitedCount ?? 0;
 
-    const pendingWdr = withdrawals.filter(w => w.status === 'PENDING').length;
-    const approvedWdr = withdrawals.filter(w => w.status === 'APPROVED').length;
-    const rejectedWdr = withdrawals.filter(w => w.status === 'REJECTED').length;
-    const subCount = stats.subAdmins ?? getSubAdmins().length;
+    const pendingWdr = Number(stats.pendingWithdrawals || 0);
+    const approvedWdr = Number(stats.approvedWithdrawals || 0);
+    const rejectedWdr = Number(stats.rejectedWithdrawals || 0);
+    const subCount = Number(stats.subAdmins ?? getSubAdmins().length);
 
-    document.getElementById('stTotalUsers').textContent = stats.totalUsers;
-    document.getElementById('stActiveUsers').textContent = stats.activeUsers;
-    document.getElementById('stRunningTrades').textContent = stats.runningTrades;
+    document.getElementById('stTotalUsers').textContent = stats.totalUsers || 0;
+    document.getElementById('stActiveUsers').textContent = stats.activeUsers || 0;
+    document.getElementById('stRunningTrades').textContent = stats.runningTrades || 0;
     document.getElementById('stPendingWdr').textContent = pendingWdr;
     const stSub = document.getElementById('stSubAdmins');
     if (stSub) stSub.textContent = subCount;
     const badgeSub = document.getElementById('badgeSubAdmins');
     if (badgeSub) badgeSub.textContent = subCount;
 
-    // Platform welcome bar (Main Admin only)
     const main = isMainAdmin();
     const actName = `${actor.firstName || ''} ${actor.lastName || ''}`.trim() || actor.username;
     const pwName = document.getElementById('pwName');
     if (pwName) pwName.textContent = `Welcome back, ${actName}`;
     const pwSA = document.getElementById('pwStatSA'); if (pwSA) pwSA.textContent = subCount;
-    const pwT  = document.getElementById('pwStatT');  if (pwT)  pwT.textContent  = stats.totalUsers;
-    const pwRT = document.getElementById('pwStatRT'); if (pwRT) pwRT.textContent = stats.runningTrades;
+    const pwT  = document.getElementById('pwStatT');  if (pwT)  pwT.textContent  = stats.totalUsers || 0;
+    const pwRT = document.getElementById('pwStatRT'); if (pwRT) pwRT.textContent = stats.runningTrades || 0;
     const pwW  = document.getElementById('pwStatWdr');if (pwW)  pwW.textContent  = pendingWdr;
 
-    // Show active-users stat only for sub admin
     const activeCard = document.getElementById('stActiveUsersCard');
     if (activeCard) activeCard.style.display = main ? 'none' : '';
 
-    // Sub admins count badge on staff table
     const sbBadge = document.getElementById('subAdminsTotalBadge');
     if (sbBadge) sbBadge.textContent = subCount;
 
-    document.getElementById('badgeRunning').textContent = stats.runningTrades;
-    document.getElementById('topRunningCount').textContent = stats.runningTrades;
+    document.getElementById('badgeRunning').textContent = stats.runningTrades || 0;
+    document.getElementById('topRunningCount').textContent = stats.runningTrades || 0;
     document.getElementById('topPendingWdrCount').textContent = pendingWdr;
-    document.getElementById('badgeUsers').textContent = stats.totalUsers;
-    document.getElementById('badgeInvites').textContent = inviteLinks.filter(l => l.status === 'ACTIVE').length;
+    document.getElementById('badgeUsers').textContent = stats.totalUsers || 0;
+    document.getElementById('badgeInvites').textContent = stats.activeInvites ?? (adminData.inviteLinks || []).filter(l => l.status === 'ACTIVE').length;
     document.getElementById('badgeWdrPending').textContent = pendingWdr;
     document.getElementById('badgeWdrApproved').textContent = approvedWdr;
     document.getElementById('badgeWdrRejected').textContent = rejectedWdr;
     document.getElementById('badgeWdrAlert').style.display = pendingWdr > 0 ? 'inline-block' : 'none';
-    document.getElementById('badgeTkt').textContent = stats.openTickets;
+    document.getElementById('badgeTkt').textContent = stats.openTickets || 0;
 
-    const running = trades.filter(t => t.status === 'RUNNING');
-    const runningHtml = buildTradesTable(running, true);
-    document.getElementById('dashRunningWrap').innerHTML = runningHtml;
-    document.getElementById('runningTradesTable').innerHTML = runningHtml;
-
-    const thUserSel = document.getElementById('tradeHistoryUserFilter');
-    const prevUserVal = thUserSel.value || 'ALL';
-    thUserSel.innerHTML = `<option value="ALL">All Traders (${traders.length})</option>` +
-      traders.map(u => {
-        const label = `${u.firstName || ''} ${u.lastName || ''}`.trim();
-        return `<option value="${u.id}">@${u.username}${label ? ` (${label})` : ''}</option>`;
-      }).join('');
-    if ([...thUserSel.options].some(o => o.value === prevUserVal)) {
-      thUserSel.value = prevUserVal;
-    }
+    renderLightPanels();
 
     const staffFilter = document.getElementById('userStaffFilter');
     if (staffFilter && isMainAdmin()) {
@@ -2384,26 +2657,28 @@
       if ([...staffFilter.options].some((o) => o.value === prevStaff)) staffFilter.value = prevStaff;
     }
 
-    renderTradeHistorySection();
-    renderUsersTable();
-    renderInviteLinksTable();
-    renderWithdrawalsTable();
-    renderDashHierarchy();
-    renderSubAdminsSection();
-    if (isMainAdmin()) injectStaffNavItems(getSubAdmins());
-
-    const errSel = document.getElementById('errTargetUser');
-    if (errSel.options.length <= 1) {
-      errSel.innerHTML = `<option value="ALL">All Traders</option>` +
-        traders.map(u => `<option value="${u.id}">${u.username} (${u.email})</option>`).join('');
+    // Only re-render sections that already have data (no heavy refetch here)
+    if (sectionHasData('staff') || (adminData.staff || []).length) {
+      renderDashHierarchy();
+      renderSubAdminsSection();
+      if (isMainAdmin()) injectStaffNavItems(getSubAdmins());
+    }
+    if (sectionHasData('users')) renderUsersTable();
+    if (sectionHasData('trades') && currentAdminSection === 'trade-history') renderTradeHistorySection();
+    if (sectionHasData('withdrawals') && currentAdminSection === 'withdrawals') renderWithdrawalsTable();
+    if (sectionHasData('invites') && currentAdminSection === 'invite-members') renderInviteLinksTable();
+    if (sectionHasData('tickets') && currentAdminSection === 'tickets') {
+      renderHelpChatsList(adminData.tickets || [], adminData.traders || []);
+      if (activeHelpChatUserId) openHelpChat(activeHelpChatUserId, true);
     }
 
-    if (document.activeElement.id !== 'setTradeMode') document.getElementById('setTradeMode').value = settings.tradeOutcomeMode || 'WIN_DEFAULT';
-    if (document.activeElement.id !== 'setMinScore') document.getElementById('setMinScore').value = settings.minCreditScoreForWithdraw ?? 90;
-
-    renderHelpChatsList(tickets, traders);
-    if (activeHelpChatUserId) {
-      openHelpChat(activeHelpChatUserId, true);
+    if (settings && document.activeElement.id !== 'setTradeMode') {
+      const tm = document.getElementById('setTradeMode');
+      if (tm) tm.value = settings.tradeOutcomeMode || 'WIN_DEFAULT';
+    }
+    if (settings && document.activeElement.id !== 'setMinScore') {
+      const ms = document.getElementById('setMinScore');
+      if (ms) ms.value = settings.minCreditScoreForWithdraw ?? 90;
     }
   }
 
@@ -2575,8 +2850,6 @@
   function renderWithdrawalsTable() {
     if (!adminData) return;
     const statusFilter = document.getElementById('wdrStatusFilter')?.value || 'PENDING';
-    const q = (document.getElementById('wdrSearchInput')?.value || '').toLowerCase().trim();
-
     const headingMap = {
       'PENDING': '🏛️ Pending Withdrawals',
       'APPROVED': '✅ Approved Withdrawals',
@@ -2586,14 +2859,20 @@
     const hEl = document.getElementById('withdrawSectionHeading');
     if (hEl) hEl.textContent = headingMap[statusFilter] || 'Withdrawals';
 
-    const list = (adminData.withdrawals || []).filter(w => {
-      if (statusFilter !== 'ALL' && w.status !== statusFilter) return false;
-      if (q) {
-        const hay = `${w.id} ${w.username} ${w.method} ${w.currency || ''} ${w.accountDetails}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
+    // Server already filtered + paginated
+    const list = adminData.withdrawals || [];
+    const total = adminData.withdrawalsTotal ?? list.length;
+    const page = adminData.withdrawalsPage || 1;
+    const pages = adminData.withdrawalsTotalPages || 1;
+    const pager = document.getElementById('wdrPagination');
+    if (pager) {
+      pager.innerHTML = `
+        <span>Page ${page} of ${pages} · ${total} withdrawals</span>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn-details" ${page <= 1 ? 'disabled' : ''} onclick="changeWithdrawalsPage(-1)">← Prev</button>
+          <button type="button" class="btn-details" ${page >= pages ? 'disabled' : ''} onclick="changeWithdrawalsPage(1)">Next →</button>
+        </div>`;
+    }
 
     document.getElementById('withdrawalsTable').innerHTML = list.length ? `
       <table class="mobile-stack"><thead><tr><th>ID / TIME</th><th>USER</th><th>CURRENCY &amp; AMOUNT</th><th>METHOD &amp; ACCOUNT</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody>
@@ -2694,19 +2973,11 @@
 
   function renderTradeHistorySection() {
     if (!adminData) return;
-    const selectedTrader = document.getElementById('tradeHistoryUserFilter').value;
-    const statusFilter = document.getElementById('tradeHistoryStatusFilter').value;
-    const q = (document.getElementById('tradeHistorySearchInput').value || '').toLowerCase().trim();
-
-    const filtered = (adminData.trades || []).filter(t => {
-      if (selectedTrader !== 'ALL' && t.userId !== selectedTrader) return false;
-      if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
-      if (q) {
-        const hay = `${t.id} ${t.username} ${t.pair} ${t.currency || ''} ${t.direction}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
+    // Server already filtered + paginated
+    const filtered = adminData.trades || [];
+    const total = adminData.tradesTotal ?? filtered.length;
+    const page = adminData.tradesPage || 1;
+    const pages = adminData.tradesTotalPages || 1;
 
     const wins = filtered.filter(t => t.status === 'WON').length;
     const losses = filtered.filter(t => t.status === 'LOST').length;
@@ -2714,13 +2985,22 @@
     const netPnl = filtered.reduce((acc, t) => acc + (t.status === 'WON' || t.status === 'LOST' ? Number(t.profit || 0) : 0), 0);
 
     document.getElementById('tradeHistorySummary').innerHTML = `
-      <div class="ts-item">Matching Trades<strong>${filtered.length}</strong></div>
-      <div class="ts-item">Won / Lost<strong><span style="color:#34d399;">${wins}W</span> / <span style="color:#f87171;">${losses}L</span></strong></div>
-      <div class="ts-item">Total Staked<strong>${totalStaked.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
-      <div class="ts-item">Net Trader PnL<strong style="color:${netPnl >= 0 ? '#34d399' : '#f87171'};">${netPnl >= 0 ? '+' : ''}${netPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
+      <div class="ts-item">Matching Trades<strong>${total}</strong></div>
+      <div class="ts-item">Page Won / Lost<strong><span style="color:#34d399;">${wins}W</span> / <span style="color:#f87171;">${losses}L</span></strong></div>
+      <div class="ts-item">Page Staked<strong>${totalStaked.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
+      <div class="ts-item">Page Net PnL<strong style="color:${netPnl >= 0 ? '#34d399' : '#f87171'};">${netPnl >= 0 ? '+' : ''}${netPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
     `;
 
     document.getElementById('tradeHistoryTable').innerHTML = buildTradesTable(filtered, false, true);
+    const pager = document.getElementById('tradesPagination');
+    if (pager) {
+      pager.innerHTML = `
+        <span>Page ${page} of ${pages} · ${total} trades</span>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn-details" ${page <= 1 ? 'disabled' : ''} onclick="changeTradesPage(-1)">← Prev</button>
+          <button type="button" class="btn-details" ${page >= pages ? 'disabled' : ''} onclick="changeTradesPage(1)">Next →</button>
+        </div>`;
+    }
   }
 
   function buildTradesTable(list, isRunning, allowLiveControls = false) {
@@ -2753,59 +3033,55 @@
     </table>`;
   }
 
-  function traderBelongsToStaff(u, staffId) {
-    if (staffId === 'ALL') return true;
-    const subs = getSubAdmins();
-    if (staffId === 'UNASSIGNED') {
-      if (!u.subAdminId) {
-        const code = String(u.invitationCode || '').toUpperCase();
-        return !subs.some((s) => String(s.invitationCode || '').toUpperCase() === code);
-      }
-      return !subs.some((s) => s.id === u.subAdminId);
-    }
-    const staff = getStaffList().find((s) => s.id === staffId);
-    if (!staff) return false;
-    if (u.subAdminId === staff.id) return true;
-    const code = String(staff.invitationCode || '').toUpperCase();
-    return !!(code && String(u.invitationCode || '').toUpperCase() === code);
+  let usersSearchTimer = null;
+  function debounceUsersSearch() {
+    clearTimeout(usersSearchTimer);
+    usersSearchTimer = setTimeout(() => reloadUsersSection(), 350);
+  }
+
+  async function reloadUsersSection() {
+    usersPage = 1;
+    sectionLoadedAt.users = 0;
+    await ensureSectionData('users', true);
+  }
+
+  async function changeUsersPage(delta) {
+    const totalPages = adminData?.usersTotalPages || 1;
+    usersPage = Math.max(1, Math.min(totalPages, (adminData?.usersPage || 1) + delta));
+    sectionLoadedAt.users = 0;
+    await ensureSectionData('users', true);
   }
 
   function renderUsersTable() {
     if (!adminData) return;
-    const q = (document.getElementById('userSearchInput').value || '').toLowerCase().trim();
-    const filter = document.getElementById('userFilterSelect').value;
     const staffFilter = document.getElementById('userStaffFilter')?.value || 'ALL';
     const main = isMainAdmin();
     const colSpan = main ? 8 : 7;
-
-    const filtered = adminData.traders.filter(u => {
-      const matchesText = !q ||
-        u.username.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        (`${u.firstName} ${u.lastName}`).toLowerCase().includes(q) ||
-        (u.mobile || '').toLowerCase().includes(q) ||
-        resolveManagerLabel(u).toLowerCase().includes(q);
-
-      if (!matchesText) return false;
-      if (main && !traderBelongsToStaff(u, staffFilter)) return false;
-      if (filter === 'ACTIVE') return u.status === 'ACTIVE';
-      if (filter === 'BANNED') return u.status !== 'ACTIVE' || Number(u.frozenBalance || 0) > 0;
-      if (filter === 'WIN_DEFAULT') return (u.tradeOutcome || 'WIN_DEFAULT') === 'WIN_DEFAULT';
-      if (filter === 'FORCE_WIN') return u.tradeOutcome === 'FORCE_WIN';
-      if (filter === 'FORCE_LOSS') return u.tradeOutcome === 'FORCE_LOSS';
-      return true;
-    });
+    const filtered = adminData.traders || [];
+    const total = adminData.usersTotal ?? filtered.length;
 
     const titleEl = document.getElementById('usersSectionTitle');
     if (titleEl) {
       if (main && staffFilter !== 'ALL') {
         const staff = getStaffList().find((s) => s.id === staffFilter);
         titleEl.textContent = staffFilter === 'UNASSIGNED'
-          ? `Unassigned Traders (${filtered.length})`
-          : `Traders under @${staff?.username || 'staff'} (${filtered.length})`;
+          ? `Unassigned Traders (${total})`
+          : `Traders under @${staff?.username || 'staff'} (${total})`;
       } else {
-        titleEl.textContent = `All Users (${filtered.length})`;
+        titleEl.textContent = `All Users (${total})`;
       }
+    }
+
+    const pager = document.getElementById('usersPagination');
+    if (pager) {
+      const page = adminData.usersPage || 1;
+      const pages = adminData.usersTotalPages || 1;
+      pager.innerHTML = `
+        <span>Page ${page} of ${pages} · ${total} traders</span>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn-details" ${page <= 1 ? 'disabled' : ''} onclick="changeUsersPage(-1)">← Prev</button>
+          <button type="button" class="btn-details" ${page >= pages ? 'disabled' : ''} onclick="changeUsersPage(1)">Next →</button>
+        </div>`;
     }
 
     const tbody = document.getElementById('allUsersTbody');
@@ -3358,19 +3634,76 @@
     window.location.href = './login.html';
   }
 
+  function sectionsForAdminEvent(type) {
+    switch (type) {
+      case 'NEW_TRADE':
+      case 'TRADE_SETTLED':
+        return ['trades'];
+      case 'NEW_WITHDRAWAL':
+      case 'WITHDRAWAL_UPDATED':
+      case 'WITHDRAWAL_REJECTED':
+        return ['withdrawals'];
+      case 'NEW_TICKET':
+      case 'TICKET_UPDATED':
+        return ['tickets'];
+      case 'NEW_USER':
+      case 'USER_UPDATED':
+        return ['users', 'staff'];
+      case 'STAFF_UPDATED':
+        return ['staff'];
+      case 'NEW_DEPOSIT':
+      case 'DEPOSIT_UPDATED':
+        return ['users'];
+      case 'SETTINGS_UPDATED':
+        return [];
+      case 'CONNECTED':
+        return null; // ignore
+      default:
+        return []; // light only
+    }
+  }
+
   applyMainAdminChrome();
-  fetchAdminOverview(true);
+  fetchAdminLight(true).then(() => ensureSectionData(currentAdminSection || 'dashboard'));
   const adminStream = new EventSource('/api/stream');
   let adminStreamRefreshTimer = null;
-  adminStream.onmessage = () => {
-    // Coalesce SSE bursts so every event does not reload the whole admin panel
+  let pendingAdminEventTypes = new Set();
+  adminStream.onmessage = (ev) => {
+    let type = 'UNKNOWN';
+    try { type = JSON.parse(ev.data || '{}').type || 'UNKNOWN'; } catch (_) {}
+    if (sectionsForAdminEvent(type) === null) return;
+    pendingAdminEventTypes.add(type);
     if (adminStreamRefreshTimer) return;
     adminStreamRefreshTimer = setTimeout(() => {
       adminStreamRefreshTimer = null;
-      fetchAdminOverview();
-    }, 1200);
+      const types = Array.from(pendingAdminEventTypes);
+      pendingAdminEventTypes.clear();
+      // Coalesce: one light refresh + at most one visible-section refresh
+      const visibleKey = sectionKeyFor(currentAdminSection);
+      let refreshVisible = false;
+      types.forEach((t) => {
+        const keys = sectionsForAdminEvent(t) || [];
+        if (visibleKey && keys.includes(visibleKey)) refreshVisible = true;
+      });
+      fetchAdminLight();
+      if (refreshVisible) {
+        invalidateSections(visibleKey);
+        ensureSectionData(currentAdminSection, true);
+      }
+    }, 1400);
   };
-  setInterval(() => fetchAdminOverview(), 8000);
+
+  // Slow heartbeat: light stats always; visible section only if its TTL expired
+  setInterval(() => {
+    fetchAdminLight();
+    const key = sectionKeyFor(currentAdminSection);
+    if (!key) return;
+    const ttl = SECTION_TTL_MS[key] || 20000;
+    const last = sectionLoadedAt[key] || 0;
+    if (!last || (Date.now() - last) >= ttl) {
+      ensureSectionData(currentAdminSection, false);
+    }
+  }, 18000);
 </script>
 </body>
 </html>

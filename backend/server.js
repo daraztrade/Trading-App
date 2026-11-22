@@ -153,7 +153,7 @@ if (!DATABASE_URL) {
 const pool = new Pool({
   connectionString: DATABASE_URL || undefined,
   ssl: DATABASE_URL ? { rejectUnauthorized: false } : undefined,
-  max: process.env.VERCEL ? 1 : 3,
+  max: process.env.VERCEL ? 1 : 6,
   idleTimeoutMillis: 5000,
   connectionTimeoutMillis: 15000,
   allowExitOnIdle: true
@@ -471,10 +471,16 @@ function ensureDbInitialized() {
     const indexQueries = [
       'CREATE INDEX IF NOT EXISTS idx_trades_user_created ON trades (userId, createdAt DESC)',
       'CREATE INDEX IF NOT EXISTS idx_trades_status_expires ON trades (status, expiresAt)',
+      'CREATE INDEX IF NOT EXISTS idx_trades_status_created ON trades (status, createdAt DESC)',
       'CREATE INDEX IF NOT EXISTS idx_withdrawals_user_created ON withdrawals (userId, createdAt DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_withdrawals_status_created ON withdrawals (status, createdAt DESC)',
       'CREATE INDEX IF NOT EXISTS idx_deposits_user_created ON deposits (userId, createdAt DESC)',
       'CREATE INDEX IF NOT EXISTS idx_transactions_user_ts ON transactions (userId, timestamp DESC)',
-      'CREATE INDEX IF NOT EXISTS idx_tickets_user_created ON tickets (userId, createdAt DESC)'
+      'CREATE INDEX IF NOT EXISTS idx_tickets_user_created ON tickets (userId, createdAt DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_users_role_created ON users (role, createdAt DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_users_role_status ON users (role, status)',
+      'CREATE INDEX IF NOT EXISTS idx_users_subadmin ON users (subAdminId)',
+      'CREATE INDEX IF NOT EXISTS idx_users_invitecode ON users (invitationCode)'
     ];
     for (const sql of indexQueries) {
       try { await dbRun(sql); } catch (_) {}
@@ -546,48 +552,59 @@ app.use('/api', async (req, res, next) => {
 
 let settingsCache = null;
 let settingsCacheAt = 0;
-const SETTINGS_CACHE_MS = 8000;
+let settingsLoadPromise = null;
+// Long TTL — invalidated immediately on saveSettings()
+const SETTINGS_CACHE_MS = 120000;
 
 async function getSettings() {
   if (settingsCache && (Date.now() - settingsCacheAt) < SETTINGS_CACHE_MS) {
     return settingsCache;
   }
-  const rows = await dbAll('SELECT key, value FROM settings');
-  const result = { ...defaultSettings };
-  for (const r of rows) {
-    result[r.key] = JSON.parse(r.value);
-  }
-  // Preferred/account currencies must always include PKR (and stay usable for signup).
-  const defaults = defaultSettings.currencies;
-  const incoming = Array.isArray(result.currencies) ? result.currencies : [];
-  const byCode = new Map();
-  for (const c of [...defaults, ...incoming]) {
-    if (!c || !c.code) continue;
-    byCode.set(String(c.code).toUpperCase(), {
-      code: String(c.code).toUpperCase(),
-      symbol: c.symbol || c.code,
-      name: c.name || c.code,
-      rateToBase: Number(c.rateToBase) || 1
-    });
-  }
-  // Keep core account currencies first: PKR, USDT, BTC-USD, BTS-USD, ETH
-  const core = ['PKR', 'USDT', 'BTC', 'BTS', 'ETH'];
-  if (byCode.has('BTC')) byCode.set('BTC', { ...byCode.get('BTC'), name: 'BTC-USD', symbol: byCode.get('BTC').symbol || '₿' });
-  if (byCode.has('BTS')) byCode.set('BTS', { ...byCode.get('BTS'), name: 'BTS-USD', symbol: byCode.get('BTS').symbol || 'Ƀ' });
-  else byCode.set('BTS', { code: 'BTS', symbol: 'Ƀ', name: 'BTS-USD', rateToBase: 0.0042 });
-  const ordered = [];
-  for (const code of core) {
-    if (byCode.has(code)) {
-      ordered.push(byCode.get(code));
-      byCode.delete(code);
+  // Coalesce concurrent cache misses into one DB read
+  if (settingsLoadPromise) return settingsLoadPromise;
+
+  settingsLoadPromise = (async () => {
+    const rows = await dbAll('SELECT key, value FROM settings');
+    const result = { ...defaultSettings };
+    for (const r of rows) {
+      result[r.key] = JSON.parse(r.value);
     }
-  }
-  for (const c of byCode.values()) ordered.push(c);
-  result.currencies = ordered;
-  result.defaultCurrency = 'PKR';
-  settingsCache = result;
-  settingsCacheAt = Date.now();
-  return result;
+    // Preferred/account currencies must always include PKR (and stay usable for signup).
+    const defaults = defaultSettings.currencies;
+    const incoming = Array.isArray(result.currencies) ? result.currencies : [];
+    const byCode = new Map();
+    for (const c of [...defaults, ...incoming]) {
+      if (!c || !c.code) continue;
+      byCode.set(String(c.code).toUpperCase(), {
+        code: String(c.code).toUpperCase(),
+        symbol: c.symbol || c.code,
+        name: c.name || c.code,
+        rateToBase: Number(c.rateToBase) || 1
+      });
+    }
+    // Keep core account currencies first: PKR, USDT, BTC-USD, BTS-USD, ETH
+    const core = ['PKR', 'USDT', 'BTC', 'BTS', 'ETH'];
+    if (byCode.has('BTC')) byCode.set('BTC', { ...byCode.get('BTC'), name: 'BTC-USD', symbol: byCode.get('BTC').symbol || '₿' });
+    if (byCode.has('BTS')) byCode.set('BTS', { ...byCode.get('BTS'), name: 'BTS-USD', symbol: byCode.get('BTS').symbol || 'Ƀ' });
+    else byCode.set('BTS', { code: 'BTS', symbol: 'Ƀ', name: 'BTS-USD', rateToBase: 0.0042 });
+    const ordered = [];
+    for (const code of core) {
+      if (byCode.has(code)) {
+        ordered.push(byCode.get(code));
+        byCode.delete(code);
+      }
+    }
+    for (const c of byCode.values()) ordered.push(c);
+    result.currencies = ordered;
+    result.defaultCurrency = 'PKR';
+    settingsCache = result;
+    settingsCacheAt = Date.now();
+    return result;
+  })().finally(() => {
+    settingsLoadPromise = null;
+  });
+
+  return settingsLoadPromise;
 }
 
 async function saveSettings(obj) {
@@ -598,6 +615,7 @@ async function saveSettings(obj) {
   if (stmts.length) await dbBatch(stmts);
   settingsCache = null;
   settingsCacheAt = 0;
+  settingsLoadPromise = null;
 }
 
 function generateTrx() {
@@ -826,10 +844,27 @@ function tickMarketPrices() {
   marketPrices['BTC_PKR'] = Math.round(marketPrices['BTC_USDT'] * PKR_PER_USD);
 }
 
+let settleInFlight = false;
+let nextSettleCheckAt = 0;
+
+function scheduleSettleSoon(ms = 400) {
+  const at = Date.now() + Math.max(0, Number(ms) || 0);
+  if (!nextSettleCheckAt || at < nextSettleCheckAt) nextSettleCheckAt = at;
+}
+
+// Prices tick often (no DB). Settlement is separate and self-throttles when idle.
 setInterval(() => {
   tickMarketPrices();
-  settleExpiredTrades().catch(() => {});
 }, 1000);
+
+setInterval(() => {
+  if (settleInFlight) return;
+  if (Date.now() < nextSettleCheckAt) return;
+  settleInFlight = true;
+  settleExpiredTrades()
+    .catch(() => {})
+    .finally(() => { settleInFlight = false; });
+}, 1500);
 
 async function settleOneTrade(trade, settings) {
   const user = await dbGet('SELECT * FROM users WHERE id = ?', [trade.userId]);
@@ -919,14 +954,42 @@ async function settleOneTrade(trade, settings) {
 
 async function settleExpiredTrades() {
   const now = Date.now();
-  const expired = await dbAll("SELECT * FROM trades WHERE status = 'RUNNING' AND expiresAt <= ?", [now]);
-  if (!expired.length) return;
+
+  // One query: only trades that are due. Avoids a separate "any running?" round-trip.
+  const expired = await dbAll(
+    `SELECT id, userId, username, pair, currency, direction, stake, payoutPercent, durationSeconds,
+            entryPrice, status, outcomeOverride, createdAt, expiresAt
+     FROM trades WHERE status = 'RUNNING' AND expiresAt <= ? ORDER BY expiresAt ASC LIMIT 40`,
+    [now]
+  );
+
+  if (!expired.length) {
+    // Nothing due — sleep until the next running trade expires (or idle backoff)
+    const next = await dbGet("SELECT MIN(expiresAt) AS nextexp FROM trades WHERE status = 'RUNNING'");
+    const nextExp = Number(next?.nextexp || 0);
+    if (!nextExp) {
+      nextSettleCheckAt = now + 10000; // fully idle — check again in 10s
+      return;
+    }
+    const wait = Math.min(5000, Math.max(400, nextExp - now));
+    nextSettleCheckAt = now + wait;
+    return;
+  }
 
   const settings = await getSettings();
   for (const trade of expired) {
     await settleOneTrade(trade, settings);
   }
   broadcastEvent('TRADE_SETTLED');
+
+  // If more may be due soon, check again shortly; otherwise wait for next expiry
+  const next = await dbGet("SELECT MIN(expiresAt) AS nextexp FROM trades WHERE status = 'RUNNING'");
+  const nextExp = Number(next?.nextexp || 0);
+  if (!nextExp) {
+    nextSettleCheckAt = now + 10000;
+  } else {
+    nextSettleCheckAt = now + Math.min(3000, Math.max(300, nextExp - Date.now()));
+  }
 }
 
 // ==========================================================================
@@ -1189,8 +1252,36 @@ app.post('/api/trader/currency', requireAuth(['TRADER']), async (req, res) => {
   res.json({ message: 'Currency updated', currency: normalizedCurrency });
 });
 
+// Light trader poll — balances, prices, running/recent trades, alerts only
+app.get('/api/trader/dashboard/light', requireAuth(['TRADER']), async (req, res) => {
+  if (!hasInitialPriceSync) {
+    await syncRealBasePrices();
+  } else {
+    tickMarketPrices();
+  }
+  const [userRow, trades, customErrors] = await Promise.all([
+    dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]),
+    dbAll(
+      `SELECT id, userId, username, pair, currency, direction, stake, entryPrice, exitPrice, profit, status, durationSeconds, createdAt, expiresAt, settledAt
+       FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 20`,
+      [req.user.id]
+    ),
+    dbAll(
+      "SELECT id, title, message, createdAt FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC LIMIT 10",
+      [req.user.id]
+    )
+  ]);
+  res.json({
+    user: formatUserRow(userRow),
+    prices: marketPrices,
+    trades,
+    customErrors,
+    light: true
+  });
+});
+
 app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
-  // Prices/settlement run on the 1s background timer — do not block every poll.
+  // Prices/settlement run on the background timer — do not block every poll.
   if (!hasInitialPriceSync) {
     await syncRealBasePrices();
   } else {
@@ -1199,11 +1290,29 @@ app.get('/api/trader/dashboard', requireAuth(['TRADER']), async (req, res) => {
   const [userRow, settings, trades, transactions, tickets, customErrors, withdrawals] = await Promise.all([
     dbGet('SELECT * FROM users WHERE id = ?', [req.user.id]),
     getSettings(),
-    dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.user.id]),
-    dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.user.id]),
-    dbAll('SELECT * FROM tickets WHERE userId = ? ORDER BY createdAt DESC LIMIT 80', [req.user.id]),
-    dbAll("SELECT * FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC LIMIT 20", [req.user.id]),
-    dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.user.id])
+    dbAll(
+      `SELECT id, userId, username, pair, currency, direction, stake, entryPrice, exitPrice, profit, status, durationSeconds, createdAt, expiresAt, settledAt, outcomeOverride
+       FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50`,
+      [req.user.id]
+    ),
+    dbAll(
+      'SELECT trx, userId, username, type, amount, postBalance, note, timestamp FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 25',
+      [req.user.id]
+    ),
+    dbAll(
+      `SELECT id, userId, username, subject, message, reply, repliedBy, status, createdAt
+       FROM tickets WHERE userId = ? ORDER BY createdAt DESC LIMIT 80`,
+      [req.user.id]
+    ),
+    dbAll(
+      "SELECT id, title, message, createdAt, active, targetUserId FROM custom_errors WHERE active = 1 AND (targetUserId = 'ALL' OR targetUserId = ?) ORDER BY createdAt DESC LIMIT 20",
+      [req.user.id]
+    ),
+    dbAll(
+      `SELECT id, userId, username, amount, currency, method, accountDetails, rejectReason, status, createdAt
+       FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 30`,
+      [req.user.id]
+    )
   ]);
 
   res.json({
@@ -1245,6 +1354,7 @@ app.post('/api/trades/:id/settle', requireAuth(['TRADER']), async (req, res) => 
   }
 
   broadcastEvent('TRADE_SETTLED', { id: trade.id });
+  scheduleSettleSoon(300);
   res.json({ trade: settled });
 });
 
@@ -1302,6 +1412,7 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
     client.release();
   }
 
+  scheduleSettleSoon(Math.max(400, Number(duration) * 1000 - 1500));
   broadcastEvent('NEW_TRADE', { id, username: req.user.username, pair, currency, stake: amount, direction });
   res.json({
     message: 'Trade started',
@@ -1433,82 +1544,392 @@ app.post('/api/help-center/send', requireAuth(['TRADER']), async (req, res) => {
 // ==========================================================================
 // ADMIN & SUB-ADMIN ROUTES
 // ==========================================================================
-app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  // Settlement is handled by the background timer — don't block admin UI loads.
-  settleExpiredTrades().catch(() => {});
-  const isMain = req.user.role === 'MAIN_ADMIN';
+function slimTrader(row) {
+  if (!row) return null;
+  const u = formatUserRow(row);
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    firstName: u.firstName || '',
+    lastName: u.lastName || '',
+    mobile: u.mobile || '',
+    currency: u.currency || 'PKR',
+    invitationCode: u.invitationCode || '',
+    subAdminId: u.subAdminId || '',
+    status: u.status || 'ACTIVE',
+    balance: u.balance,
+    availableBalance: u.availableBalance,
+    frozenBalance: u.frozenBalance,
+    totalBalance: u.totalBalance,
+    inOrderBalance: u.inOrderBalance,
+    creditScore: u.creditScore,
+    tradeOutcome: u.tradeOutcome,
+    createdAt: u.createdAt,
+    role: u.role
+  };
+}
 
-  const [
-    tradersRows,
-    staffRows,
-    countsRow,
-    deposits,
-    withdrawals,
-    trades,
-    tickets,
-    auditLogs,
-    inviteLinks,
-    settings
-  ] = await Promise.all([
-    dbAll("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC LIMIT 200"),
-    isMain ? dbAll("SELECT * FROM users WHERE role != 'TRADER' ORDER BY createdAt DESC") : Promise.resolve([]),
+function slimStaff(row, isMain, traderCount = 0, activeTraderCount = 0) {
+  const u = formatUserRow(row);
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    firstName: u.firstName || '',
+    lastName: u.lastName || '',
+    role: u.role,
+    status: u.status || 'ACTIVE',
+    invitationCode: u.invitationCode || '',
+    createdAt: u.createdAt,
+    permissions: u.permissions,
+    traderCount,
+    activeTraderCount,
+    tempPassword: isMain ? (row.tempPassword || '') : undefined
+  };
+}
+
+function slimTrade(t) {
+  return {
+    id: t.id,
+    userId: t.userId,
+    username: t.username,
+    pair: t.pair,
+    currency: t.currency || 'PKR',
+    direction: t.direction,
+    stake: Number(t.stake),
+    entryPrice: t.entryPrice,
+    exitPrice: t.exitPrice,
+    profit: t.profit,
+    status: t.status,
+    duration: t.durationSeconds ?? t.duration,
+    createdAt: t.createdAt,
+    expiresAt: t.expiresAt,
+    settledAt: t.settledAt,
+    outcomeOverride: t.outcomeOverride || ''
+  };
+}
+
+// Light overview — used for polling (stats + running trades only)
+app.get('/api/admin/overview/light', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const isMain = req.user.role === 'MAIN_ADMIN';
+  const [countsRow, runningTrades, pendingWdrRows, staffRows, settings] = await Promise.all([
     dbGet(`SELECT
+      (SELECT COUNT(*) FROM users WHERE role = 'TRADER') AS totalusers,
+      (SELECT COUNT(*) FROM users WHERE role = 'TRADER' AND status = 'ACTIVE') AS activeusers,
+      (SELECT COUNT(*) FROM users WHERE role = 'SUB_ADMIN') AS subadmins,
+      (SELECT COUNT(*) FROM users WHERE role = 'SUB_ADMIN' AND status = 'ACTIVE') AS activesubadmins,
       (SELECT COUNT(*) FROM trades) AS totaltrades,
       (SELECT COUNT(*) FROM trades WHERE status = 'RUNNING') AS runningtrades,
       (SELECT COUNT(*) FROM deposits WHERE status = 'PENDING') AS pendingdeposits,
       (SELECT COUNT(*) FROM withdrawals WHERE status = 'PENDING') AS pendingwithdrawals,
-      (SELECT COUNT(*) FROM tickets WHERE status = 'OPEN') AS opentickets`),
-    dbAll('SELECT * FROM deposits ORDER BY createdAt DESC LIMIT 40'),
-    dbAll('SELECT * FROM withdrawals ORDER BY createdAt DESC LIMIT 80'),
-    dbAll('SELECT * FROM trades ORDER BY createdAt DESC LIMIT 80'),
-    dbAll('SELECT * FROM tickets ORDER BY createdAt DESC LIMIT 120'),
-    dbAll('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 40'),
-    dbAll('SELECT * FROM invite_links ORDER BY createdAt DESC LIMIT 80'),
+      (SELECT COUNT(*) FROM withdrawals WHERE status = 'APPROVED') AS approvedwithdrawals,
+      (SELECT COUNT(*) FROM withdrawals WHERE status = 'REJECTED') AS rejectedwithdrawals,
+      (SELECT COUNT(*) FROM tickets WHERE status = 'OPEN') AS opentickets,
+      (SELECT COUNT(*) FROM invite_links WHERE status = 'ACTIVE') AS activeinvites`),
+    dbAll("SELECT id, userId, username, pair, currency, direction, stake, entryPrice, status, durationSeconds, createdAt, expiresAt, outcomeOverride FROM trades WHERE status = 'RUNNING' ORDER BY createdAt DESC LIMIT 40"),
+    dbAll("SELECT id, username, amount, currency, status, createdAt FROM withdrawals WHERE status = 'PENDING' ORDER BY createdAt DESC LIMIT 8"),
+    isMain
+      ? dbAll("SELECT id, username, email, firstName, lastName, role, status, invitationCode, canApproveWithdrawals, tempPassword, createdAt FROM users WHERE role != 'TRADER' ORDER BY createdAt DESC")
+      : Promise.resolve([]),
     getSettings()
   ]);
 
-  const traders = tradersRows.map(formatUserRow);
-  const staff = staffRows.map((row) => {
-    const s = formatUserRow(row);
-    const linked = traders.filter(
-      (t) => t.subAdminId === s.id ||
-        (s.invitationCode && String(t.invitationCode || '').toUpperCase() === String(s.invitationCode).toUpperCase())
-    );
-    return {
-      ...s,
-      traderCount: linked.length,
-      activeTraderCount: linked.filter((t) => t.status === 'ACTIVE').length,
-      // Include visible password only for MAIN_ADMIN requests
-      tempPassword: isMain ? (row.tempPassword || '') : undefined
-    };
-  });
+  let staff = [];
+  if (isMain && staffRows.length) {
+    const traderLinks = await dbAll("SELECT id, subAdminId, invitationCode, status FROM users WHERE role = 'TRADER'");
+    staff = staffRows.map((row) => {
+      const code = String(row.invitationCode || '').toUpperCase();
+      const linked = traderLinks.filter(
+        (t) => t.subAdminId === row.id || (code && String(t.invitationCode || '').toUpperCase() === code)
+      );
+      return slimStaff(row, true, linked.length, linked.filter((t) => t.status === 'ACTIVE').length);
+    });
+  }
+
   const myCode = (req.user.invitationCode || req.user.username || '').toUpperCase();
-  const invitedCount = traders.filter(
-    t => t.subAdminId === req.user.id || (myCode && String(t.invitationCode || '').toUpperCase() === myCode)
-  ).length;
-  const subAdmins = staff.filter((s) => s.role === 'SUB_ADMIN');
+  const invitedCountRow = await dbGet(
+    `SELECT COUNT(*) AS c FROM users WHERE role = 'TRADER' AND (subAdminId = ? OR UPPER(invitationCode) = ?)`,
+    [req.user.id, myCode]
+  );
 
   res.json({
     actor: req.user,
-    invitedCount,
+    invitedCount: Number(invitedCountRow?.c || 0),
     stats: {
-      totalUsers: traders.length,
-      activeUsers: traders.filter(u => u.status === 'ACTIVE').length,
+      totalUsers: Number(countsRow?.totalusers || 0),
+      activeUsers: Number(countsRow?.activeusers || 0),
       totalTrades: Number(countsRow?.totaltrades || 0),
       runningTrades: Number(countsRow?.runningtrades || 0),
       pendingDeposits: Number(countsRow?.pendingdeposits || 0),
       pendingWithdrawals: Number(countsRow?.pendingwithdrawals || 0),
+      approvedWithdrawals: Number(countsRow?.approvedwithdrawals || 0),
+      rejectedWithdrawals: Number(countsRow?.rejectedwithdrawals || 0),
       openTickets: Number(countsRow?.opentickets || 0),
-      subAdmins: subAdmins.length,
-      activeSubAdmins: subAdmins.filter((s) => s.status === 'ACTIVE').length
+      activeInvites: Number(countsRow?.activeinvites || 0),
+      subAdmins: Number(countsRow?.subadmins || 0),
+      activeSubAdmins: Number(countsRow?.activesubadmins || 0)
+    },
+    runningTrades: runningTrades.map(slimTrade),
+    pendingWithdrawalsPreview: pendingWdrRows,
+    staff,
+    settings
+  });
+});
+
+const TRADER_LIST_SQL = `id, username, email, firstName, lastName, mobile, currency, invitationCode, subAdminId,
+  status, balance, frozenBalance, inOrderBalance, creditScore, tradeOutcome, createdAt, role`;
+const TRADE_LIST_SQL = `id, userId, username, pair, currency, direction, stake, entryPrice, exitPrice, profit, status, durationSeconds, createdAt, expiresAt, settledAt, outcomeOverride`;
+const WITHDRAWAL_LIST_SQL = `id, userId, username, amount, currency, method, accountDetails, rejectReason, status, createdAt`;
+const TICKET_LIST_SQL = `id, userId, username, subject, message, reply, repliedBy, status, createdAt`;
+const INVITE_LIST_SQL = `code, createdBy, createdByUsername, label, maxUses, useCount, status, usedByUserId, usedByUsername, usedAt, createdAt`;
+
+// Section: traders — SQL filter + LIMIT/OFFSET (no in-memory full scan)
+app.get('/api/admin/sections/users', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 40));
+  const offset = (page - 1) * limit;
+  const q = cleanStr(req.query.q || '', 80).toLowerCase();
+  const filter = cleanStr(req.query.filter || 'ALL', 24).toUpperCase();
+  const staffId = cleanStr(req.query.staffId || 'ALL', 60);
+
+  const where = ["role = 'TRADER'"];
+  const args = [];
+
+  if (q) {
+    const like = `%${q}%`;
+    where.push(`(
+      LOWER(username) LIKE ? OR LOWER(email) LIKE ? OR LOWER(COALESCE(mobile,'')) LIKE ?
+      OR LOWER(COALESCE(firstName,'')) LIKE ? OR LOWER(COALESCE(lastName,'')) LIKE ?
+      OR LOWER(COALESCE(firstName,'') || ' ' || COALESCE(lastName,'')) LIKE ?
+    )`);
+    args.push(like, like, like, like, like, like);
+  }
+
+  if (filter === 'ACTIVE') {
+    where.push("status = 'ACTIVE'");
+  } else if (filter === 'BANNED') {
+    where.push("(status != 'ACTIVE' OR COALESCE(frozenBalance,0) > 0)");
+  } else if (filter === 'WIN_DEFAULT') {
+    where.push("(COALESCE(tradeOutcome,'WIN_DEFAULT') = 'WIN_DEFAULT')");
+  } else if (filter === 'FORCE_WIN') {
+    where.push("tradeOutcome = 'FORCE_WIN'");
+  } else if (filter === 'FORCE_LOSS') {
+    where.push("tradeOutcome = 'FORCE_LOSS'");
+  }
+
+  if (staffId !== 'ALL' && req.user.role === 'MAIN_ADMIN') {
+    const staffRows = await dbAll("SELECT id, invitationCode FROM users WHERE role = 'SUB_ADMIN'");
+    if (staffId === 'UNASSIGNED') {
+      const ids = staffRows.map((s) => s.id).filter(Boolean);
+      const codes = staffRows.map((s) => String(s.invitationCode || '').toUpperCase()).filter(Boolean);
+      if (ids.length) {
+        where.push(`(COALESCE(subAdminId,'') = '' OR subAdminId NOT IN (${ids.map(() => '?').join(',')}))`);
+        args.push(...ids);
+      } else {
+        where.push(`(COALESCE(subAdminId,'') = '')`);
+      }
+      if (codes.length) {
+        where.push(`(COALESCE(invitationCode,'') = '' OR UPPER(invitationCode) NOT IN (${codes.map(() => '?').join(',')}))`);
+        args.push(...codes);
+      }
+    } else {
+      const staff = staffRows.find((s) => s.id === staffId);
+      const code = String(staff?.invitationCode || '').toUpperCase();
+      if (code) {
+        where.push('(subAdminId = ? OR UPPER(invitationCode) = ?)');
+        args.push(staffId, code);
+      } else {
+        where.push('subAdminId = ?');
+        args.push(staffId);
+      }
+    }
+  }
+
+  const whereSql = where.join(' AND ');
+  const countRow = await dbGet(`SELECT COUNT(*) AS c FROM users WHERE ${whereSql}`, args);
+  const total = Number(countRow?.c || 0);
+  const rows = await dbAll(
+    `SELECT ${TRADER_LIST_SQL} FROM users WHERE ${whereSql} ORDER BY createdAt DESC LIMIT ? OFFSET ?`,
+    [...args, limit, offset]
+  );
+
+  res.json({
+    traders: rows.map(slimTrader),
+    page,
+    limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit) || 1)
+  });
+});
+
+app.get('/api/admin/sections/trades', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 40));
+  const offset = (page - 1) * limit;
+  const status = cleanStr(req.query.status || 'ALL', 20).toUpperCase();
+  const userId = cleanStr(req.query.userId || 'ALL', 60);
+  const q = cleanStr(req.query.q || '', 80).toLowerCase();
+
+  const where = ['1=1'];
+  const args = [];
+  if (status !== 'ALL') {
+    where.push('status = ?');
+    args.push(status);
+  }
+  if (userId !== 'ALL') {
+    where.push('userId = ?');
+    args.push(userId);
+  }
+  if (q) {
+    const like = `%${q}%`;
+    where.push('(LOWER(id) LIKE ? OR LOWER(username) LIKE ? OR LOWER(pair) LIKE ? OR LOWER(COALESCE(currency,\'\')) LIKE ?)');
+    args.push(like, like, like, like);
+  }
+
+  const whereSql = where.join(' AND ');
+  const countRow = await dbGet(`SELECT COUNT(*) AS c FROM trades WHERE ${whereSql}`, args);
+  const total = Number(countRow?.c || 0);
+  const rows = await dbAll(
+    `SELECT ${TRADE_LIST_SQL} FROM trades WHERE ${whereSql} ORDER BY createdAt DESC LIMIT ? OFFSET ?`,
+    [...args, limit, offset]
+  );
+  res.json({
+    trades: rows.map(slimTrade),
+    page,
+    limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit) || 1)
+  });
+});
+
+app.get('/api/admin/sections/withdrawals', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 40));
+  const offset = (page - 1) * limit;
+  const status = cleanStr(req.query.status || 'ALL', 20).toUpperCase();
+  const q = cleanStr(req.query.q || '', 80).toLowerCase();
+
+  const where = ['1=1'];
+  const args = [];
+  if (status !== 'ALL') {
+    where.push('status = ?');
+    args.push(status);
+  }
+  if (q) {
+    const like = `%${q}%`;
+    where.push('(LOWER(username) LIKE ? OR LOWER(method) LIKE ? OR LOWER(COALESCE(currency,\'\')) LIKE ? OR LOWER(COALESCE(accountDetails,\'\')) LIKE ?)');
+    args.push(like, like, like, like);
+  }
+
+  const whereSql = where.join(' AND ');
+  const countRow = await dbGet(`SELECT COUNT(*) AS c FROM withdrawals WHERE ${whereSql}`, args);
+  const total = Number(countRow?.c || 0);
+  const rows = await dbAll(
+    `SELECT ${WITHDRAWAL_LIST_SQL} FROM withdrawals WHERE ${whereSql} ORDER BY createdAt DESC LIMIT ? OFFSET ?`,
+    [...args, limit, offset]
+  );
+  res.json({
+    withdrawals: rows,
+    page,
+    limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit) || 1)
+  });
+});
+
+app.get('/api/admin/sections/tickets', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const [tickets, traders] = await Promise.all([
+    dbAll(`SELECT ${TICKET_LIST_SQL} FROM tickets ORDER BY createdAt DESC LIMIT 100`),
+    dbAll(`SELECT id, username, email, firstName, lastName FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC LIMIT 200`)
+  ]);
+  res.json({
+    tickets,
+    traders: traders.map((t) => ({
+      id: t.id,
+      username: t.username,
+      email: t.email,
+      firstName: t.firstName || '',
+      lastName: t.lastName || ''
+    }))
+  });
+});
+
+app.get('/api/admin/sections/invites', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const inviteLinks = await dbAll(`SELECT ${INVITE_LIST_SQL} FROM invite_links ORDER BY createdAt DESC LIMIT 80`);
+  res.json({ inviteLinks });
+});
+
+app.get('/api/admin/sections/staff', requireAuth(['MAIN_ADMIN']), async (req, res) => {
+  const [staffRows, traderLinks] = await Promise.all([
+    dbAll("SELECT id, username, email, firstName, lastName, role, status, invitationCode, canApproveWithdrawals, tempPassword, createdAt FROM users WHERE role != 'TRADER' ORDER BY createdAt DESC"),
+    dbAll("SELECT id, subAdminId, invitationCode, status FROM users WHERE role = 'TRADER'")
+  ]);
+  const staff = staffRows.map((row) => {
+    const code = String(row.invitationCode || '').toUpperCase();
+    const linked = traderLinks.filter(
+      (t) => t.subAdminId === row.id || (code && String(t.invitationCode || '').toUpperCase() === code)
+    );
+    return slimStaff(row, true, linked.length, linked.filter((t) => t.status === 'ACTIVE').length);
+  });
+  res.json({ staff });
+});
+
+// Full overview kept for compatibility (heavier) — prefer /overview/light + /sections/*
+app.get('/api/admin/overview', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
+  const isMain = req.user.role === 'MAIN_ADMIN';
+  const [tradersRows, staffRows, countsRow, withdrawals, trades, tickets, inviteLinks, settings] = await Promise.all([
+    dbAll(`SELECT id, username, email, firstName, lastName, mobile, currency, invitationCode, subAdminId,
+            status, balance, frozenBalance, inOrderBalance, creditScore, tradeOutcome, createdAt, role
+     FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC LIMIT 100`),
+    isMain
+      ? dbAll("SELECT id, username, email, firstName, lastName, role, status, invitationCode, canApproveWithdrawals, tempPassword, createdAt FROM users WHERE role != 'TRADER' ORDER BY createdAt DESC")
+      : Promise.resolve([]),
+    dbGet(`SELECT
+      (SELECT COUNT(*) FROM users WHERE role = 'TRADER') AS totalusers,
+      (SELECT COUNT(*) FROM users WHERE role = 'TRADER' AND status = 'ACTIVE') AS activeusers,
+      (SELECT COUNT(*) FROM trades) AS totaltrades,
+      (SELECT COUNT(*) FROM trades WHERE status = 'RUNNING') AS runningtrades,
+      (SELECT COUNT(*) FROM withdrawals WHERE status = 'PENDING') AS pendingwithdrawals,
+      (SELECT COUNT(*) FROM tickets WHERE status = 'OPEN') AS opentickets,
+      (SELECT COUNT(*) FROM users WHERE role = 'SUB_ADMIN') AS subadmins`),
+    dbAll(`SELECT ${WITHDRAWAL_LIST_SQL} FROM withdrawals ORDER BY createdAt DESC LIMIT 40`),
+    dbAll(`SELECT ${TRADE_LIST_SQL} FROM trades ORDER BY createdAt DESC LIMIT 50`),
+    dbAll(`SELECT ${TICKET_LIST_SQL} FROM tickets ORDER BY createdAt DESC LIMIT 60`),
+    dbAll(`SELECT ${INVITE_LIST_SQL} FROM invite_links ORDER BY createdAt DESC LIMIT 40`),
+    getSettings()
+  ]);
+
+  const traders = tradersRows.map(slimTrader);
+  const staff = staffRows.map((row) => {
+    const linked = traders.filter(
+      (t) => t.subAdminId === row.id ||
+        (row.invitationCode && String(t.invitationCode || '').toUpperCase() === String(row.invitationCode).toUpperCase())
+    );
+    return slimStaff(row, isMain, linked.length, linked.filter((t) => t.status === 'ACTIVE').length);
+  });
+
+  res.json({
+    actor: req.user,
+    invitedCount: 0,
+    stats: {
+      totalUsers: Number(countsRow?.totalusers || 0),
+      activeUsers: Number(countsRow?.activeusers || 0),
+      totalTrades: Number(countsRow?.totaltrades || 0),
+      runningTrades: Number(countsRow?.runningtrades || 0),
+      pendingDeposits: 0,
+      pendingWithdrawals: Number(countsRow?.pendingwithdrawals || 0),
+      openTickets: Number(countsRow?.opentickets || 0),
+      subAdmins: Number(countsRow?.subadmins || 0),
+      activeSubAdmins: staff.filter((s) => s.role === 'SUB_ADMIN' && s.status === 'ACTIVE').length
     },
     traders,
     staff,
-    deposits,
+    deposits: [],
     withdrawals,
-    trades,
+    trades: trades.map(slimTrade),
     tickets,
-    auditLogs,
+    auditLogs: [],
     inviteLinks,
     settings
   });
@@ -1628,11 +2049,14 @@ app.get('/api/admin/sub-admins/:id/detail', requireAuth(['MAIN_ADMIN']), async (
   const subAdmin = formatUserRow(row);
   const code = String(subAdmin.invitationCode || '').toUpperCase();
 
-  const allTraders = await dbAll("SELECT * FROM users WHERE role = 'TRADER' ORDER BY createdAt DESC");
-  const myTraders = allTraders.filter((t) => {
-    const tCode = String(t.invitationCode || '').toUpperCase();
-    return t.subAdminId === subAdmin.id || (code && tCode === code);
-  }).map(formatUserRow);
+  const traderArgs = code ? [subAdmin.id, code] : [subAdmin.id];
+  const traderWhere = code
+    ? "role = 'TRADER' AND (subAdminId = ? OR UPPER(invitationCode) = ?)"
+    : "role = 'TRADER' AND subAdminId = ?";
+  const myTraders = (await dbAll(
+    `SELECT ${TRADER_LIST_SQL} FROM users WHERE ${traderWhere} ORDER BY createdAt DESC LIMIT 200`,
+    traderArgs
+  )).map(slimTrader);
 
   const traderIds = myTraders.map((t) => t.id);
   let runningTrades = [], recentTrades = [], pendingWithdrawals = [], recentDeposits = [], auditLogs = [];
@@ -1640,14 +2064,23 @@ app.get('/api/admin/sub-admins/:id/detail', requireAuth(['MAIN_ADMIN']), async (
   if (traderIds.length) {
     const ph = traderIds.map(() => '?').join(',');
     [runningTrades, recentTrades, pendingWithdrawals, recentDeposits] = await Promise.all([
-      dbAll(`SELECT * FROM trades WHERE status='RUNNING' AND userId IN (${ph})`, traderIds),
-      dbAll(`SELECT * FROM trades WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 60`, traderIds),
-      dbAll(`SELECT * FROM withdrawals WHERE status='PENDING' AND userId IN (${ph})`, traderIds),
-      dbAll(`SELECT * FROM deposits WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 20`, traderIds),
+      dbAll(`SELECT ${TRADE_LIST_SQL} FROM trades WHERE status='RUNNING' AND userId IN (${ph})`, traderIds),
+      dbAll(`SELECT ${TRADE_LIST_SQL} FROM trades WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 60`, traderIds),
+      dbAll(`SELECT ${WITHDRAWAL_LIST_SQL} FROM withdrawals WHERE status='PENDING' AND userId IN (${ph})`, traderIds),
+      dbAll(
+        `SELECT id, userId, username, cryptoCurrency, amount, status, createdAt FROM deposits WHERE userId IN (${ph}) ORDER BY createdAt DESC LIMIT 20`,
+        traderIds
+      ),
     ]);
   }
-  auditLogs = await dbAll("SELECT * FROM audit_logs WHERE actorUsername = ? ORDER BY timestamp DESC LIMIT 25", [subAdmin.username]);
-  const inviteLinks = await dbAll("SELECT * FROM invite_links WHERE createdBy = ? ORDER BY createdAt DESC", [subAdmin.id]);
+  auditLogs = await dbAll(
+    'SELECT id, actorUsername, actorRole, action, target, details, timestamp FROM audit_logs WHERE actorUsername = ? ORDER BY timestamp DESC LIMIT 25',
+    [subAdmin.username]
+  );
+  const inviteLinks = await dbAll(
+    `SELECT ${INVITE_LIST_SQL} FROM invite_links WHERE createdBy = ? ORDER BY createdAt DESC`,
+    [subAdmin.id]
+  );
 
   res.json({
     subAdmin: { ...subAdmin, tempPassword: row.tempPassword || '' },
@@ -1711,15 +2144,27 @@ app.post('/api/admin/my-invite-code', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), 
 });
 
 app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  settleExpiredTrades().catch(() => {});
+  // Settlement is owned by the background timer — do not block detail loads.
   const [row, trades, deposits, withdrawals, transactions, logins, notifications] = await Promise.all([
     dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]),
-    dbAll('SELECT * FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 50', [req.params.id]),
-    dbAll('SELECT * FROM deposits WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.params.id]),
-    dbAll('SELECT * FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 30', [req.params.id]),
-    dbAll('SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 50', [req.params.id]),
-    dbAll('SELECT * FROM login_logs WHERE userId = ? ORDER BY timestamp DESC LIMIT 25', [req.params.id]),
-    dbAll("SELECT * FROM custom_errors WHERE targetUserId = ? OR targetUserId = 'ALL' ORDER BY createdAt DESC LIMIT 25", [req.params.id])
+    dbAll(`SELECT ${TRADE_LIST_SQL} FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 40`, [req.params.id]),
+    dbAll(
+      'SELECT id, userId, username, cryptoCurrency, amount, txHash, status, createdAt FROM deposits WHERE userId = ? ORDER BY createdAt DESC LIMIT 20',
+      [req.params.id]
+    ),
+    dbAll(`SELECT ${WITHDRAWAL_LIST_SQL} FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 20`, [req.params.id]),
+    dbAll(
+      'SELECT trx, userId, username, type, amount, postBalance, note, timestamp FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 40',
+      [req.params.id]
+    ),
+    dbAll(
+      'SELECT id, userId, username, ip, userAgent, timestamp FROM login_logs WHERE userId = ? ORDER BY timestamp DESC LIMIT 20',
+      [req.params.id]
+    ),
+    dbAll(
+      "SELECT id, targetUserId, title, message, active, createdAt FROM custom_errors WHERE targetUserId = ? OR targetUserId = 'ALL' ORDER BY createdAt DESC LIMIT 20",
+      [req.params.id]
+    )
   ]);
   if (!row) return res.status(404).json({ error: 'Trader not found.' });
 

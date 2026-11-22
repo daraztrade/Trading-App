@@ -1,12 +1,13 @@
 {
   "cleanUrls": true,
+  "regions": ["syd1"],
   "functions": {
     "api/index.js": {
-      "includeFiles": "frontend/**"
+      "includeFiles": "frontend/**",
+      "maxDuration": 30
     }
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
   ]
-  
 }

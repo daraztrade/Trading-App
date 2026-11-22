@@ -1418,6 +1418,8 @@
     );
   }
 
+  let currentTraderTab = 'home';
+
   function switchTab(tab, btn) {
     // New trade is blocked when admin has banned trading.
     if (tab === 'trade' && isTradeBanned()) {
@@ -1430,6 +1432,7 @@
       return;
     }
 
+    currentTraderTab = tab;
     document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
     const target = document.getElementById(`tab-${tab}`);
     if (target) target.classList.remove('hidden');
@@ -1451,6 +1454,10 @@
     if (greet) {
       if (tab === 'home') greet.textContent = 'Dashboard';
       else if (dashState?.user) greet.textContent = `Welcome, ${dashState.user.firstName || dashState.user.username}`;
+    }
+    // Heavy tabs need full payload (tickets / withdrawals / full history)
+    if (['history', 'withdraw', 'withdraw-history', 'support', 'profile'].includes(tab)) {
+      loadDashboard(true);
     }
     document.body.classList.toggle('help-mode', tab === 'support');
     const ticker = document.getElementById('dashLiveTicker');
@@ -2031,21 +2038,49 @@
   let dashboardInFlight = null;
   let dashboardLastAt = 0;
   const DASHBOARD_MIN_GAP_MS = 1500;
+  const TRADER_IDLE_POLL_MS = 12000;
+  const TRADER_ACTIVE_POLL_MS = 4000;
 
-  async function loadDashboard(force = false) {
+  function needsFullTraderDashboard() {
+    return ['history', 'withdraw', 'withdraw-history', 'support', 'profile'].includes(currentTraderTab);
+  }
+
+  function hasRunningTraderTrade() {
+    return (dashState?.trades || []).some((t) => t.status === 'RUNNING');
+  }
+
+  async function loadDashboard(force = false, opts = {}) {
     const now = Date.now();
     if (!force && dashboardInFlight) return dashboardInFlight;
     if (!force && (now - dashboardLastAt) < DASHBOARD_MIN_GAP_MS) return dashboardInFlight;
 
+    const useLight = !force && !opts.full && !needsFullTraderDashboard();
     dashboardLastAt = now;
     dashboardInFlight = (async () => {
       try {
-        const res = await fetch('/api/trader/dashboard', { headers: traderHeaders(false) });
+        const url = useLight ? '/api/trader/dashboard/light' : '/api/trader/dashboard';
+        const res = await fetch(url, { headers: traderHeaders(false) });
         if (res.status === 401 || res.status === 403) return logoutTrader();
         const data = await res.json();
-        const prevTickets = dashState?.tickets || [];
-        dashState = data;
-        dashState.tickets = mergeTickets(prevTickets, data.tickets || []);
+        const prev = dashState || {};
+        if (data.light) {
+          // Merge light poll into existing state — keep tickets/withdrawals/settings
+          dashState = {
+            ...prev,
+            user: data.user || prev.user,
+            prices: data.prices || prev.prices,
+            trades: data.trades || prev.trades,
+            customErrors: data.customErrors || prev.customErrors || [],
+            tickets: prev.tickets || [],
+            withdrawals: prev.withdrawals || [],
+            settings: prev.settings || data.settings,
+            transactions: prev.transactions || []
+          };
+        } else {
+          const prevTickets = prev.tickets || [];
+          dashState = data;
+          dashState.tickets = mergeTickets(prevTickets, data.tickets || []);
+        }
         renderDashboard();
       } catch (_) {
       } finally {
@@ -2053,6 +2088,27 @@
       }
     })();
     return dashboardInFlight;
+  }
+
+  function traderEventNeedsRefresh(type) {
+    if (!type || type === 'CONNECTED') return false;
+    // Ignore unrelated platform noise while idle on home/trade
+    const always = new Set([
+      'NEW_TRADE', 'TRADE_SETTLED', 'USER_UPDATED', 'ERROR_ALERT',
+      'SETTINGS_UPDATED', 'NEW_WITHDRAWAL', 'WITHDRAWAL_UPDATED', 'WITHDRAWAL_REJECTED',
+      'TICKET_UPDATED', 'NEW_TICKET', 'NEW_DEPOSIT', 'DEPOSIT_UPDATED'
+    ]);
+    if (!always.has(type)) return false;
+    if (['TICKET_UPDATED', 'NEW_TICKET'].includes(type) && currentTraderTab !== 'support') {
+      // Still refresh lightly so badge/unread can update on next full load
+      return hasRunningTraderTrade() || currentTraderTab === 'home';
+    }
+    if (['NEW_WITHDRAWAL', 'WITHDRAWAL_UPDATED', 'WITHDRAWAL_REJECTED'].includes(type)
+      && !['withdraw', 'withdraw-history', 'home'].includes(currentTraderTab)
+      && !hasRunningTraderTrade()) {
+      return false;
+    }
+    return true;
   }
 
   function renderDashboard() {
@@ -2535,21 +2591,35 @@
   }
 
   onWithdrawMethodChange();
-  loadTraderCurrencies().finally(() => loadDashboard(true));
+  loadTraderCurrencies().finally(() => loadDashboard(true, { full: true }));
   const stream = new EventSource('/api/stream');
   let traderStreamRefreshTimer = null;
-  stream.onmessage = () => {
+  let pendingTraderEventType = null;
+  stream.onmessage = (ev) => {
     // Countdown owns the result modal — SSE only refreshes balances/tables.
     if (tradeUiBusy || countdownTimer) return;
+    let type = 'UNKNOWN';
+    try { type = JSON.parse(ev.data || '{}').type || 'UNKNOWN'; } catch (_) {}
+    if (!traderEventNeedsRefresh(type)) return;
+    pendingTraderEventType = type;
     if (traderStreamRefreshTimer) return;
     traderStreamRefreshTimer = setTimeout(() => {
       traderStreamRefreshTimer = null;
-      if (!tradeUiBusy && !countdownTimer) loadDashboard();
-    }, 1000);
+      if (tradeUiBusy || countdownTimer) return;
+      const evt = pendingTraderEventType;
+      pendingTraderEventType = null;
+      const needFull = needsFullTraderDashboard()
+        || ['TICKET_UPDATED', 'NEW_TICKET', 'WITHDRAWAL_UPDATED', 'WITHDRAWAL_REJECTED', 'NEW_WITHDRAWAL'].includes(evt);
+      loadDashboard(false, { full: needFull });
+    }, 1200);
   };
   setInterval(() => {
-    if (!tradeUiBusy && !countdownTimer) loadDashboard();
-  }, 5000);
+    if (tradeUiBusy || countdownTimer) return;
+    const gap = hasRunningTraderTrade() ? TRADER_ACTIVE_POLL_MS : TRADER_IDLE_POLL_MS;
+    if ((Date.now() - dashboardLastAt) < gap) return;
+    // Idle / home / trade → light poll. Heavy tabs → full.
+    loadDashboard(false, { full: needsFullTraderDashboard() });
+  }, 2000);
 
   /* Demo activity popups — random Pakistani names + amounts */
   const PK_BOY_NAMES = [
