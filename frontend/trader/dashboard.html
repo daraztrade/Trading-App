@@ -156,16 +156,19 @@
       padding: 9px 11px;
       border-radius: 9px;
       font-size: 0.84rem;
-      width: 135px;
+      width: min(220px, 100%);
+      flex: 1;
       min-width: 0;
       outline: none;
     }
-    .pair-select {
-      background: #182032; color: #fff; border: 1px solid rgba(255,255,255,0.14);
-      padding: 9px 14px; border-radius: 9px; font-weight: 700; font-size: 0.95rem;
-      min-width: 0; max-width: 100%;
-    }
+    .pair-select { display: none !important; }
     .pair-price-block { min-width: 0; max-width: 100%; }
+    #activePairLabel {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-bottom: 2px;
+    }
     #livePriceDisplay {
       font-size: 1.3rem; font-weight: 800; color: #10b981;
       word-break: break-all; line-height: 1.2;
@@ -770,7 +773,7 @@
       .chart-card { padding: 12px 10px 10px; }
       #tvChart { height: 260px !important; }
       .pair-row { flex-direction: column; }
-      .pair-search, .pair-select { width: 100%; flex: none; }
+      .pair-search { width: 100%; flex: none; }
       .pair-price-block { width: 100%; margin-top: 2px; }
       #livePriceDisplay { font-size: 1.15rem; }
       .tf-group {
@@ -1022,10 +1025,11 @@
           <div class="chart-header">
             <div class="pair-controls">
               <div class="pair-row">
-                <input type="text" id="pairSearchInput" class="pair-search" placeholder="Filter pair..." oninput="filterPairsDropdown(this.value)" />
-                <select id="pairSelector" class="pair-select" onchange="onPairChange()"></select>
+                <input type="text" id="pairSearchInput" class="pair-search" placeholder="Filter pair..." oninput="filterPairsDropdown(this.value)" autocomplete="off" />
+                <select id="pairSelector" class="pair-select" onchange="onPairChange()" hidden aria-hidden="true"></select>
               </div>
               <div class="pair-price-block">
+                <div id="activePairLabel">BTC-USD</div>
                 <div id="livePriceDisplay">24,911,895</div>
                 <small style="color:#94a3b8;font-size:0.72rem;">Live Market Tick (50 Pairs)</small>
               </div>
@@ -1314,11 +1318,14 @@
       const label = pairDisplayLabel(p).toUpperCase().replace(/-/g, '_');
       return p.includes(q) || p.replace('_', '/').includes(q) || label.includes(q) || label.replace(/_/g, '-').includes(q.replace(/_/g, '-'));
     });
+    const pairs = list.length ? list : ALL_TRADING_PAIRS;
+    const chosen = pairs.includes(currentVal) ? currentVal : pairs[0];
     const compact = window.innerWidth <= 960;
-    sel.innerHTML = (list.length ? list : ALL_TRADING_PAIRS).map(pair => {
+    sel.innerHTML = pairs.map(pair => {
       const label = pairDisplayLabel(pair, compact);
-      return `<option value="${pair}" ${pair === currentVal ? 'selected' : ''}>${label}</option>`;
+      return `<option value="${pair}" ${pair === chosen ? 'selected' : ''}>${label}</option>`;
     }).join('');
+    sel.value = chosen;
   }
 
   function filterPairsDropdown(q) {
@@ -1326,6 +1333,8 @@
     onPairChange();
   }
   populatePairsDropdown();
+  // Label + price sync (onPairChange defined below; call after DOM ready via queue)
+  setTimeout(() => { try { onPairChange(); } catch (_) {} }, 0);
 
   let dashState = null;
   let selectedDuration = 60;
@@ -1660,8 +1669,10 @@
   }
 
   function onPairChange() {
-    const pair = document.getElementById('pairSelector').value;
+    const pair = document.getElementById('pairSelector').value || 'BTC_USDT';
     const price = dashState?.prices?.[pair] || 24911895;
+    const labelEl = document.getElementById('activePairLabel');
+    if (labelEl) labelEl.textContent = pairDisplayLabel(pair, true);
     document.getElementById('livePriceDisplay').textContent = Number(price).toLocaleString();
     buildHistoricalCandles(price, selectedTimeframe);
   }
