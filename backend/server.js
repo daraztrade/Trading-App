@@ -120,6 +120,7 @@ app.get('/api/stream', (req, res) => {
 });
 
 function broadcastEvent(type, payload = {}) {
+  try { invalidateAdminLightCache(); } catch (_) {}
   const msg = `data: ${JSON.stringify({ type, payload, ts: Date.now() })}\n\n`;
   for (const client of sseClients) {
     client.res.write(msg);
@@ -1626,40 +1627,72 @@ function slimTrade(t) {
   };
 }
 
+// Short in-memory cache so rapid admin polls don't hammer Supabase
+const adminLightCache = new Map();
+const ADMIN_LIGHT_CACHE_MS = 3500;
+
+function invalidateAdminLightCache() {
+  adminLightCache.clear();
+}
+
 // Light overview — used for polling (stats + running trades only)
+// ?minimal=1 skips staff aggregation (fast heartbeat)
 app.get('/api/admin/overview/light', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const isMain = req.user.role === 'MAIN_ADMIN';
+  const minimal = String(req.query.minimal || '') === '1';
+  const cacheKey = `${req.user.id}:${minimal ? 'm' : 'f'}`;
+  const cached = adminLightCache.get(cacheKey);
+  if (cached && (Date.now() - cached.at) < ADMIN_LIGHT_CACHE_MS) {
+    return res.json(cached.data);
+  }
+
   const [countsRow, runningTrades, pendingWdrRows, staffRows, settings] = await Promise.all([
     dbGet(`SELECT
       (SELECT COUNT(*) FROM users WHERE role = 'TRADER') AS totalusers,
       (SELECT COUNT(*) FROM users WHERE role = 'TRADER' AND status = 'ACTIVE') AS activeusers,
       (SELECT COUNT(*) FROM users WHERE role = 'SUB_ADMIN') AS subadmins,
-      (SELECT COUNT(*) FROM users WHERE role = 'SUB_ADMIN' AND status = 'ACTIVE') AS activesubadmins,
-      (SELECT COUNT(*) FROM trades) AS totaltrades,
       (SELECT COUNT(*) FROM trades WHERE status = 'RUNNING') AS runningtrades,
-      (SELECT COUNT(*) FROM deposits WHERE status = 'PENDING') AS pendingdeposits,
       (SELECT COUNT(*) FROM withdrawals WHERE status = 'PENDING') AS pendingwithdrawals,
       (SELECT COUNT(*) FROM withdrawals WHERE status = 'APPROVED') AS approvedwithdrawals,
       (SELECT COUNT(*) FROM withdrawals WHERE status = 'REJECTED') AS rejectedwithdrawals,
       (SELECT COUNT(*) FROM tickets WHERE status = 'OPEN') AS opentickets,
-      (SELECT COUNT(*) FROM invite_links WHERE status = 'ACTIVE') AS activeinvites`),
+      (SELECT COUNT(*) FROM invite_links WHERE status = 'ACTIVE') AS activeinvites,
+      (SELECT COUNT(*) FROM trades) AS totaltrades`),
     dbAll("SELECT id, userId, username, pair, currency, direction, stake, entryPrice, status, durationSeconds, createdAt, expiresAt, outcomeOverride FROM trades WHERE status = 'RUNNING' ORDER BY createdAt DESC LIMIT 40"),
     dbAll("SELECT id, username, amount, currency, status, createdAt FROM withdrawals WHERE status = 'PENDING' ORDER BY createdAt DESC LIMIT 8"),
-    isMain
+    (isMain && !minimal)
       ? dbAll("SELECT id, username, email, firstName, lastName, role, status, invitationCode, canApproveWithdrawals, tempPassword, createdAt FROM users WHERE role != 'TRADER' ORDER BY createdAt DESC")
       : Promise.resolve([]),
     getSettings()
   ]);
 
-  let staff = [];
-  if (isMain && staffRows.length) {
-    const traderLinks = await dbAll("SELECT id, subAdminId, invitationCode, status FROM users WHERE role = 'TRADER'");
+  let staff = undefined;
+  if (isMain && !minimal && staffRows.length) {
+    const linkCounts = await dbAll(
+      `SELECT subAdminId AS subadminid,
+              UPPER(COALESCE(invitationCode, '')) AS invitecode,
+              COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE status = 'ACTIVE')::int AS active
+       FROM users
+       WHERE role = 'TRADER'
+       GROUP BY subAdminId, UPPER(COALESCE(invitationCode, ''))`
+    );
     staff = staffRows.map((row) => {
       const code = String(row.invitationCode || '').toUpperCase();
-      const linked = traderLinks.filter(
-        (t) => t.subAdminId === row.id || (code && String(t.invitationCode || '').toUpperCase() === code)
-      );
-      return slimStaff(row, true, linked.length, linked.filter((t) => t.status === 'ACTIVE').length);
+      let total = 0;
+      let active = 0;
+      const seen = new Set();
+      for (const c of linkCounts) {
+        const sid = c.subAdminId || null;
+        const ic = String(c.invitecode || '').toUpperCase();
+        if (sid !== row.id && !(code && ic === code)) continue;
+        const key = `${sid || ''}|${ic}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        total += Number(c.total || 0);
+        active += Number(c.active || 0);
+      }
+      return slimStaff(row, true, total, active);
     });
   }
 
@@ -1669,7 +1702,7 @@ app.get('/api/admin/overview/light', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), a
     [req.user.id, myCode]
   );
 
-  res.json({
+  const payload = {
     actor: req.user,
     invitedCount: Number(invitedCountRow?.c || 0),
     stats: {
@@ -1677,20 +1710,21 @@ app.get('/api/admin/overview/light', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), a
       activeUsers: Number(countsRow?.activeusers || 0),
       totalTrades: Number(countsRow?.totaltrades || 0),
       runningTrades: Number(countsRow?.runningtrades || 0),
-      pendingDeposits: Number(countsRow?.pendingdeposits || 0),
       pendingWithdrawals: Number(countsRow?.pendingwithdrawals || 0),
       approvedWithdrawals: Number(countsRow?.approvedwithdrawals || 0),
       rejectedWithdrawals: Number(countsRow?.rejectedwithdrawals || 0),
       openTickets: Number(countsRow?.opentickets || 0),
       activeInvites: Number(countsRow?.activeinvites || 0),
-      subAdmins: Number(countsRow?.subadmins || 0),
-      activeSubAdmins: Number(countsRow?.activesubadmins || 0)
+      subAdmins: Number(countsRow?.subadmins || 0)
     },
     runningTrades: runningTrades.map(slimTrade),
     pendingWithdrawalsPreview: pendingWdrRows,
-    staff,
     settings
-  });
+  };
+  if (staff) payload.staff = staff;
+
+  adminLightCache.set(cacheKey, { at: Date.now(), data: payload });
+  res.json(payload);
 });
 
 const TRADER_LIST_SQL = `id, username, email, firstName, lastName, mobile, currency, invitationCode, subAdminId,
@@ -2161,30 +2195,25 @@ app.post('/api/admin/my-invite-code', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), 
 
 app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   // Settlement is owned by the background timer — do not block detail loads.
-  const [row, trades, deposits, withdrawals, transactions, logins, notifications] = await Promise.all([
+  const [row, trades, transactions, logins, notifications] = await Promise.all([
     dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]),
     dbAll(`SELECT ${TRADE_LIST_SQL} FROM trades WHERE userId = ? ORDER BY createdAt DESC LIMIT 40`, [req.params.id]),
-    dbAll(
-      'SELECT id, userId, username, cryptoCurrency, amount, txHash, status, createdAt FROM deposits WHERE userId = ? ORDER BY createdAt DESC LIMIT 20',
-      [req.params.id]
-    ),
-    dbAll(`SELECT ${WITHDRAWAL_LIST_SQL} FROM withdrawals WHERE userId = ? ORDER BY createdAt DESC LIMIT 20`, [req.params.id]),
     dbAll(
       'SELECT trx, userId, username, type, amount, postBalance, note, timestamp FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 40',
       [req.params.id]
     ),
     dbAll(
-      'SELECT id, userId, username, ip, userAgent, timestamp FROM login_logs WHERE userId = ? ORDER BY timestamp DESC LIMIT 20',
+      'SELECT id, userId, username, ip, userAgent, timestamp FROM login_logs WHERE userId = ? ORDER BY timestamp DESC LIMIT 15',
       [req.params.id]
     ),
     dbAll(
-      "SELECT id, targetUserId, title, message, active, createdAt FROM custom_errors WHERE targetUserId = ? OR targetUserId = 'ALL' ORDER BY createdAt DESC LIMIT 20",
+      "SELECT id, targetUserId, title, message, active, createdAt FROM custom_errors WHERE targetUserId = ? OR targetUserId = 'ALL' ORDER BY createdAt DESC LIMIT 15",
       [req.params.id]
     )
   ]);
   if (!row) return res.status(404).json({ error: 'Trader not found.' });
 
-  res.json({ user: formatUserRow(row), trades, deposits, withdrawals, transactions, logins, notifications });
+  res.json({ user: formatUserRow(row), trades, transactions, logins, notifications });
 });
 
 // Freeze / Unfreeze — frozenBalance is a separate pool; available (`balance`) is never reduced here

@@ -2054,8 +2054,8 @@
   let dashboardInFlight = null;
   let dashboardLastAt = 0;
   const DASHBOARD_MIN_GAP_MS = 1500;
-  const TRADER_IDLE_POLL_MS = 12000;
-  const TRADER_ACTIVE_POLL_MS = 4000;
+  const TRADER_IDLE_POLL_MS = 15000;
+  const TRADER_ACTIVE_POLL_MS = 5000;
 
   function needsFullTraderDashboard() {
     return ['history', 'withdraw', 'withdraw-history', 'support', 'profile'].includes(currentTraderTab);

@@ -238,6 +238,25 @@
     }
     .sec-header h3 { margin: 0; font-size: 1rem; font-weight: 800; color: #fff; }
     .sec-header .sec-sub { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+    .btn-refresh-tab {
+      background: #182032;
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #e2e8f0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-refresh-tab:hover { border-color: #ee4d07; color: #fff; }
+    .btn-refresh-tab:disabled { opacity: 0.55; cursor: wait; }
+    .btn-refresh-tab.is-spinning { color: #fdba74; }
+    main.main.is-tab-refreshing > section:not(.hidden) {
+      opacity: 0.72;
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+    }
 
     /* hide old cmd-banner */
     .cmd-banner { display: none !important; }
@@ -950,6 +969,7 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button type="button" id="btnRefreshTab" class="btn-refresh-tab" title="Refresh this tab only" onclick="refreshCurrentAdminTab()">↻ Refresh tab</button>
         <button type="button" id="soundToggleBtn" class="sound-pill" onclick="toggleAdminSound()">🔔 Sound Alerts: ON</button>
         <button class="btn-details" onclick="showSection('running-trades')">⚡ Running Trades (<span id="topRunningCount">0</span>)</button>
         <button class="btn-details" onclick="openWithdrawalsTab('PENDING')">🏛️ Pending Withdrawals (<span id="topPendingWdrCount">0</span>)</button>
@@ -1221,8 +1241,11 @@
     <section id="sec-running-trades" class="hidden">
       <div class="card">
         <div class="toolbar">
-          <h3 style="margin:0;">⚡ Running Trades (Live Control)</h3>
-          <span style="font-size:0.82rem;color:#94a3b8;">Override any active trade to Force Win or Force Loss before timer expires</span>
+          <div>
+            <h3 style="margin:0;">⚡ Running Trades (Live Control)</h3>
+            <span style="font-size:0.82rem;color:#94a3b8;">Override any active trade to Force Win or Force Loss before timer expires</span>
+          </div>
+          <button type="button" class="btn-refresh-tab" onclick="refreshCurrentAdminTab()">↻ Refresh</button>
         </div>
         <div class="table-wrap" id="runningTradesTable"></div>
       </div>
@@ -1248,6 +1271,7 @@
               <option value="VOIDED">Voided</option>
             </select>
             <input type="text" id="tradeHistorySearchInput" class="input-dark" placeholder="Search ID, @user, pair, currency..." oninput="debounceTradesSearch()" />
+            <button type="button" class="btn-refresh-tab" onclick="refreshCurrentAdminTab()">↻ Refresh</button>
           </div>
         </div>
         <div class="trade-summary-bar" id="tradeHistorySummary"></div>
@@ -1313,6 +1337,7 @@
               <option value="FORCE_LOSS">Outcome: Force Loss</option>
             </select>
             <input type="text" id="userSearchInput" class="input-dark" placeholder="Username / Email / Phone..." oninput="debounceUsersSearch()" />
+            <button type="button" class="btn-refresh-tab" onclick="refreshCurrentAdminTab()">↻ Refresh</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -1338,9 +1363,12 @@
 
     <!-- SECTION 6: USER DETAIL VIEW -->
     <section id="sec-user-detail" class="hidden">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <h3 style="margin:0;" id="detailHeading">User Detail</h3>
-        <button class="btn-details" onclick="showSection('users')">← Back to All Users</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn-refresh-tab" onclick="refreshCurrentAdminTab()">↻ Refresh user</button>
+          <button class="btn-details" onclick="showSection('users')">← Back to All Users</button>
+        </div>
       </div>
 
       <div class="detail-cards">
@@ -1384,7 +1412,7 @@
             <strong id="udTotalBalanceBox" style="color:#fff;">0.00</strong>
           </div>
           <div class="bal-box">
-            <span>Frozen Balance (separate)</span>
+            <span>Frozen Balance</span>
             <strong id="udFrozenBalanceBox" style="color:#38bdf8;">0.00</strong>
           </div>
           <div class="bal-box">
@@ -1527,6 +1555,7 @@
               <option value="ALL">All Withdrawals</option>
             </select>
             <input type="text" id="wdrSearchInput" class="input-dark" placeholder="Search @user, method, currency..." oninput="debounceWdrSearch()" />
+            <button type="button" class="btn-refresh-tab" onclick="refreshCurrentAdminTab()">↻ Refresh</button>
           </div>
         </div>
         <div class="table-wrap" id="withdrawalsTable"></div>
@@ -1539,7 +1568,10 @@
       <div class="card" id="helpChatsListCard">
         <div class="help-list-head">
           <h3 style="margin:0;">🎧 Daraz Help Center — All Chats</h3>
-          <span class="tag tag-win" id="helpChatUserCount">0 Users</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span class="tag tag-win" id="helpChatUserCount">0 Users</span>
+            <button type="button" class="btn-refresh-tab" onclick="refreshCurrentAdminTab()">↻ Refresh</button>
+          </div>
         </div>
         <div class="table-wrap" id="ticketsTable"></div>
       </div>
@@ -1775,6 +1807,7 @@
   };
 
   function showSection(sec, el) {
+    const reclickSame = el && el.classList.contains('active') && currentAdminSection === sec;
     currentAdminSection = sec;
     document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
     const target = document.getElementById(`sec-${sec}`);
@@ -1811,7 +1844,83 @@
     };
     document.getElementById('pageHeaderTitle').textContent = titles[sec] || 'Admin Command Center';
     if (window.innerWidth <= 900) document.getElementById('adminSidebar').classList.remove('mobile-open');
+    // Clicking the same sidebar tag again = refresh that tab only
+    if (reclickSame) {
+      refreshCurrentAdminTab().catch(() => {});
+      return;
+    }
     ensureSectionData(sec).catch(() => {});
+  }
+
+  let tabRefreshInFlight = null;
+
+  function setTabRefreshUi(busy, sec) {
+    const mainEl = document.getElementById('adminMain');
+    if (mainEl) mainEl.classList.toggle('is-tab-refreshing', busy);
+    const btns = [
+      document.getElementById('btnRefreshTab'),
+      ...document.querySelectorAll(`#sec-${sec} .btn-refresh-tab`)
+    ].filter(Boolean);
+    btns.forEach((b) => {
+      b.disabled = busy;
+      if (busy) {
+        if (!b.dataset.prevText) b.dataset.prevText = b.textContent;
+        b.textContent = '↻ …';
+        b.classList.add('is-spinning');
+      } else {
+        b.textContent = b.dataset.prevText || '↻ Refresh tab';
+        b.classList.remove('is-spinning');
+      }
+    });
+  }
+
+  async function refreshCurrentAdminTab() {
+    const sec = currentAdminSection || 'dashboard';
+    if (tabRefreshInFlight) return tabRefreshInFlight;
+
+    setTabRefreshUi(true, sec);
+    tabRefreshInFlight = (async () => {
+      try {
+        // Detail pages: one targeted request only (badge counts refresh in background)
+        if (sec === 'user-detail') {
+          if (!selectedUserId) {
+            showToast('Open a user first.', true);
+            return;
+          }
+          await openUserDetail(selectedUserId, { keepSection: true });
+          fetchAdminLight(true).catch(() => {});
+          return;
+        }
+        if (sec === 'subadmin-detail') {
+          if (!currentSaId) {
+            showToast('Open a sub admin first.', true);
+            return;
+          }
+          await openSubAdminDetail(currentSaId, { keepSection: true });
+          fetchAdminLight(true).catch(() => {});
+          return;
+        }
+
+        // Dashboard / running trades need the light endpoint
+        if (sec === 'dashboard' || sec === 'running-trades' || sec === 'settings') {
+          await fetchAdminLight(true);
+          if (sec === 'running-trades' || sec === 'dashboard') renderLightPanels();
+          return;
+        }
+
+        // List tabs: refresh ONLY this section (fast). Light stats update in background.
+        const key = sectionKeyFor(sec);
+        if (key) invalidateSections(key);
+        await ensureSectionData(sec, true);
+        fetchAdminLight(true).catch(() => {});
+      } catch (_) {
+        showToast('Could not refresh this tab.', true);
+      } finally {
+        setTabRefreshUi(false, sec);
+        tabRefreshInFlight = null;
+      }
+    })();
+    return tabRefreshInFlight;
   }
 
   function timeAgo(iso) {
@@ -1825,7 +1934,7 @@
 
   let adminOverviewInFlight = null;
   let adminOverviewLastAt = 0;
-  const ADMIN_OVERVIEW_MIN_GAP_MS = 4000;
+  const ADMIN_OVERVIEW_MIN_GAP_MS = 2500;
   const sectionInFlight = {};
 
   function ensureAdminDataShell() {
@@ -1869,13 +1978,18 @@
       renderSection(key);
       return;
     }
-    if (sectionInFlight[key]) return sectionInFlight[key];
+    // Soft navigate: paint cached rows immediately while a forced refresh loads
+    if (force && sectionHasData(key)) renderSection(key);
+    if (!force && sectionInFlight[key]) return sectionInFlight[key];
+    if (force && sectionInFlight[key]) {
+      try { await sectionInFlight[key]; } catch (_) {}
+    }
 
     sectionInFlight[key] = (async () => {
       try {
         ensureAdminDataShell();
         if (key === 'users') await fetchUsersSection();
-        else if (key === 'trades') await fetchTradesSection();
+        else if (key === 'trades') await fetchTradesSection({ skipUsersBootstrap: force });
         else if (key === 'withdrawals') await fetchWithdrawalsSection();
         else if (key === 'tickets') await fetchTicketsSection();
         else if (key === 'invites') await fetchInvitesSection();
@@ -1951,7 +2065,7 @@
     adminData.usersTotalPages = data.totalPages || 1;
   }
 
-  async function fetchTradesSection() {
+  async function fetchTradesSection(opts = {}) {
     const status = encodeURIComponent(document.getElementById('tradeHistoryStatusFilter')?.value || 'ALL');
     const userId = encodeURIComponent(document.getElementById('tradeHistoryUserFilter')?.value || 'ALL');
     const q = encodeURIComponent(document.getElementById('tradeHistorySearchInput')?.value || '');
@@ -1966,9 +2080,11 @@
     adminData.tradesPage = data.page || tradesPage;
     adminData.tradesTotalPages = data.totalPages || 1;
     adminData._tradesLoaded = true;
-    // Ensure trader dropdown has options
-    if (adminData.usersTotal === undefined) {
+    // Avoid a second round-trip on forced refresh; fill trader filter in background if needed
+    if (adminData.usersTotal === undefined && !opts.skipUsersBootstrap) {
       await fetchUsersSection().catch(() => {});
+    } else if (adminData.usersTotal === undefined) {
+      fetchUsersSection().catch(() => {});
     }
   }
 
@@ -2066,15 +2182,22 @@
     if (key) await ensureSectionData(currentAdminSection, force);
   }
 
-  async function fetchAdminLight(force = false) {
+  async function fetchAdminLight(force = false, opts = {}) {
     const now = Date.now();
     if (!force && adminOverviewInFlight) return adminOverviewInFlight;
     if (!force && (now - adminOverviewLastAt) < ADMIN_OVERVIEW_MIN_GAP_MS) return adminOverviewInFlight;
 
+    // Heartbeat polls use minimal=1 (no staff rebuild). Full light for force / HQ sections.
+    const needStaff = force
+      || opts.full
+      || ['dashboard', 'sub-admins', 'subadmin-detail', 'users'].includes(currentAdminSection);
+    const minimal = !needStaff;
+
     adminOverviewLastAt = now;
     adminOverviewInFlight = (async () => {
       try {
-        const res = await fetch('/api/admin/overview/light', { headers: adminHeaders() });
+        const url = minimal ? '/api/admin/overview/light?minimal=1' : '/api/admin/overview/light';
+        const res = await fetch(url, { headers: adminHeaders() });
         if (res.status === 401 || res.status === 403) return adminLogout();
         const next = await res.json();
 
@@ -2115,7 +2238,6 @@
           adminData._staffLoaded = true;
           sectionLoadedAt.staff = Date.now();
         }
-        // Keep trades list running items fresh for dashboard/running panels
         const running = adminData.runningTrades || [];
         if (running.length) {
           const byId = new Map((adminData.trades || []).map((t) => [t.id, t]));
@@ -2123,7 +2245,8 @@
           adminData.trades = Array.from(byId.values());
         }
 
-        renderAdminUI();
+        // Cheap chrome always; heavy tables only when that tab is open / staff payload arrived
+        renderAdminChrome({ includeStaffTables: Array.isArray(next.staff) });
       } catch (_) {
       } finally {
         adminOverviewInFlight = null;
@@ -2263,9 +2386,10 @@
   let currentSaId = null;
   let currentSaData = null;
 
-  async function openSubAdminDetail(id) {
+  async function openSubAdminDetail(id, opts = {}) {
     currentSaId = id;
-    showSection('subadmin-detail', null);
+    if (!opts.keepSection) showSection('subadmin-detail', null);
+    else currentAdminSection = 'subadmin-detail';
     const res = await fetch(`/api/admin/sub-admins/${encodeURIComponent(id)}/detail`, { headers: adminHeaders() });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return showToast(data.error || 'Could not load Sub Admin detail', true);
@@ -2590,6 +2714,17 @@
   }
 
   function renderAdminUI() {
+    renderAdminChrome({ includeStaffTables: true, includeVisibleTables: true });
+  }
+
+  function setTextIfChanged(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const next = String(value);
+    if (el.textContent !== next) el.textContent = next;
+  }
+
+  function renderAdminChrome(opts = {}) {
     if (!adminData) return;
     const { actor, stats = {}, settings = {}, invitedCount } = adminData;
     if (!actor) return;
@@ -2597,79 +2732,81 @@
     applyMainAdminChrome();
 
     const fullName = `${actor.firstName || ''} ${actor.lastName || ''}`.trim();
-    document.getElementById('actorFullName').textContent = fullName || actor.username;
-    document.getElementById('actorName').textContent = `(@${actor.username})`;
-    document.getElementById('profAdminUsername').textContent = actor.username;
-    document.getElementById('actorRoleLabel').textContent = isMainAdmin() ? 'Main Admin · Platform Owner' : 'Sub Admin';
-
-    const invCountEl = document.getElementById('adminInvitedCount');
-    if (invCountEl) invCountEl.textContent = invitedCount ?? 0;
+    setTextIfChanged('actorFullName', fullName || actor.username);
+    setTextIfChanged('actorName', `(@${actor.username})`);
+    setTextIfChanged('profAdminUsername', actor.username);
+    setTextIfChanged('actorRoleLabel', isMainAdmin() ? 'Main Admin · Platform Owner' : 'Sub Admin');
+    setTextIfChanged('adminInvitedCount', invitedCount ?? 0);
 
     const pendingWdr = Number(stats.pendingWithdrawals || 0);
     const approvedWdr = Number(stats.approvedWithdrawals || 0);
     const rejectedWdr = Number(stats.rejectedWithdrawals || 0);
     const subCount = Number(stats.subAdmins ?? getSubAdmins().length);
 
-    document.getElementById('stTotalUsers').textContent = stats.totalUsers || 0;
-    document.getElementById('stActiveUsers').textContent = stats.activeUsers || 0;
-    document.getElementById('stRunningTrades').textContent = stats.runningTrades || 0;
-    document.getElementById('stPendingWdr').textContent = pendingWdr;
-    const stSub = document.getElementById('stSubAdmins');
-    if (stSub) stSub.textContent = subCount;
-    const badgeSub = document.getElementById('badgeSubAdmins');
-    if (badgeSub) badgeSub.textContent = subCount;
+    setTextIfChanged('stTotalUsers', stats.totalUsers || 0);
+    setTextIfChanged('stActiveUsers', stats.activeUsers || 0);
+    setTextIfChanged('stRunningTrades', stats.runningTrades || 0);
+    setTextIfChanged('stPendingWdr', pendingWdr);
+    setTextIfChanged('stSubAdmins', subCount);
+    setTextIfChanged('badgeSubAdmins', subCount);
 
     const main = isMainAdmin();
     const actName = `${actor.firstName || ''} ${actor.lastName || ''}`.trim() || actor.username;
-    const pwName = document.getElementById('pwName');
-    if (pwName) pwName.textContent = `Welcome back, ${actName}`;
-    const pwSA = document.getElementById('pwStatSA'); if (pwSA) pwSA.textContent = subCount;
-    const pwT  = document.getElementById('pwStatT');  if (pwT)  pwT.textContent  = stats.totalUsers || 0;
-    const pwRT = document.getElementById('pwStatRT'); if (pwRT) pwRT.textContent = stats.runningTrades || 0;
-    const pwW  = document.getElementById('pwStatWdr');if (pwW)  pwW.textContent  = pendingWdr;
+    setTextIfChanged('pwName', `Welcome back, ${actName}`);
+    setTextIfChanged('pwStatSA', subCount);
+    setTextIfChanged('pwStatT', stats.totalUsers || 0);
+    setTextIfChanged('pwStatRT', stats.runningTrades || 0);
+    setTextIfChanged('pwStatWdr', pendingWdr);
 
     const activeCard = document.getElementById('stActiveUsersCard');
     if (activeCard) activeCard.style.display = main ? 'none' : '';
+    setTextIfChanged('subAdminsTotalBadge', subCount);
 
-    const sbBadge = document.getElementById('subAdminsTotalBadge');
-    if (sbBadge) sbBadge.textContent = subCount;
+    setTextIfChanged('badgeRunning', stats.runningTrades || 0);
+    setTextIfChanged('topRunningCount', stats.runningTrades || 0);
+    setTextIfChanged('topPendingWdrCount', pendingWdr);
+    setTextIfChanged('badgeUsers', stats.totalUsers || 0);
+    setTextIfChanged('badgeInvites', stats.activeInvites ?? (adminData.inviteLinks || []).filter(l => l.status === 'ACTIVE').length);
+    setTextIfChanged('badgeWdrPending', pendingWdr);
+    setTextIfChanged('badgeWdrApproved', approvedWdr);
+    setTextIfChanged('badgeWdrRejected', rejectedWdr);
+    const wdrAlert = document.getElementById('badgeWdrAlert');
+    if (wdrAlert) wdrAlert.style.display = pendingWdr > 0 ? 'inline-block' : 'none';
+    setTextIfChanged('badgeTkt', stats.openTickets || 0);
 
-    document.getElementById('badgeRunning').textContent = stats.runningTrades || 0;
-    document.getElementById('topRunningCount').textContent = stats.runningTrades || 0;
-    document.getElementById('topPendingWdrCount').textContent = pendingWdr;
-    document.getElementById('badgeUsers').textContent = stats.totalUsers || 0;
-    document.getElementById('badgeInvites').textContent = stats.activeInvites ?? (adminData.inviteLinks || []).filter(l => l.status === 'ACTIVE').length;
-    document.getElementById('badgeWdrPending').textContent = pendingWdr;
-    document.getElementById('badgeWdrApproved').textContent = approvedWdr;
-    document.getElementById('badgeWdrRejected').textContent = rejectedWdr;
-    document.getElementById('badgeWdrAlert').style.display = pendingWdr > 0 ? 'inline-block' : 'none';
-    document.getElementById('badgeTkt').textContent = stats.openTickets || 0;
-
-    renderLightPanels();
-
-    const staffFilter = document.getElementById('userStaffFilter');
-    if (staffFilter && isMainAdmin()) {
-      const prevStaff = staffFilter.value || 'ALL';
-      const subs = getSubAdmins();
-      staffFilter.innerHTML = `<option value="ALL">All Staff Books</option>` +
-        `<option value="UNASSIGNED">Unassigned Traders</option>` +
-        subs.map((s) => `<option value="${s.id}">@${s.username} (${s.traderCount || 0})</option>`).join('');
-      if ([...staffFilter.options].some((o) => o.value === prevStaff)) staffFilter.value = prevStaff;
+    // Running trades panel only when that view is relevant
+    if (['dashboard', 'running-trades'].includes(currentAdminSection) || opts.includeStaffTables) {
+      renderLightPanels();
     }
 
-    // Only re-render sections that already have data (no heavy refetch here)
-    if (sectionHasData('staff') || (adminData.staff || []).length) {
-      renderDashHierarchy();
-      renderSubAdminsSection();
-      if (isMainAdmin()) injectStaffNavItems(getSubAdmins());
+    if (opts.includeStaffTables) {
+      const staffFilter = document.getElementById('userStaffFilter');
+      if (staffFilter && isMainAdmin()) {
+        const prevStaff = staffFilter.value || 'ALL';
+        const subs = getSubAdmins();
+        staffFilter.innerHTML = `<option value="ALL">All Staff Books</option>` +
+          `<option value="UNASSIGNED">Unassigned Traders</option>` +
+          subs.map((s) => `<option value="${s.id}">@${s.username} (${s.traderCount || 0})</option>`).join('');
+        if ([...staffFilter.options].some((o) => o.value === prevStaff)) staffFilter.value = prevStaff;
+      }
+      if (sectionHasData('staff') || (adminData.staff || []).length) {
+        if (['dashboard', 'sub-admins'].includes(currentAdminSection)) {
+          renderDashHierarchy();
+          renderSubAdminsSection();
+        }
+        if (isMainAdmin()) injectStaffNavItems(getSubAdmins());
+      }
     }
-    if (sectionHasData('users')) renderUsersTable();
-    if (sectionHasData('trades') && currentAdminSection === 'trade-history') renderTradeHistorySection();
-    if (sectionHasData('withdrawals') && currentAdminSection === 'withdrawals') renderWithdrawalsTable();
-    if (sectionHasData('invites') && currentAdminSection === 'invite-members') renderInviteLinksTable();
-    if (sectionHasData('tickets') && currentAdminSection === 'tickets') {
-      renderHelpChatsList(adminData.tickets || [], adminData.traders || []);
-      if (activeHelpChatUserId) openHelpChat(activeHelpChatUserId, true);
+
+    if (opts.includeVisibleTables) {
+      if (sectionHasData('users') && currentAdminSection === 'users') renderUsersTable();
+      if (sectionHasData('trades') && currentAdminSection === 'trade-history') renderTradeHistorySection();
+      if (sectionHasData('withdrawals') && currentAdminSection === 'withdrawals') renderWithdrawalsTable();
+      if (sectionHasData('invites') && currentAdminSection === 'invite-members') renderInviteLinksTable();
+      if (sectionHasData('tickets') && currentAdminSection === 'tickets') {
+        renderHelpChatsList(adminData.tickets || [], adminData.traders || []);
+        if (activeHelpChatUserId) openHelpChat(activeHelpChatUserId, true);
+      }
     }
 
     if (settings && document.activeElement.id !== 'setTradeMode') {
@@ -3221,17 +3358,21 @@
     document.getElementById('udBanPillBtn').textContent = user.status === 'ACTIVE' ? '🚫 Ban User' : '✅ Unban User';
   }
 
-  async function openUserDetail(userId) {
+  async function openUserDetail(userId, opts = {}) {
     selectedUserId = userId;
     const cached = adminData?.traders?.find(u => u.id === userId);
     if (cached) {
       populateUserDetailFields(cached);
-      showSection('user-detail');
+      if (!opts.keepSection) showSection('user-detail');
+      else currentAdminSection = 'user-detail';
     }
 
     const res = await fetch(`/api/admin/users/${userId}/detail`, { headers: adminHeaders() });
     if (!res.ok) return showToast('Could not load user details', true);
     const { user, trades, transactions, logins = [], notifications = [] } = await res.json();
+
+    // Keep users list cache in sync for instant later opens
+    patchTraderInAdminData(user);
 
     populateUserDetailFields(user);
     document.getElementById('udTotalOrder').textContent = trades.length;
@@ -3249,7 +3390,8 @@
       ${notifications.map(n => `<tr><td><strong>${n.title}</strong></td><td>${n.message}</td><td>${n.sentBy}</td><td>${new Date(n.createdAt).toLocaleString()}</td></tr>`).join('')}
       </tbody></table>` : '<p style="color:#94a3b8;">No alerts sent to this user.</p>';
 
-    if (!cached) showSection('user-detail');
+    if (!cached && !opts.keepSection) showSection('user-detail');
+    else if (!cached) currentAdminSection = 'user-detail';
   }
 
   function setToggleState(id, isOn, onTxt, offTxt) {
@@ -3694,7 +3836,7 @@
   }
 
   applyMainAdminChrome();
-  fetchAdminLight(true).then(() => ensureSectionData(currentAdminSection || 'dashboard'));
+  fetchAdminLight(true, { full: true }).then(() => ensureSectionData(currentAdminSection || 'dashboard'));
   const adminStream = new EventSource('/api/stream');
   let adminStreamRefreshTimer = null;
   let pendingAdminEventTypes = new Set();
@@ -3708,24 +3850,23 @@
       adminStreamRefreshTimer = null;
       const types = Array.from(pendingAdminEventTypes);
       pendingAdminEventTypes.clear();
-      // Coalesce: one light refresh + at most one visible-section refresh
       const visibleKey = sectionKeyFor(currentAdminSection);
       let refreshVisible = false;
       types.forEach((t) => {
         const keys = sectionsForAdminEvent(t) || [];
         if (visibleKey && keys.includes(visibleKey)) refreshVisible = true;
       });
-      fetchAdminLight();
+      fetchAdminLight(false);
       if (refreshVisible) {
         invalidateSections(visibleKey);
         ensureSectionData(currentAdminSection, true);
       }
-    }, 1400);
+    }, 1100);
   };
 
-  // Slow heartbeat: light stats always; visible section only if its TTL expired
+  // Heartbeat: minimal light stats; visible section only when TTL expires
   setInterval(() => {
-    fetchAdminLight();
+    fetchAdminLight(false);
     const key = sectionKeyFor(currentAdminSection);
     if (!key) return;
     const ttl = SECTION_TTL_MS[key] || 20000;
@@ -3733,7 +3874,7 @@
     if (!last || (Date.now() - last) >= ttl) {
       ensureSectionData(currentAdminSection, false);
     }
-  }, 18000);
+  }, 20000);
 </script>
 </body>
 </html>
