@@ -3250,9 +3250,9 @@
         </td>
         ${main ? `<td class="main-only-col" data-label="Managed By"><span style="color:#fdba74;font-weight:700;font-size:0.82rem;">${escapeHtml(managedBy)}</span></td>` : ''}
         <td data-label="Balances">
-          <div style="color:#10b981;font-weight:700;">Avail: ${avail.toLocaleString()}</div>
-          ${frozen > 0 ? `<div style="color:#38bdf8;font-size:0.76rem;font-weight:700;">❄️ Frozen: ${frozen.toLocaleString()}</div>` : ''}
-          <small style="color:#94a3b8;">Total: ${total.toLocaleString()}</small>
+          <div style="color:#10b981;font-weight:700;">Avail: ${avail.toLocaleString()} PKR</div>
+          ${frozen > 0 ? `<div style="color:#38bdf8;font-size:0.76rem;font-weight:700;">❄️ Frozen: ${frozen.toLocaleString()} PKR</div>` : ''}
+          <small style="color:#94a3b8;">Total: ${total.toLocaleString()} PKR</small>
         </td>
         <td data-label="Trade Mode">${modeSwitch}</td>
         <td data-label="Joined">
@@ -3338,11 +3338,12 @@
     document.getElementById('udCountry').value = user.country || 'Pakistan';
     document.getElementById('udWithdrawMsg').value = user.withdrawBan?.message || '';
     document.getElementById('udTradeMsg').value = user.tradeBan?.message || '';
-    document.getElementById('udWalletBalance').textContent = `${availBal.toLocaleString()} ${user.currency || 'PKR'}`;
+    // Admin balance breakdown always shows PKR (wallet units), not trading-pair currency
+    document.getElementById('udWalletBalance').textContent = `${availBal.toLocaleString()} PKR`;
 
-    document.getElementById('udTotalBalanceBox').textContent = `${totalBal.toLocaleString()} ${user.currency || 'PKR'}`;
-    document.getElementById('udFrozenBalanceBox').textContent = `${frozenBal.toLocaleString()} ${user.currency || 'PKR'}`;
-    document.getElementById('udAvailableBalanceBox').textContent = `${availBal.toLocaleString()} ${user.currency || 'PKR'}`;
+    document.getElementById('udTotalBalanceBox').textContent = `${totalBal.toLocaleString()} PKR`;
+    document.getElementById('udFrozenBalanceBox').textContent = `${frozenBal.toLocaleString()} PKR`;
+    document.getElementById('udAvailableBalanceBox').textContent = `${availBal.toLocaleString()} PKR`;
 
     setToggleState('togEmail', user.emailVerified, 'VERIFIED', 'UNVERIFIED');
     setToggleState('togMobile', user.mobileVerified, 'VERIFIED', 'UNVERIFIED');
