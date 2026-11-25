@@ -533,6 +533,25 @@ function ensureDbInitialized() {
         ['usr-demo-1', 'demo_trader', 'trader@daraztrade.online', hashPassword('Trader@123'), new Date().toISOString()]
       );
     }
+
+    // One-time: old model stored frozen as a subset of balance. Convert to separate pools
+    // so available = balance - frozen, then balance holds available only.
+    try {
+      const migrated = await dbGet("SELECT value FROM settings WHERE key = ?", ['freezePoolsV2']);
+      if (!migrated) {
+        await dbRun(
+          `UPDATE users
+           SET balance = GREATEST(0, ROUND((COALESCE(balance, 0) - COALESCE(frozenBalance, 0))::numeric, 2))
+           WHERE role = 'TRADER'
+             AND COALESCE(frozenBalance, 0) > 0
+             AND COALESCE(balance, 0) >= COALESCE(frozenBalance, 0)`
+        );
+        await dbRun(
+          `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+          ['freezePoolsV2', JSON.stringify(true)]
+        );
+      }
+    } catch (_) {}
   })().catch(err => {
     dbInitPromise = null;
     throw err;
@@ -627,10 +646,10 @@ function formatUserRow(row) {
   const safe = { ...row };
   delete safe.password;
 
-  const totalBalance = Number(row.balance || 0);
-  const frozenBalance = Math.max(0, Math.min(totalBalance, Number(row.frozenBalance || 0)));
-  // Frozen Balance = Total Balance - Available Balance  =>  Available Balance = Total Balance - Frozen Balance
-  const availableBalance = Math.max(0, Number((totalBalance - frozenBalance).toFixed(2)));
+  // Separate pools: `balance` = available (spendable), `frozenBalance` = admin-set frozen (independent)
+  const availableBalance = Math.max(0, Number(Number(row.balance || 0).toFixed(2)));
+  const frozenBalance = Math.max(0, Number(Number(row.frozenBalance || 0).toFixed(2)));
+  const totalBalance = Math.max(0, Number((availableBalance + frozenBalance).toFixed(2)));
 
   return {
     ...safe,
@@ -1386,18 +1405,18 @@ app.post('/api/trades/execute', requireAuth(['TRADER']), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Only deduct from unlocked available balance: (balance - frozenBalance) >= amount
+    // Deduct from available balance only (frozenBalance is a separate pool)
     const balRes = await client.query(
       `UPDATE users
        SET balance = ROUND((balance - $1)::numeric, 2),
            inOrderBalance = ROUND((inOrderBalance + $1)::numeric, 2)
-       WHERE id = $2 AND (balance - COALESCE(frozenBalance, 0)) >= $1
+       WHERE id = $2 AND balance >= $1
        RETURNING balance`,
       [amount, req.user.id]
     );
     if (balRes.rowCount === 0) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Insufficient available balance (frozen funds cannot be traded).' });
+      return res.status(400).json({ error: 'Insufficient available balance.' });
     }
     await client.query(
       `INSERT INTO trades (id, userId, username, pair, currency, direction, stake, payoutPercent, durationSeconds, entryPrice, status, createdAt, expiresAt)
@@ -1454,9 +1473,6 @@ app.post('/api/wallet/deposit', requireAuth(['TRADER']), upload.single('proof'),
 
 app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   const settings = await getSettings();
-  if (req.user.balanceFreeze?.enabled && req.user.availableBalance <= 0) {
-    return res.status(403).json({ error: req.user.balanceFreeze.message || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.' });
-  }
   if (settings.globalWithdrawBan?.enabled) return res.status(403).json({ error: settings.globalWithdrawBan.message });
   if (req.user.withdrawBan?.enabled) {
     return res.status(403).json({ error: req.user.withdrawBan.message || 'Withdrawals are banned on your account. Contact support.' });
@@ -1478,11 +1494,11 @@ app.post('/api/wallet/withdraw', requireAuth(['TRADER']), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Only allow withdrawing from unlocked available balance: (balance - frozenBalance) >= numAmount
+    // Withdraw from available balance only (frozenBalance is a separate pool)
     const balRes = await client.query(
       `UPDATE users
        SET balance = ROUND((balance - $1)::numeric, 2)
-       WHERE id = $2 AND (balance - COALESCE(frozenBalance, 0)) >= $1
+       WHERE id = $2 AND balance >= $1
        RETURNING balance`,
       [numAmount, req.user.id]
     );
@@ -2171,15 +2187,15 @@ app.get('/api/admin/users/:id/detail', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']),
   res.json({ user: formatUserRow(row), trades, deposits, withdrawals, transactions, logins, notifications });
 });
 
-// Freeze / Unfreeze Trader Balance (Frozen Balance = Total Balance - Available Balance)
+// Freeze / Unfreeze — frozenBalance is a separate pool; available (`balance`) is never reduced here
 app.post('/api/admin/users/:id/freeze-balance', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
   const row = await dbGet("SELECT * FROM users WHERE id = ? AND role = 'TRADER'", [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Trader not found.' });
 
-  const totalBal = Number(row.balance || 0);
+  const availableBal = Math.max(0, Number(row.balance || 0));
   const action = cleanStr(req.body.action || 'FREEZE', 20).toUpperCase();
   const message = cleanStr(
-    req.body.message || row.balanceFreezeMessage || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.',
+    req.body.message || row.balanceFreezeMessage || 'Part of your balance is frozen and shown separately. Available balance can still be used.',
     240
   );
 
@@ -2189,12 +2205,15 @@ app.post('/api/admin/users/:id/freeze-balance', requireAuth(['MAIN_ADMIN', 'SUB_
     nextFrozen = 0;
     nextFlag = 0;
   } else {
-    const reqAmt = req.body.amount !== undefined && req.body.amount !== '' ? Number(req.body.amount) : totalBal;
+    if (req.body.amount === undefined || req.body.amount === '') {
+      return res.status(400).json({ error: 'Enter the freeze amount.' });
+    }
+    const reqAmt = Number(req.body.amount);
     if (!Number.isFinite(reqAmt) || reqAmt < 0) {
       return res.status(400).json({ error: 'Enter a valid freeze amount.' });
     }
-    nextFrozen = Math.min(totalBal, Number(reqAmt.toFixed(2)));
-    nextFlag = nextFrozen > 0 || req.body.freezeAll ? 1 : 0;
+    nextFrozen = Number(reqAmt.toFixed(2));
+    nextFlag = nextFrozen > 0 ? 1 : 0;
   }
 
   await dbRun(
@@ -2202,12 +2221,20 @@ app.post('/api/admin/users/:id/freeze-balance', requireAuth(['MAIN_ADMIN', 'SUB_
     [nextFrozen, nextFlag, message, row.id]
   );
 
-  await logAudit(req.user, action === 'UNFREEZE' ? 'UNFREEZE_BALANCE' : 'FREEZE_BALANCE', row.username, `Frozen: ${nextFrozen} / Total: ${totalBal}`);
+  await logAudit(
+    req.user,
+    action === 'UNFREEZE' ? 'UNFREEZE_BALANCE' : 'FREEZE_BALANCE',
+    row.username,
+    `Frozen set to ${nextFrozen} (available unchanged: ${availableBal})`
+  );
   broadcastEvent('USER_UPDATED');
   res.json({
-    message: action === 'UNFREEZE' ? 'Trader balance unfrozen.' : `Frozen balance set to ${nextFrozen.toLocaleString()}.`,
+    message: action === 'UNFREEZE'
+      ? 'Frozen balance cleared. Available balance was not changed.'
+      : `Frozen balance set to ${nextFrozen.toLocaleString()}. Available balance unchanged (${availableBal.toLocaleString()}).`,
     frozenBalance: nextFrozen,
-    availableBalance: Math.max(0, Number((totalBal - nextFrozen).toFixed(2)))
+    availableBalance: availableBal,
+    totalBalance: Math.max(0, Number((availableBal + nextFrozen).toFixed(2)))
   });
 });
 
@@ -2226,11 +2253,11 @@ app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
   let nextStatus = status || row.status;
   if (nextStatus === 'FROZEN') nextStatus = 'ACTIVE';
 
-  const totalBal = Number(row.balance || 0);
-  const freezeEnabled = Boolean(balanceFreeze?.enabled);
-  const nextFrozen = freezeEnabled
-    ? (balanceFreeze?.frozenAmount !== undefined ? Math.min(totalBal, Math.max(0, Number(balanceFreeze.frozenAmount))) : totalBal)
-    : 0;
+  // Frozen amount is managed by Freeze Balance modal — do not wipe/cap it from Available here
+  const nextFrozen = balanceFreeze?.frozenAmount !== undefined
+    ? Math.max(0, Number(Number(balanceFreeze.frozenAmount).toFixed(2)) || 0)
+    : Math.max(0, Number(row.frozenBalance || 0));
+  const freezeEnabled = Boolean(balanceFreeze?.enabled) || nextFrozen > 0;
 
   await dbRun(
     `UPDATE users SET
@@ -2264,7 +2291,7 @@ app.post('/api/admin/users/:id/profile', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']
       cleanStr(withdrawBan?.message ?? row.withdrawBanMessage ?? '', 240),
       nextFrozen,
       freezeEnabled ? 1 : 0,
-      cleanStr(balanceFreeze?.message || row.balanceFreezeMessage || 'Your balance is frozen. You can see the amount, but withdrawals are not allowed.', 240),
+      cleanStr(balanceFreeze?.message || row.balanceFreezeMessage || 'Part of your balance is frozen and shown separately. Available balance can still be used.', 240),
       row.id
     ]
   );

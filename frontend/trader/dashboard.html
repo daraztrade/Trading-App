@@ -931,6 +931,11 @@
 </head>
 <body>
 
+<div id="adminViewBanner" style="display:none;position:sticky;top:0;z-index:1000;background:linear-gradient(90deg,#7c3aed,#c2410c);color:#fff;padding:10px 16px;font-size:0.88rem;font-weight:700;text-align:center;">
+  Admin view — you are browsing this trader account
+  <button type="button" onclick="window.close()" style="margin-left:12px;background:rgba(255,255,255,0.2);border:0;color:#fff;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:700;">Close tab</button>
+</div>
+
 <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeTraderSidebar()"></div>
 <div class="app-shell">
   <!-- SIDEBAR -->
@@ -2169,15 +2174,9 @@
       document.getElementById('wdrCurrLbl').textContent = displayCurrency(curr);
     }
 
-    // Only show Frozen Balance banner when frozenBal > 0
+    // No freeze alert banner — frozen amount only appears in the Frozen Balance card
     const freezeBox = document.getElementById('frozenNoticeContainer');
-    if (frozenBal > 0) {
-      freezeBox.innerHTML = `<div class="freeze-banner">
-        ❄️ <strong>Frozen Balance Notice:</strong> ${frozenBal.toLocaleString()} PKR of your ${totalBal.toLocaleString()} PKR total balance is currently frozen (Available: ${availBal.toLocaleString()} PKR). ${user.balanceFreeze?.message || ''}
-      </div>`;
-    } else {
-      freezeBox.innerHTML = '';
-    }
+    if (freezeBox) freezeBox.innerHTML = '';
 
     // Custom admin alerts
     document.getElementById('customAlertsContainer').innerHTML = (customErrors || []).map(err => `
@@ -2602,6 +2601,24 @@
   }
 
   onWithdrawMethodChange();
+  // Deep-link from admin "Login as User" → open Profile (or requested tab)
+  (function applyAdminDeepLink() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('fromAdmin') === '1') {
+      const ban = document.getElementById('adminViewBanner');
+      if (ban) ban.style.display = 'block';
+    }
+    const tab = String(params.get('tab') || '').trim();
+    const allowed = ['home', 'trade', 'history', 'withdraw', 'withdraw-history', 'support', 'profile'];
+    if (tab && allowed.includes(tab)) {
+      const btn = document.querySelector(`.nav-btn[data-tab="${tab}"]`);
+      if (btn) {
+        // Defer until switchTab / dash helpers exist in this script scope
+        setTimeout(() => switchTab(tab, btn), 0);
+      }
+    }
+  })();
+
   loadTraderCurrencies().finally(() => loadDashboard(true, { full: true }));
   const stream = new EventSource('/api/stream');
   let traderStreamRefreshTimer = null;
