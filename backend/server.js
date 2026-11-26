@@ -2384,7 +2384,8 @@ app.post('/api/admin/deposits/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN
 });
 
 app.post('/api/admin/withdrawals/:id/review', requireAuth(['MAIN_ADMIN', 'SUB_ADMIN']), async (req, res) => {
-  if (req.user.role === 'SUB_ADMIN' && !req.user.permissions?.canApproveWithdrawals) {
+  // Sub Admins may approve/reject withdrawals (enabled via canApproveWithdrawals; default on).
+  if (req.user.role === 'SUB_ADMIN' && req.user.permissions?.canApproveWithdrawals === false) {
     return res.status(403).json({ error: 'You do not have permission to review withdrawals. Contact Main Admin.' });
   }
   const { action } = req.body;
